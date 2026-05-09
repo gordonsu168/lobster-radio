@@ -1,0 +1,14 @@
+
+<svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#ff6b6b;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#ff8e53;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <circle cx="128" cy="128" r="120" fill="url(#bg)"/>
+  <!-- 音符 -->
+  <path d="M160 70v80a40 40 0 1 1-24-36V98h24c13.3 0 24-10.7 24-24s-10.7-4-24-4z" fill="white" opacity="0.9"/>
+  <!-- 标题 -->
+  <text x="128" y="200" text-anchor="middle" fill="white" font-size="24" font-weight="bold" font-family="PingFang SC, sans-serif">🦞 龙虾电台</text>
+</svg>

@@ -1,0 +1,27 @@
+{
+  "name": "lobster-radio-desktop",
+  "version": "1.0.0",
+  "description": "龙虾电台 - 你的私人悬浮桌面播放器",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder",
+    "build:mac": "electron-builder --mac"
+  },
+  "author": "Lobster Radio",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^28.3.3",
+    "electron-builder": "^24.9.1"
+  },
+  "build": {
+    "appId": "com.lobster.radio",
+    "productName": "龙虾电台",
+    "mac": {
+      "category": "public.app-category.music",
+      "icon": "icon.icns"
+    }
+  },
+  "keywords": [],
+  "type": "commonjs"
+}

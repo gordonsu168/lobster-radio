@@ -1,0 +1,12 @@
+{
+  "spotifyClientId": "",
+  "spotifyClientSecret": "",
+  "neteaseApiEnabled": true,
+  "neteaseApiUrl": "",
+  "openAiApiKey": "",
+  "elevenLabsApiKey": "",
+  "defaultVoice": "alloy",
+  "defaultTtsProvider": "openai",
+  "preferredMusicSource": "auto",
+  "localMusicPath": "/Users/gordon/Downloads/Music"
+}
