@@ -174,7 +174,7 @@ export function HomePage() {
     const track = currentPayload.selectedTrack;
     
     // 从后端 Wiki API 动态生成旁白
-    generateNarration(track.id, djStyle)
+    generateNarration(track.id, djStyle, djLanguage)
       .then((result) => {
         setCurrentNarration(result.narration);
       })
@@ -183,7 +183,7 @@ export function HomePage() {
         const fallback = `欢迎收听龙虾电台，为您播放${track.artist}的《${track.title}》。`;
         setCurrentNarration(fallback);
       });
-  }, [payload?.selectedTrack?.id, djStyle]);
+  }, [payload?.selectedTrack?.id, djStyle, djLanguage]);
 
   // 歌曲播放结束自动播放下一首（先旁白，后音乐）
   const handleTrackEnd = () => {
@@ -202,7 +202,7 @@ export function HomePage() {
     if (nextTrack?.previewUrl && userInteractedRef.current) {
       setPayload((prev) => prev ? { ...prev, selectedTrack: nextTrack } : null);
       // 为下一首歌生成旁白，然后播放
-      generateNarration(nextTrack.id, djStyle)
+      generateNarration(nextTrack.id, djStyle, djLanguage)
         .then((result) => {
           setCurrentNarration(result.narration);
           playNarrationThenMusic(result.narration, nextTrack);
@@ -229,7 +229,7 @@ export function HomePage() {
     
     try {
       // 从后端获取 TTS 音频
-      const response = await synthesizeNarration(narrationText, voice, { emotion: djEmotion });
+      const response = await synthesizeNarration(narrationText, voice, { emotion: djEmotion, language: djLanguage });
       
       if (response.audioBase64 && audioRef.current) {
         // 解码 base64
@@ -332,7 +332,7 @@ export function HomePage() {
     
     try {
       // 从后端获取 TTS 音频
-      const response = await synthesizeNarration(narrationToPlay, voice, { emotion: djEmotion });
+      const response = await synthesizeNarration(narrationToPlay, voice, { emotion: djEmotion, language: djLanguage });
       console.log("📡 后端返回:", response.provider, response.fallback);
       
       if (!response.audioBase64) {
@@ -377,7 +377,7 @@ export function HomePage() {
       setCurrentNarration(chatResult.chat);
       
       // 2. 生成语音
-      const response = await synthesizeNarration(chatResult.chat, voice, { emotion: djEmotion });
+      const response = await synthesizeNarration(chatResult.chat, voice, { emotion: djEmotion, language: djLanguage });
       
       if (!response.audioBase64 || !audioRef.current) {
         console.error("❌ 没有音频数据");
@@ -517,7 +517,7 @@ export function HomePage() {
           setDjStyle(newStyle);
           // 切风格时重新从后端生成旁白
           if (payload?.selectedTrack) {
-            generateNarration(payload.selectedTrack.id, newStyle)
+            generateNarration(payload.selectedTrack.id, newStyle, djLanguage)
               .then((result) => {
                 setCurrentNarration(result.narration);
               })
@@ -540,7 +540,7 @@ export function HomePage() {
           if (nextTrack?.previewUrl) {
             setPayload((prev) => prev ? { ...prev, selectedTrack: nextTrack } : null);
             // 生成旁白并播放（先旁白后音乐）
-            generateNarration(nextTrack.id, djStyle)
+            generateNarration(nextTrack.id, djStyle, djLanguage)
               .then((result) => {
                 setCurrentNarration(result.narration);
                 playNarrationThenMusic(result.narration, nextTrack);
@@ -563,7 +563,7 @@ export function HomePage() {
             setPayload((existing) => (existing ? { ...existing, selectedTrack: track } : existing));
             userInteractedRef.current = true;
             // 点击队列歌曲时：先生成新歌曲的旁白，再播放
-            generateNarration(track.id, djStyle)
+            generateNarration(track.id, djStyle, djLanguage)
               .then((result) => {
                 setCurrentNarration(result.narration);
                 void playNarrationThenMusic(result.narration, track);

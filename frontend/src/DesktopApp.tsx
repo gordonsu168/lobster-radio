@@ -92,7 +92,7 @@ export default function DesktopApp() {
       let narrationText = track.narration;
       if (!narrationText) {
         try {
-          const result = await generateNarration(track.id, 'classic');
+          const result = await generateNarration(track.id, 'classic', 'zh-HK');
           narrationText = result.narration;
         } catch {
           narrationText = `欢迎收听龙虾电台，为您播放${track.artist}的《${track.title}》。`;

@@ -4,14 +4,15 @@ import { synthesizeSpeech } from "../services/ttsService.js";
 export const ttsRouter = Router();
 
 ttsRouter.post("/", async (req, res) => {
-  const { text, voice, provider, emotion, apiKey } = req.body as { 
+  const { text, voice, provider, emotion, apiKey, language } = req.body as { 
     text: string; 
     voice?: string;
     provider?: string;
     emotion?: string;
     apiKey?: string;
+    language?: string;
   };
-  const payload = await synthesizeSpeech(text, voice, { provider, emotion, apiKey });
+  const payload = await synthesizeSpeech(text, voice, { provider, emotion, apiKey, language });
   res.json(payload);
 });
 

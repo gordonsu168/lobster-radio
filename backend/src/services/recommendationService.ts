@@ -62,10 +62,15 @@ function scoreTracks(tracks: Track[], preferences: Preferences, mood: MoodOption
     .map(({ track }) => track);
 }
 
-export async function buildRecommendations(mood: MoodOption, style: DJStyle = "classic", language: string = "zh-CN"): Promise<RecommendationResponse> {
+export async function buildRecommendations(mood: MoodOption, style: DJStyle = "classic", language?: string): Promise<RecommendationResponse> {
   const preferences = await getPreferences();
   const secrets = await resolveRuntimeSecrets();
   const musicCurator = new MusicCuratorAgent();
+  
+  // 使用传入的语言参数，如果没有则使用设置中的语言
+  const djLanguage = (language || secrets.djLanguage) as "zh-CN" | "zh-HK" | "en-US";
+  
+  console.log(`🌐 buildRecommendations - 传入语言: ${language}, 设置语言: ${secrets.djLanguage}, 最终语言: ${djLanguage}`);
 
   // 多源音乐搜索：本地音乐优先
   const localTracks = await getLocalTracksByMood(mood);
@@ -94,7 +99,9 @@ export async function buildRecommendations(mood: MoodOption, style: DJStyle = "c
   });
 
   const selectedTrack = curated[0] || backup[0];
-  const narration = generateNarration(selectedTrack, style, language as any);
+  console.log(`🎵 生成旁白 - 歌曲: ${selectedTrack.title}, 风格: ${style}, 语言: ${djLanguage}`);
+  const narration = generateNarration(selectedTrack, style, djLanguage);
+  console.log(`🎙️ 生成的旁白: ${narration}`);
 
   const historyEntry = {
     ...selectedTrack,

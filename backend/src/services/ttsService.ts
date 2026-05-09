@@ -247,11 +247,44 @@ const EDGE_VOICE_MAP: Record<string, string> = {
   "onyx": "zh-CN-YunyangNeural",
 };
 
-async function synthesizeWithEdgeTTS(text: string, voice: string) {
-  const edgeVoice = EDGE_VOICE_MAP[voice] || EDGE_VOICE_MAP["alloy"];
+// 根据语言自动选择合适的语音
+function getVoiceForLanguage(voice: string, language?: string): string {
+  // 如果已经是特定语言的语音，直接返回
+  if (voice.startsWith("hk-") || voice.startsWith("cn-") || voice.startsWith("en-")) {
+    return EDGE_VOICE_MAP[voice] || EDGE_VOICE_MAP["alloy"];
+  }
+  
+  // 根据语言自动选择
+  if (language === "zh-HK") {
+    // 粤语：根据原语音的性别选择对应的粤语语音
+    const femaleVoices = ["alloy", "nova", "shimmer"];
+    if (femaleVoices.includes(voice)) {
+      return EDGE_VOICE_MAP["hk-female-1"]; // 晓佳女声
+    } else {
+      return EDGE_VOICE_MAP["hk-male"]; // 云龙男声
+    }
+  } else if (language === "en-US") {
+    // 英语
+    const femaleVoices = ["alloy", "nova", "shimmer"];
+    if (femaleVoices.includes(voice)) {
+      return EDGE_VOICE_MAP["en-female-1"]; // Ava
+    } else {
+      return EDGE_VOICE_MAP["en-male-1"]; // Andrew
+    }
+  } else {
+    // 默认普通话
+    return EDGE_VOICE_MAP[voice] || EDGE_VOICE_MAP["alloy"];
+  }
+}
+
+async function synthesizeWithEdgeTTS(text: string, voice: string, language?: string) {
+  const edgeVoice = getVoiceForLanguage(voice, language);
+  
+  // 缓存 key 需要包含语言信息
+  const cacheKey = language ? `${voice}-${language}` : voice;
   
   // 先查缓存
-  const cached = getCache(text, voice, "edge");
+  const cached = getCache(text, cacheKey, "edge");
   if (cached) {
     console.log(`📦 Edge TTS 命中缓存: ${text.substring(0, 20)}...`);
     return {
@@ -261,7 +294,7 @@ async function synthesizeWithEdgeTTS(text: string, voice: string) {
     };
   }
 
-  console.log(`🎙️ Edge TTS: ${edgeVoice}, 文本: ${text.substring(0, 40)}...`);
+  console.log(`🎙️ Edge TTS: ${edgeVoice} (语言: ${language || 'auto'}), 文本: ${text.substring(0, 40)}...`);
 
   // 创建临时文件
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "lobster-edge-tts-"));
@@ -294,7 +327,7 @@ async function synthesizeWithEdgeTTS(text: string, voice: string) {
     };
 
     // 写入缓存
-    setCache(text, voice, "edge", result);
+    setCache(text, cacheKey, "edge", result);
     return result;
   } finally {
     // 清理临时文件
@@ -572,15 +605,21 @@ async function synthesizeWithMacSay(text: string, voice: string) {
   }
 }
 
-export async function synthesizeSpeech(text: string, voice?: string, options?: { provider?: string; emotion?: string; apiKey?: string }) {
+export async function synthesizeSpeech(text: string, voice?: string, options?: { provider?: string; emotion?: string; apiKey?: string; language?: string }) {
   const defaultProvider = options?.provider || process.env.DEFAULT_TTS_PROVIDER || "edge";
   const selectedVoice = voice || "alloy";
   const emotion = options?.emotion || "normal";
+  const language = options?.language;
   
   // ========== 第一步：先检查所有 provider 的缓存 ==========
   const providersToCheck = [defaultProvider, "elevenlabs", "edge", "cosyvoice", "gemini", "mac-say"];
   for (const p of providersToCheck) {
-    const cacheKey = p === "elevenlabs" ? `${selectedVoice}-${emotion}` : selectedVoice;
+    let cacheKey = selectedVoice;
+    if (p === "elevenlabs") {
+      cacheKey = `${selectedVoice}-${emotion}`;
+    } else if (p === "edge" && language) {
+      cacheKey = `${selectedVoice}-${language}`;
+    }
     const cached = getCache(text, cacheKey, p);
     if (cached) {
       console.log(`📦 ${p} TTS 命中缓存: ${text.substring(0, 20)}...`);
@@ -609,7 +648,7 @@ export async function synthesizeSpeech(text: string, voice?: string, options?: {
   
   if (defaultProvider === "edge" || defaultProvider === "edge-tts") {
     try {
-      return await synthesizeWithEdgeTTS(text, selectedVoice);
+      return await synthesizeWithEdgeTTS(text, selectedVoice, language);
     } catch (error) {
       console.warn(`⚠️ Edge TTS 失败，自动降级:`, (error as Error).message);
       // fall through to next provider

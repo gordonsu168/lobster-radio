@@ -124,7 +124,7 @@ wikiRouter.post("/chat/:id", async (req: Request, res: Response) => {
 // 生成旁白
 wikiRouter.post("/narration/:id", async (req: Request, res: Response) => {
   try {
-    const { style } = req.body as { style?: DJStyle };
+    const { style, language } = req.body as { style?: DJStyle; language?: string };
     const song = await getSongWiki(req.params.id);
     
     if (!song) {
@@ -133,8 +133,8 @@ wikiRouter.post("/narration/:id", async (req: Request, res: Response) => {
     }
     
     const narration = style 
-      ? generateNarration(song, style)
-      : generateRandomNarration(song);
+      ? generateNarration(song, style, language as any)
+      : generateRandomNarration(song, language as any);
     
     res.json({
       songId: song.id,
@@ -150,7 +150,7 @@ wikiRouter.post("/narration/:id", async (req: Request, res: Response) => {
 // 批量生成旁白
 wikiRouter.post("/narration/batch", async (req: Request, res: Response) => {
   try {
-    const { songIds, style } = req.body as { songIds: string[], style?: DJStyle };
+    const { songIds, style, language } = req.body as { songIds: string[]; style?: DJStyle; language?: string };
     const results: Array<{ songId: string; title: string; narration: string }> = [];
     
     for (const id of songIds) {
@@ -159,7 +159,7 @@ wikiRouter.post("/narration/batch", async (req: Request, res: Response) => {
         results.push({
           songId: song.id,
           title: song.title,
-          narration: style ? generateNarration(song, style) : generateRandomNarration(song)
+          narration: style ? generateNarration(song, style, language as any) : generateRandomNarration(song, language as any)
         });
       }
     }

@@ -14,6 +14,8 @@ export async function resolveRuntimeSecrets() {
     elevenLabsApiKey: process.env.ELEVENLABS_API_KEY || stored.elevenLabsApiKey,
     defaultVoice: process.env.DEFAULT_TTS_VOICE || stored.defaultVoice,
     defaultTtsProvider: (process.env.DEFAULT_TTS_PROVIDER as "openai" | "elevenlabs" | undefined) || stored.defaultTtsProvider,
+    djLanguage: (process.env.DJ_LANGUAGE as "zh-CN" | "zh-HK" | "en-US" | undefined) || stored.djLanguage || "zh-CN",
+    djEmotion: stored.djEmotion || "normal",
     preferredMusicSource: (process.env.PREFERRED_MUSIC_SOURCE as "local" | "netease" | "spotify" | "auto" | undefined) || stored.preferredMusicSource || "auto",
     localMusicPath: process.env.LOCAL_MUSIC_PATH || stored.localMusicPath || "",
     weatherApiKey: process.env.WEATHER_API_KEY || "",

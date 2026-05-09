@@ -10,7 +10,9 @@
   "scripts": {
     "dev": "npm run build -w agents && concurrently -n frontend,backend,agents -c cyan,green,magenta \"npm run dev -w frontend\" \"npm run dev -w backend\" \"npm run dev -w agents\"",
     "build": "npm run build -w agents && npm run build -w backend && npm run build -w frontend",
-    "lint": "npm run lint -w frontend && npm run lint -w backend && npm run lint -w agents"
+    "lint": "npm run lint -w frontend && npm run lint -w backend && npm run lint -w agents",
+    "restart": "./restart.sh",
+    "stop": "./stop.sh"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"

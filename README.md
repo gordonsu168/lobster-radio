@@ -135,8 +135,26 @@ npm start
 | 命令 | 说明 |
 |------|------|
 | `npm run dev` | 启动前端 + 后端开发服务 |
+| `npm run restart` | 🔄 快速重启所有服务（自动清理端口） |
+| `npm run stop` | 🛑 停止所有服务 |
 | `npm run build` | 构建所有 workspace |
 | `npm run lint` | ESLint 代码检查 |
+
+### 快速重启
+
+如果遇到端口占用或需要重启服务，使用：
+
+```bash
+npm run restart
+# 或直接运行脚本
+./restart.sh
+```
+
+脚本会自动：
+1. 关闭占用的端口（4000, 5173, 5174）
+2. 清理所有相关进程
+3. 重新编译 agents
+4. 启动所有服务
 
 ## 🎤 Gemini TTS 语音列表
 

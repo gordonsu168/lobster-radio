@@ -55,7 +55,7 @@ export function saveSettings(settings: RuntimeSettings) {
   });
 }
 
-export function synthesizeNarration(text: string, voice: VoiceOption, options?: { provider?: string; emotion?: string }) {
+export function synthesizeNarration(text: string, voice: VoiceOption, options?: { provider?: string; emotion?: string; language?: string }) {
   return request<{
     provider: string;
     voice: string;
@@ -86,7 +86,7 @@ export function scanLibrary() {
 
 export type DJStyle = "classic" | "night" | "vibe" | "trivia";
 
-export function generateNarration(trackId: string, style: DJStyle) {
+export function generateNarration(trackId: string, style: DJStyle, language?: string) {
   return request<{
     songId: string;
     title: string;
@@ -94,7 +94,7 @@ export function generateNarration(trackId: string, style: DJStyle) {
     narration: string;
   }>(`/api/wiki/narration/${encodeURIComponent(trackId)}`, {
     method: "POST",
-    body: JSON.stringify({ style })
+    body: JSON.stringify({ style, language })
   });
 }
 

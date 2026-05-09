@@ -8,5 +8,6 @@
   "defaultVoice": "nova",
   "defaultTtsProvider": "edge",
   "preferredMusicSource": "auto",
-  "localMusicPath": "/Users/gordon/Downloads/Music"
+  "localMusicPath": "/Users/gordon/Downloads/Music",
+  "djLanguage": "zh-CN"
 }

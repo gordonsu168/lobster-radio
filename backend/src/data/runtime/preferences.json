@@ -1,13 +1,15 @@
 {
-  "likes": [],
+  "likes": [
+    "local-iKvnmoTkvaAubXAz"
+  ],
   "dislikes": [],
   "history": [
     {
-      "id": "local-IseS4iuS9oC5tcDM",
-      "title": "总有一站爱上你",
+      "id": "local-iKvnmoTkvaAubXAz",
+      "title": "特别的爱给特别的你",
       "artist": "未知艺术家",
-      "album": "一起喝采",
-      "previewUrl": "http://localhost:4000/api/library/stream/L1VzZXJzL2dvcmRvbi9Eb3dubG9hZHMvTXVzaWMvQm95X1ov5LiA6LW35Zad6YeHLzAxIOaAu-acieS4gOermeeIseS4iuS9oC5tcDM",
+      "album": "一人一首成名歌",
+      "previewUrl": "http://localhost:4000/api/library/stream/L1VzZXJzL2dvcmRvbi9Eb3dubG9hZHMvTXVzaWMvQ29tcGlsYXRpb25zL-S4gOS6uuS4gOmmluaIkOWQjeatjC8wNCDnibnliKvnmoTniLHnu5nnibnliKvnmoTkvaAubXAz",
       "artwork": "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?auto=format&fit=crop&w=500&q=80",
       "moodTags": [
         "Working",
@@ -15,16 +17,16 @@
         "本地"
       ],
       "energy": 50,
-      "explanation": "来自你的本地音乐库：01 总有一站爱上你.mp3 Curated for working mode with context: Music recommendation based on mood",
+      "explanation": "来自你的本地音乐库：04 特别的爱给特别的你.mp3 Curated for working mode with context: Music recommendation based on mood",
       "source": "local",
-      "playedAt": "2026-05-09T09:12:08.513Z"
+      "playedAt": "2026-05-09T10:26:31.866Z"
     },
     {
-      "id": "local-IseS4iuS9oC5tcDM",
-      "title": "总有一站爱上你",
+      "id": "local-iKvnmoTkvaAubXAz",
+      "title": "特别的爱给特别的你",
       "artist": "未知艺术家",
-      "album": "一起喝采",
-      "previewUrl": "http://localhost:4000/api/library/stream/L1VzZXJzL2dvcmRvbi9Eb3dubG9hZHMvTXVzaWMvQm95X1ov5LiA6LW35Zad6YeHLzAxIOaAu-acieS4gOermeeIseS4iuS9oC5tcDM",
+      "album": "一人一首成名歌",
+      "previewUrl": "http://localhost:4000/api/library/stream/L1VzZXJzL2dvcmRvbi9Eb3dubG9hZHMvTXVzaWMvQ29tcGlsYXRpb25zL-S4gOS6uuS4gOmmluaIkOWQjeatjC8wNCDnibnliKvnmoTniLHnu5nnibnliKvnmoTkvaAubXAz",
       "artwork": "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?auto=format&fit=crop&w=500&q=80",
       "moodTags": [
         "Working",
@@ -32,10 +34,318 @@
         "本地"
       ],
       "energy": 50,
-      "explanation": "来自你的本地音乐库：01 总有一站爱上你.mp3 Curated for working mode with context: Music recommendation based on mood",
+      "explanation": "来自你的本地音乐库：04 特别的爱给特别的你.mp3 Curated for working mode with context: Music recommendation based on mood",
       "source": "local",
-      "playedAt": "2026-05-09T09:12:08.509Z"
+      "playedAt": "2026-05-09T10:26:31.861Z"
+    },
+    {
+      "id": "local-iKvnmoTkvaAubXAz",
+      "title": "特别的爱给特别的你",
+      "artist": "未知艺术家",
+      "album": "一人一首成名歌",
+      "previewUrl": "http://localhost:4000/api/library/stream/L1VzZXJzL2dvcmRvbi9Eb3dubG9hZHMvTXVzaWMvQ29tcGlsYXRpb25zL-S4gOS6uuS4gOmmluaIkOWQjeatjC8wNCDnibnliKvnmoTniLHnu5nnibnliKvnmoTkvaAubXAz",
+      "artwork": "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?auto=format&fit=crop&w=500&q=80",
+      "moodTags": [
+        "Working",
+        "local",
+        "本地"
+      ],
+      "energy": 50,
+      "explanation": "来自你的本地音乐库：04 特别的爱给特别的你.mp3 Curated for working mode with context: Music recommendation based on mood",
+      "source": "local",
+      "playedAt": "2026-05-09T10:26:17.620Z"
+    },
+    {
+      "id": "local-iKvnmoTkvaAubXAz",
+      "title": "特别的爱给特别的你",
+      "artist": "未知艺术家",
+      "album": "一人一首成名歌",
+      "previewUrl": "http://localhost:4000/api/library/stream/L1VzZXJzL2dvcmRvbi9Eb3dubG9hZHMvTXVzaWMvQ29tcGlsYXRpb25zL-S4gOS6uuS4gOmmluaIkOWQjeatjC8wNCDnibnliKvnmoTniLHnu5nnibnliKvnmoTkvaAubXAz",
+      "artwork": "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?auto=format&fit=crop&w=500&q=80",
+      "moodTags": [
+        "Working",
+        "local",
+        "本地"
+      ],
+      "energy": 50,
+      "explanation": "来自你的本地音乐库：04 特别的爱给特别的你.mp3 Curated for working mode with context: Music recommendation based on mood",
+      "source": "local",
+      "playedAt": "2026-05-09T10:26:17.559Z"
+    },
+    {
+      "id": "local-iKvnmoTkvaAubXAz",
+      "title": "特别的爱给特别的你",
+      "artist": "未知艺术家",
+      "album": "一人一首成名歌",
+      "previewUrl": "http://localhost:4000/api/library/stream/L1VzZXJzL2dvcmRvbi9Eb3dubG9hZHMvTXVzaWMvQ29tcGlsYXRpb25zL-S4gOS6uuS4gOmmluaIkOWQjeatjC8wNCDnibnliKvnmoTniLHnu5nnibnliKvnmoTkvaAubXAz",
+      "artwork": "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?auto=format&fit=crop&w=500&q=80",
+      "moodTags": [
+        "Working",
+        "local",
+        "本地"
+      ],
+      "energy": 50,
+      "explanation": "来自你的本地音乐库：04 特别的爱给特别的你.mp3 Curated for working mode with context: Music recommendation based on mood",
+      "source": "local",
+      "playedAt": "2026-05-09T10:26:17.548Z"
+    },
+    {
+      "id": "local-iKvnmoTkvaAubXAz",
+      "title": "特别的爱给特别的你",
+      "artist": "未知艺术家",
+      "album": "一人一首成名歌",
+      "previewUrl": "http://localhost:4000/api/library/stream/L1VzZXJzL2dvcmRvbi9Eb3dubG9hZHMvTXVzaWMvQ29tcGlsYXRpb25zL-S4gOS6uuS4gOmmluaIkOWQjeatjC8wNCDnibnliKvnmoTniLHnu5nnibnliKvnmoTkvaAubXAz",
+      "artwork": "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?auto=format&fit=crop&w=500&q=80",
+      "moodTags": [
+        "Working",
+        "local",
+        "本地"
+      ],
+      "energy": 50,
+      "explanation": "来自你的本地音乐库：04 特别的爱给特别的你.mp3 Curated for working mode with context: Music recommendation based on mood",
+      "source": "local",
+      "playedAt": "2026-05-09T10:24:43.163Z"
+    },
+    {
+      "id": "local-iKvnmoTkvaAubXAz",
+      "title": "特别的爱给特别的你",
+      "artist": "未知艺术家",
+      "album": "一人一首成名歌",
+      "previewUrl": "http://localhost:4000/api/library/stream/L1VzZXJzL2dvcmRvbi9Eb3dubG9hZHMvTXVzaWMvQ29tcGlsYXRpb25zL-S4gOS6uuS4gOmmluaIkOWQjeatjC8wNCDnibnliKvnmoTniLHnu5nnibnliKvnmoTkvaAubXAz",
+      "artwork": "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?auto=format&fit=crop&w=500&q=80",
+      "moodTags": [
+        "Working",
+        "local",
+        "本地"
+      ],
+      "energy": 50,
+      "explanation": "来自你的本地音乐库：04 特别的爱给特别的你.mp3 Curated for working mode with context: Music recommendation based on mood",
+      "source": "local",
+      "playedAt": "2026-05-09T10:24:37.008Z"
+    },
+    {
+      "id": "local-iKvnmoTkvaAubXAz",
+      "title": "特别的爱给特别的你",
+      "artist": "未知艺术家",
+      "album": "一人一首成名歌",
+      "previewUrl": "http://localhost:4000/api/library/stream/L1VzZXJzL2dvcmRvbi9Eb3dubG9hZHMvTXVzaWMvQ29tcGlsYXRpb25zL-S4gOS6uuS4gOmmluaIkOWQjeatjC8wNCDnibnliKvnmoTniLHnu5nnibnliKvnmoTkvaAubXAz",
+      "artwork": "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?auto=format&fit=crop&w=500&q=80",
+      "moodTags": [
+        "Working",
+        "local",
+        "本地"
+      ],
+      "energy": 50,
+      "explanation": "来自你的本地音乐库：04 特别的爱给特别的你.mp3 Curated for working mode with context: Music recommendation based on mood",
+      "source": "local",
+      "playedAt": "2026-05-09T10:24:19.756Z"
+    },
+    {
+      "id": "local-iKvnmoTkvaAubXAz",
+      "title": "特别的爱给特别的你",
+      "artist": "未知艺术家",
+      "album": "一人一首成名歌",
+      "previewUrl": "http://localhost:4000/api/library/stream/L1VzZXJzL2dvcmRvbi9Eb3dubG9hZHMvTXVzaWMvQ29tcGlsYXRpb25zL-S4gOS6uuS4gOmmluaIkOWQjeatjC8wNCDnibnliKvnmoTniLHnu5nnibnliKvnmoTkvaAubXAz",
+      "artwork": "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?auto=format&fit=crop&w=500&q=80",
+      "moodTags": [
+        "Working",
+        "local",
+        "本地"
+      ],
+      "energy": 50,
+      "explanation": "来自你的本地音乐库：04 特别的爱给特别的你.mp3 Curated for working mode with context: Music recommendation based on mood",
+      "source": "local",
+      "playedAt": "2026-05-09T10:24:08.527Z"
+    },
+    {
+      "id": "local-MyDmnInkuroubXAz",
+      "title": "有人",
+      "artist": "未知艺术家",
+      "album": "On The Road",
+      "previewUrl": "http://localhost:4000/api/library/stream/L1VzZXJzL2dvcmRvbi9Eb3dubG9hZHMvTXVzaWMvQcyCb8yBwr_Co0HMgXXMgS9PbiBUaGUgUm9hZC8wMyDmnInkuroubXAz",
+      "artwork": "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?auto=format&fit=crop&w=500&q=80",
+      "moodTags": [
+        "Working",
+        "local",
+        "本地"
+      ],
+      "energy": 50,
+      "explanation": "来自你的本地音乐库：03 有人.mp3 Curated for working mode with context: Music recommendation based on mood",
+      "source": "local",
+      "playedAt": "2026-05-09T10:20:50.720Z"
+    },
+    {
+      "id": "local-MyDmnInkuroubXAz",
+      "title": "有人",
+      "artist": "未知艺术家",
+      "album": "On The Road",
+      "previewUrl": "http://localhost:4000/api/library/stream/L1VzZXJzL2dvcmRvbi9Eb3dubG9hZHMvTXVzaWMvQcyCb8yBwr_Co0HMgXXMgS9PbiBUaGUgUm9hZC8wMyDmnInkuroubXAz",
+      "artwork": "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?auto=format&fit=crop&w=500&q=80",
+      "moodTags": [
+        "Working",
+        "local",
+        "本地"
+      ],
+      "energy": 50,
+      "explanation": "来自你的本地音乐库：03 有人.mp3 Curated for working mode with context: Music recommendation based on mood",
+      "source": "local",
+      "playedAt": "2026-05-09T10:20:50.667Z"
+    },
+    {
+      "id": "local-MyDmnInkuroubXAz",
+      "title": "有人",
+      "artist": "未知艺术家",
+      "album": "On The Road",
+      "previewUrl": "http://localhost:4000/api/library/stream/L1VzZXJzL2dvcmRvbi9Eb3dubG9hZHMvTXVzaWMvQcyCb8yBwr_Co0HMgXXMgS9PbiBUaGUgUm9hZC8wMyDmnInkuroubXAz",
+      "artwork": "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?auto=format&fit=crop&w=500&q=80",
+      "moodTags": [
+        "Working",
+        "local",
+        "本地"
+      ],
+      "energy": 50,
+      "explanation": "来自你的本地音乐库：03 有人.mp3 Curated for working mode with context: Music recommendation based on mood",
+      "source": "local",
+      "playedAt": "2026-05-09T10:20:50.662Z"
+    },
+    {
+      "id": "local-MyDmnInkuroubXAz",
+      "title": "有人",
+      "artist": "未知艺术家",
+      "album": "On The Road",
+      "previewUrl": "http://localhost:4000/api/library/stream/L1VzZXJzL2dvcmRvbi9Eb3dubG9hZHMvTXVzaWMvQcyCb8yBwr_Co0HMgXXMgS9PbiBUaGUgUm9hZC8wMyDmnInkuroubXAz",
+      "artwork": "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?auto=format&fit=crop&w=500&q=80",
+      "moodTags": [
+        "Working",
+        "local",
+        "本地"
+      ],
+      "energy": 50,
+      "explanation": "来自你的本地音乐库：03 有人.mp3 Curated for working mode with context: Music recommendation based on mood",
+      "source": "local",
+      "playedAt": "2026-05-09T10:20:17.236Z"
+    },
+    {
+      "id": "local-MyDmnInkuroubXAz",
+      "title": "有人",
+      "artist": "未知艺术家",
+      "album": "On The Road",
+      "previewUrl": "http://localhost:4000/api/library/stream/L1VzZXJzL2dvcmRvbi9Eb3dubG9hZHMvTXVzaWMvQcyCb8yBwr_Co0HMgXXMgS9PbiBUaGUgUm9hZC8wMyDmnInkuroubXAz",
+      "artwork": "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?auto=format&fit=crop&w=500&q=80",
+      "moodTags": [
+        "Working",
+        "local",
+        "本地"
+      ],
+      "energy": 50,
+      "explanation": "来自你的本地音乐库：03 有人.mp3 Curated for working mode with context: Music recommendation based on mood",
+      "source": "local",
+      "playedAt": "2026-05-09T10:20:09.472Z"
+    },
+    {
+      "id": "local-MyDmnInkuroubXAz",
+      "title": "有人",
+      "artist": "未知艺术家",
+      "album": "On The Road",
+      "previewUrl": "http://localhost:4000/api/library/stream/L1VzZXJzL2dvcmRvbi9Eb3dubG9hZHMvTXVzaWMvQcyCb8yBwr_Co0HMgXXMgS9PbiBUaGUgUm9hZC8wMyDmnInkuroubXAz",
+      "artwork": "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?auto=format&fit=crop&w=500&q=80",
+      "moodTags": [
+        "Working",
+        "local",
+        "本地"
+      ],
+      "energy": 50,
+      "explanation": "来自你的本地音乐库：03 有人.mp3 Curated for working mode with context: Music recommendation based on mood",
+      "source": "local",
+      "playedAt": "2026-05-09T10:20:02.472Z"
+    },
+    {
+      "id": "local-MyDmnInkuroubXAz",
+      "title": "有人",
+      "artist": "未知艺术家",
+      "album": "On The Road",
+      "previewUrl": "http://localhost:4000/api/library/stream/L1VzZXJzL2dvcmRvbi9Eb3dubG9hZHMvTXVzaWMvQcyCb8yBwr_Co0HMgXXMgS9PbiBUaGUgUm9hZC8wMyDmnInkuroubXAz",
+      "artwork": "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?auto=format&fit=crop&w=500&q=80",
+      "moodTags": [
+        "Working",
+        "local",
+        "本地"
+      ],
+      "energy": 50,
+      "explanation": "来自你的本地音乐库：03 有人.mp3 Curated for working mode with context: Music recommendation based on mood",
+      "source": "local",
+      "playedAt": "2026-05-09T10:19:50.236Z"
+    },
+    {
+      "id": "local-MyDmnInkuroubXAz",
+      "title": "有人",
+      "artist": "未知艺术家",
+      "album": "On The Road",
+      "previewUrl": "http://localhost:4000/api/library/stream/L1VzZXJzL2dvcmRvbi9Eb3dubG9hZHMvTXVzaWMvQcyCb8yBwr_Co0HMgXXMgS9PbiBUaGUgUm9hZC8wMyDmnInkuroubXAz",
+      "artwork": "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?auto=format&fit=crop&w=500&q=80",
+      "moodTags": [
+        "Working",
+        "local",
+        "本地"
+      ],
+      "energy": 50,
+      "explanation": "来自你的本地音乐库：03 有人.mp3 Curated for working mode with context: Music recommendation based on mood",
+      "source": "local",
+      "playedAt": "2026-05-09T10:19:42.773Z"
+    },
+    {
+      "id": "local-MyDmnInkuroubXAz",
+      "title": "有人",
+      "artist": "未知艺术家",
+      "album": "On The Road",
+      "previewUrl": "http://localhost:4000/api/library/stream/L1VzZXJzL2dvcmRvbi9Eb3dubG9hZHMvTXVzaWMvQcyCb8yBwr_Co0HMgXXMgS9PbiBUaGUgUm9hZC8wMyDmnInkuroubXAz",
+      "artwork": "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?auto=format&fit=crop&w=500&q=80",
+      "moodTags": [
+        "Working",
+        "local",
+        "本地"
+      ],
+      "energy": 50,
+      "explanation": "来自你的本地音乐库：03 有人.mp3 Curated for working mode with context: Music recommendation based on mood",
+      "source": "local",
+      "playedAt": "2026-05-09T10:19:30.073Z"
+    },
+    {
+      "id": "local-MyDmnInkuroubXAz",
+      "title": "有人",
+      "artist": "未知艺术家",
+      "album": "On The Road",
+      "previewUrl": "http://localhost:4000/api/library/stream/L1VzZXJzL2dvcmRvbi9Eb3dubG9hZHMvTXVzaWMvQcyCb8yBwr_Co0HMgXXMgS9PbiBUaGUgUm9hZC8wMyDmnInkuroubXAz",
+      "artwork": "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?auto=format&fit=crop&w=500&q=80",
+      "moodTags": [
+        "Working",
+        "local",
+        "本地"
+      ],
+      "energy": 50,
+      "explanation": "来自你的本地音乐库：03 有人.mp3 Curated for working mode with context: Music recommendation based on mood",
+      "source": "local",
+      "playedAt": "2026-05-09T10:18:12.793Z"
+    },
+    {
+      "id": "local-MyDmnInkuroubXAz",
+      "title": "有人",
+      "artist": "未知艺术家",
+      "album": "On The Road",
+      "previewUrl": "http://localhost:4000/api/library/stream/L1VzZXJzL2dvcmRvbi9Eb3dubG9hZHMvTXVzaWMvQcyCb8yBwr_Co0HMgXXMgS9PbiBUaGUgUm9hZC8wMyDmnInkuroubXAz",
+      "artwork": "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?auto=format&fit=crop&w=500&q=80",
+      "moodTags": [
+        "Working",
+        "local",
+        "本地"
+      ],
+      "energy": 50,
+      "explanation": "来自你的本地音乐库：03 有人.mp3 Curated for working mode with context: Music recommendation based on mood",
+      "source": "local",
+      "playedAt": "2026-05-09T10:18:12.721Z"
     }
   ],
-  "moodAffinity": {}
+  "moodAffinity": {
+    "Working": 2
+  }
 }
