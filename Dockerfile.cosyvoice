@@ -1,0 +1,14 @@
+FROM python:3.10-slim
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
+
+RUN pip install torch torchaudio --index-url https://download.pytorch.org/whl/cpu
+RUN pip install git+https://github.com/FunAudioLLM/CosyVoice.git
+
+RUN python -c "from cosyvoice import CosyVoice; model = CosyVoice('./pretrained_models/CosyVoice-300M')"
+
+EXPOSE 50000
+
+CMD ["python", "-c", "from cosyvoice import CosyVoice; model = CosyVoice('./pretrained_models/CosyVoice-300M'); print('CosyVoice loaded!')"]

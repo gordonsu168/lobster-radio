@@ -2,36 +2,68 @@ import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { createOptionalModel } from "../lib/model.js";
 import type { MoodOption, PlaybackHistoryItem, Track } from "../types.js";
 
+export type DJStyle = "classic" | "night" | "vibe" | "trivia";
+
 interface NarratorInput {
   mood: MoodOption;
   contextSummary: string;
   track: Track;
   history: PlaybackHistoryItem[];
+  style?: DJStyle;
 }
 
 export class NarratorAgent {
   async generate(input: NarratorInput): Promise<string> {
     const model = createOptionalModel();
     const historyCount = input.history.length;
+    const style = input.style || "classic";
 
     if (!model) {
-      const moodTag = input.track.moodTags?.[0] || "经典";
-      const templates = [
-        `嘿，欢迎回到龙虾电台。现在为你送上的是${input.track.artist}的《${input.track.title}》，这是一首${moodTag}的作品，希望能陪你度过这段${input.mood}的时光。`,
-        `哈喽朋友们，正在播放的是${input.track.artist}演唱的《${input.track.title}》，收录在专辑《${input.track.album}》中。愿这首歌能陪你度过美好的一天。`,
-        `欢迎收听龙虾电台。接下来这首歌，${input.track.artist}的《${input.track.title}》，相信很多人都听过。有时候，经典就是这样，不管过了多久，听到的瞬间还是会被打动。`,
-        `正在播放：${input.track.title}，来自${input.track.artist}。这首歌收录在《${input.track.album}》专辑里，希望你喜欢。我们已经记录了${historyCount}次播放，龙虾电台正在慢慢了解你的音乐品味。`,
-        `${input.track.title}，${input.track.artist}。有时候一首歌不需要太多言语，它本身就是最好的表达。龙虾电台，懂你的音乐。`
-      ];
-      return templates[Math.floor(Math.random() * templates.length)];
+      // 粤语模板 - 四种 DJ 风格
+      const templates: Record<DJStyle, string[]> = {
+        classic: [
+          `欢迎返到龙虾电台，而家为你送上嘅系${input.track.artist}嘅《${input.track.title}》，收录喺大碟《${input.track.album}》入面，希望你钟意。`,
+          `正在锁定龙虾电台，而家播紧嘅系${input.track.artist}嘅《${input.track.title}》，一齐嚟欣赏啦。`,
+          `呢度系龙虾电台，接下来呢首歌，${input.track.artist}嘅《${input.track.title}》，希望可以陪你度过呢段美好时光。`,
+          `${input.track.artist}嘅《${input.track.title}》，收录喺《${input.track.album}》入面，希望呢首歌可以陪住你。`,
+        ],
+        night: [
+          `夜阑人静，等${input.track.artist}嘅《${input.track.title}》陪你度过呢个安静嘅夜晚。`,
+          `而家系深夜时分，听听${input.track.artist}嘅《${input.track.title}》，好衬而家嘅心情。`,
+          `夜啦，有歌陪你。${input.track.artist}嘅《${input.track.title}》，送俾夜猫子嘅你。`,
+          `呢个夜晚，等《${input.track.title}》嘅旋律陪你放松一下。`,
+        ],
+        vibe: [
+          `嚟啦嚟啦！就系而家！${input.track.artist}嘅《${input.track.title}》，跟住节奏一齐郁！`,
+          `各位朋友！准备好未！${input.track.artist}嘅《${input.track.title}》，俾啲反应！`,
+          `Let's go！接下来呢首歌你实识唱！${input.track.artist}嘅《${input.track.title}》！`,
+          `就系呢个感觉！${input.track.artist}嘅《${input.track.title}》，一齐嚟啦！`,
+        ],
+        trivia: [
+          `你知唔知？${input.track.artist}嘅《${input.track.title}》收录喺《${input.track.album}》呢张大碟入面，几得意下？`,
+          `讲个冷知识俾你听，《${input.track.title}》系${input.track.artist}嘅代表作之一，估唔到吧？`,
+          `同你分享下，《${input.track.title}》呢首歌出自${input.track.artist}嘅专辑《${input.track.album}》。学到嘢啦！`,
+        ]
+      };
+
+      const styleTemplates = templates[style] || templates.classic;
+      return styleTemplates[Math.floor(Math.random() * styleTemplates.length)];
     }
+
+    // LLM 模式 - 生成更地道的粤语旁白
+    const styleDescriptions: Record<DJStyle, string> = {
+      classic: "经典电台主持风格，亲切、专业，带一点点怀旧感",
+      night: "深夜治愈系，温柔、安静，适合夜晚收听",
+      vibe: "活力蹦迪风，热情、兴奋，带动听众情绪",
+      trivia: "冷知识科普风，有趣、有料，带一点点书卷气"
+    };
 
     const result = await model.invoke([
       new SystemMessage(
-        "You are Narrator Agent for a personal radio app. Write a short DJ script with warmth, one transition, and one contextual observation."
+        `你系龙虾电台嘅AI DJ，一个地道嘅香港电台主持。用纯正粤语讲嘢，语气要自然、亲切，似同朋友倾计一样。风格：${styleDescriptions[style]}。旁白控制喺 1-2 句，唔好太长。`
       ),
       new HumanMessage(
-        `Mood: ${input.mood}\nContext: ${input.contextSummary}\nCurrent track: ${input.track.title} by ${input.track.artist}\nRecent plays: ${historyCount}`
+        `心情模式：${input.mood}\n上下文：${input.contextSummary}\n而家播放紧：${input.track.artist}嘅《${input.track.title}》，收录喺《${input.track.album}》\n听众已经听咗${historyCount}首歌\n\n请用纯正粤语讲一段电台开场白，1-2句就得，唔好太长！`
       )
     ]);
 

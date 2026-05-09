@@ -5,7 +5,7 @@ import { PlayerCard } from "../components/PlayerCard";
 import { StatsStrip } from "../components/StatsStrip";
 import { TrackQueue } from "../components/TrackQueue";
 import { Waveform } from "../components/Waveform";
-import { getPreferences, getRecommendations, submitFeedback, synthesizeNarration, generateNarration, generateChat, type DJStyle } from "../lib/api";
+import { getPreferences, getRecommendations, submitFeedback, synthesizeNarration, generateNarration, generateChat, getSettings, type DJStyle } from "../lib/api";
 import type { MoodOption, PreferencesSnapshot, RecommendationPayload, Track, VoiceOption } from "../types";
 
 export function HomePage() {
@@ -13,11 +13,13 @@ export function HomePage() {
   const [payload, setPayload] = useState<RecommendationPayload | null>(null);
   const [preferences, setPreferences] = useState<PreferencesSnapshot | null>(null);
   const [voice, setVoice] = useState<VoiceOption>("alloy");
+  const [djEmotion, setDjEmotion] = useState<string>("normal");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentNarration, setCurrentNarration] = useState("");
   const [djStyle, setDjStyle] = useState<"classic" | "night" | "vibe" | "trivia">("classic");
+  const [djLanguage, setDjLanguage] = useState<"zh-CN" | "zh-HK" | "en-US">("zh-CN");
   const [autoChatEnabled, setAutoChatEnabled] = useState(true);
   const isSpeakingRef = useRef(false);
   const isNarrationPlayingRef = useRef(false);
@@ -38,8 +40,24 @@ export function HomePage() {
     trivia: "冷知识科普风"
   };
 
-  // 页面加载后：1) 预热语音合成 2) 监听用户交互解锁自动播放
+  // 页面加载后：1) 加载用户设置 2) 预热语音合成 3) 监听用户交互解锁自动播放
   useEffect(() => {
+    // 加载用户设置的 DJ 语音和情绪
+    getSettings().then(settings => {
+      if (settings.defaultVoice) {
+        setVoice(settings.defaultVoice as VoiceOption);
+        console.log("🎤 使用用户设置的语音:", settings.defaultVoice);
+      }
+      if (settings.djEmotion) {
+        setDjEmotion(settings.djEmotion);
+        console.log("🎭 使用用户设置的情绪:", settings.djEmotion);
+      }
+      if (settings.djLanguage) {
+        setDjLanguage(settings.djLanguage as any);
+        console.log("🌐 使用用户设置的语言:", settings.djLanguage);
+      }
+    }).catch(() => {});
+
     // 预热语音合成（触发 voice 加载）
     if ("speechSynthesis" in window) {
       speechSynthesis.getVoices();
@@ -64,6 +82,11 @@ export function HomePage() {
       document.removeEventListener("keydown", unlockAudio);
     };
   }, []);
+
+  // 当心情或语言改变时，自动刷新推荐
+  useEffect(() => {
+    refreshRecommendations(mood);
+  }, [mood, djLanguage]);
 
   const currentTrack = payload?.selectedTrack ?? null;
 
@@ -206,7 +229,7 @@ export function HomePage() {
     
     try {
       // 从后端获取 TTS 音频
-      const response = await synthesizeNarration(narrationText, voice);
+      const response = await synthesizeNarration(narrationText, voice, { emotion: djEmotion });
       
       if (response.audioBase64 && audioRef.current) {
         // 解码 base64
@@ -309,7 +332,7 @@ export function HomePage() {
     
     try {
       // 从后端获取 TTS 音频
-      const response = await synthesizeNarration(narrationToPlay, voice);
+      const response = await synthesizeNarration(narrationToPlay, voice, { emotion: djEmotion });
       console.log("📡 后端返回:", response.provider, response.fallback);
       
       if (!response.audioBase64) {
@@ -354,7 +377,7 @@ export function HomePage() {
       setCurrentNarration(chatResult.chat);
       
       // 2. 生成语音
-      const response = await synthesizeNarration(chatResult.chat, voice);
+      const response = await synthesizeNarration(chatResult.chat, voice, { emotion: djEmotion });
       
       if (!response.audioBase64 || !audioRef.current) {
         console.error("❌ 没有音频数据");
@@ -414,7 +437,7 @@ export function HomePage() {
     setLoading(true);
     setError(null);
     try {
-      const result = await getRecommendations(nextMood);
+      const result = await getRecommendations(nextMood, djLanguage);
       setPayload(result);
       const latestPreferences = await getPreferences();
       setPreferences(latestPreferences);

@@ -25,8 +25,12 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return response.json() as Promise<T>;
 }
 
-export function getRecommendations(mood: MoodOption) {
-  return request<RecommendationPayload>(`/api/recommendations?mood=${encodeURIComponent(mood)}`);
+export function getRecommendations(mood: MoodOption, language?: string) {
+  let url = `/api/recommendations?mood=${encodeURIComponent(mood)}`;
+  if (language) {
+    url += `&language=${encodeURIComponent(language)}`;
+  }
+  return request<RecommendationPayload>(url);
 }
 
 export function submitFeedback(trackId: string, feedback: "like" | "dislike", mood: MoodOption) {
@@ -51,7 +55,7 @@ export function saveSettings(settings: RuntimeSettings) {
   });
 }
 
-export function synthesizeNarration(text: string, voice: VoiceOption) {
+export function synthesizeNarration(text: string, voice: VoiceOption, options?: { provider?: string; emotion?: string }) {
   return request<{
     provider: string;
     voice: string;
@@ -59,9 +63,10 @@ export function synthesizeNarration(text: string, voice: VoiceOption) {
     mimeType: string | null;
     text: string;
     fallback: boolean;
+    emotion?: string;
   }>("/api/tts", {
     method: "POST",
-    body: JSON.stringify({ text, voice })
+    body: JSON.stringify({ text, voice, ...options })
   });
 }
 

@@ -33,7 +33,9 @@ export interface RuntimeSettings {
   openAiApiKey: string;
   elevenLabsApiKey: string;
   defaultVoice: string;
-  defaultTtsProvider: "openai" | "elevenlabs";
+  defaultTtsProvider: "openai" | "elevenlabs" | "edge" | "gemini" | "macsay";
+  djLanguage?: "zh-CN" | "zh-HK" | "en-US";
+  djEmotion?: "normal" | "happy" | "sad" | "angry" | "calm" | "excited" | "whisper" | "radio";
   preferredMusicSource: "local" | "netease" | "spotify" | "auto";
   localMusicPath: string;
 }

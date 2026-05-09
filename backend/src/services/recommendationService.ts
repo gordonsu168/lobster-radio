@@ -2,8 +2,8 @@ import {
   LearningAgent,
   MoodAnalyzerAgent,
   MusicCuratorAgent,
-  NarratorAgent
 } from "lobster-radio-agents";
+import { generateNarration, type DJStyle } from "./narrationGenerator.js";
 import type { MoodOption, Preferences, RecommendationResponse, Track } from "../types.js";
 import { fallbackCatalog } from "../data/fallbackCatalog.js";
 import { getPreferences, savePreferences } from "./storageService.js";
@@ -62,17 +62,10 @@ function scoreTracks(tracks: Track[], preferences: Preferences, mood: MoodOption
     .map(({ track }) => track);
 }
 
-export async function buildRecommendations(mood: MoodOption): Promise<RecommendationResponse> {
+export async function buildRecommendations(mood: MoodOption, style: DJStyle = "classic", language: string = "zh-CN"): Promise<RecommendationResponse> {
   const preferences = await getPreferences();
   const secrets = await resolveRuntimeSecrets();
-  const moodAnalyzer = new MoodAnalyzerAgent();
   const musicCurator = new MusicCuratorAgent();
-  const narrator = new NarratorAgent();
-  const context = await moodAnalyzer.analyze({
-    selectedMood: mood,
-    timeOfDay: getTimeSegment(),
-    weatherApiKey: secrets.weatherApiKey
-  });
 
   // 多源音乐搜索：本地音乐优先
   const localTracks = await getLocalTracksByMood(mood);
@@ -95,18 +88,13 @@ export async function buildRecommendations(mood: MoodOption): Promise<Recommenda
   const ranked = scoreTracks([...sourceTracks, ...backup], preferences, mood, secrets.preferredMusicSource);
   const curated = await musicCurator.curate({
     mood,
-    contextSummary: context.summary,
+    contextSummary: "Music recommendation based on mood",
     candidateTracks: ranked,
     preferences
   });
 
   const selectedTrack = curated[0] || backup[0];
-  const narration = await narrator.generate({
-    mood,
-    contextSummary: context.summary,
-    track: selectedTrack,
-    history: preferences.history.slice(0, 5)
-  });
+  const narration = generateNarration(selectedTrack, style, language as any);
 
   const historyEntry = {
     ...selectedTrack,
@@ -120,7 +108,7 @@ export async function buildRecommendations(mood: MoodOption): Promise<Recommenda
 
   return {
     mood,
-    contextSummary: context.summary,
+    contextSummary: "Lobster Radio recommendation",
     narration,
     tracks: curated as any,
     selectedTrack: selectedTrack as any

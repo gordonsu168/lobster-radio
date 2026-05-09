@@ -161,15 +161,91 @@ export function SettingsPage() {
               }
               className="w-full rounded-2xl border border-white/15 bg-slate-950/80 px-4 py-3 text-white outline-none"
             >
+              <option value="edge">🔥 Edge TTS (推荐！粤语超棒)</option>
+              <option value="gemini">Gemini TTS</option>
+              <option value="macsay">Mac Say (系统语音)</option>
               <option value="openai">OpenAI</option>
               <option value="elevenlabs">ElevenLabs</option>
             </select>
           </div>
-          <Field
-            label="Default Voice"
-            value={settings.defaultVoice}
-            onChange={(value) => setSettings((current) => ({ ...current, defaultVoice: value }))}
-          />
+          <div>
+            <label className="mb-2 block text-sm font-semibold text-white">DJ 语言</label>
+            <select
+              value={settings.djLanguage || "zh-CN"}
+              onChange={(event) =>
+                setSettings((current) => ({
+                  ...current,
+                  djLanguage: event.target.value
+                }))
+              }
+              className="w-full rounded-2xl border border-white/15 bg-slate-950/80 px-4 py-3 text-white outline-none mb-4"
+            >
+              <option value="zh-CN">🇨🇳 普通话（推荐）</option>
+              <option value="zh-HK">🇭🇰 粤语 Cantonese</option>
+              <option value="en-US">🇺🇸 英语 English</option>
+            </select>
+          </div>
+          <div>
+            <label className="mb-2 block text-sm font-semibold text-white">DJ 语音</label>
+            <select
+              value={settings.defaultVoice}
+              onChange={(event) =>
+                setSettings((current) => ({
+                  ...current,
+                  defaultVoice: event.target.value
+                }))
+              }
+              className="w-full rounded-2xl border border-white/15 bg-slate-950/80 px-4 py-3 text-white outline-none"
+            >
+              <optgroup label="🇨🇳 普通话">
+                <option value="alloy">👩 晓晓 - 亲切女声 (推荐)</option>
+                <option value="nova">👩 晓伊 - 温柔女声</option>
+                <option value="fable">👨 云希 - 磁性男声</option>
+                <option value="echo">👨 云健 - 活力男声</option>
+              </optgroup>
+              <optgroup label="🇭🇰 粤语">
+                <option value="hk-male">👨 云龙 - 成熟男声</option>
+                <option value="hk-female-1">👩 晓佳 - 温柔女声</option>
+                <option value="hk-female-2">👩 晓曼 - 亲切女声</option>
+              </optgroup>
+              <optgroup label="🇺🇸 英语 (ElevenLabs)">
+                <option value="rachel">👩 Rachel - 温暖女声</option>
+                <option value="drew">👩 Drew - 成熟女声</option>
+                <option value="clara">👩 Clara - 柔和女声</option>
+                <option value="sarah">👩 Sarah - 自然女声</option>
+                <option value="paul">👨 Paul - 磁性男声</option>
+                <option value="josh">👨 Josh - 活力男声</option>
+                <option value="antoni">👨 Antoni - 温柔男声</option>
+                <option value="elliot">👨 Elliot - 年轻男声</option>
+                <option value="lily">👩 Lily - 中文女声</option>
+              </optgroup>
+            </select>
+          </div>
+          <div>
+            <label className="mb-2 block text-sm font-semibold text-white">🎭 DJ 情绪风格</label>
+            <select
+              value={settings.djEmotion || "normal"}
+              onChange={(event) =>
+                setSettings((current) => ({
+                  ...current,
+                  djEmotion: event.target.value
+                }))
+              }
+              className="w-full rounded-2xl border border-white/15 bg-slate-950/80 px-4 py-3 text-white outline-none"
+            >
+              <option value="normal">😐 正常 - 标准语调</option>
+              <option value="happy">😊 开心 - 欢快愉悦</option>
+              <option value="calm">😌 平静 - 放松舒缓</option>
+              <option value="excited">🤩 兴奋 - 充满活力</option>
+              <option value="sad">😢 悲伤 - 低沉温柔</option>
+              <option value="angry">😠 有力 - 激动有气势</option>
+              <option value="whisper">🤫 耳语 - 低声私密</option>
+              <option value="radio">📻 电台 - 专业主持风格</option>
+            </select>
+            <p className="mt-2 text-xs text-slate-400">
+              💡 情绪调整目前仅支持 ElevenLabs TTS Provider
+            </p>
+          </div>
         </div>
         <button className="rounded-full bg-white px-5 py-3 font-semibold text-slate-950 transition hover:scale-[1.02]">
           Save Settings

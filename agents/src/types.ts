@@ -1,4 +1,5 @@
 export type MoodOption = "Working" | "Relaxing" | "Exercising" | "Party" | "Sleepy";
+export type DJStyle = "classic" | "night" | "vibe" | "trivia";
 
 export interface Track {
   id: string;

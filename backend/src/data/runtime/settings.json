@@ -5,8 +5,8 @@
   "neteaseApiUrl": "",
   "openAiApiKey": "",
   "elevenLabsApiKey": "",
-  "defaultVoice": "alloy",
-  "defaultTtsProvider": "openai",
+  "defaultVoice": "nova",
+  "defaultTtsProvider": "edge",
   "preferredMusicSource": "auto",
   "localMusicPath": "/Users/gordon/Downloads/Music"
 }
