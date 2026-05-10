@@ -191,6 +191,12 @@ export async function scanMusicLibrary(force = false): Promise<Track[]> {
   return tracks;
 }
 
+// 根据 ID 获取本地歌曲
+export async function getLocalTrackById(id: string): Promise<Track | undefined> {
+  const library = await scanMusicLibrary();
+  return library.find((track) => track.id === id);
+}
+
 // 按 Mood 获取本地歌曲
 export async function getLocalTracksByMood(mood: MoodOption): Promise<Track[]> {
   const library = await scanMusicLibrary();

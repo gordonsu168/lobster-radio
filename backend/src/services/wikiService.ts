@@ -1,6 +1,8 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import type { Track } from "../types.js";
+import { fallbackCatalog } from "../data/fallbackCatalog.js";
+import { getLocalTrackById } from "./musicLibraryService.js";
 
 export interface SongWiki {
   id: string;
@@ -92,13 +94,39 @@ function generateDefaultWiki(track: Track): SongWiki {
 // 获取歌曲 Wiki
 export async function getSongWiki(songId: string): Promise<SongWiki | null> {
   const wiki = await loadWiki();
-  return wiki.songs[songId] || null;
+  if (wiki.songs[songId]) {
+    return wiki.songs[songId];
+  }
+
+  // 尝试在备用歌曲库中查找
+  const fallbackTrack = fallbackCatalog.find(t => t.id === songId);
+  if (fallbackTrack) {
+    const key = `${fallbackTrack.title} - ${fallbackTrack.artist}`.toLowerCase();
+    const existingWiki = Object.values(wiki.songs).find(s => `${s.title} - ${s.artist}`.toLowerCase() === key);
+    if (existingWiki) {
+      return existingWiki;
+    }
+    return generateDefaultWiki(fallbackTrack);
+  }
+
+  // 尝试在本地库中查找
+  const localTrack = await getLocalTrackById(songId);
+  if (localTrack) {
+    const key = `${localTrack.title} - ${localTrack.artist}`.toLowerCase();
+    const existingWiki = Object.values(wiki.songs).find(s => `${s.title} - ${s.artist}`.toLowerCase() === key);
+    if (existingWiki) {
+      return existingWiki;
+    }
+    return generateDefaultWiki(localTrack);
+  }
+
+  return null;
 }
 
 // 更新歌曲 Wiki
 export async function updateSongWiki(songId: string, data: Partial<SongWiki>): Promise<SongWiki> {
   const wiki = await loadWiki();
-  
+
   if (!wiki.songs[songId]) {
     wiki.songs[songId] = {
       id: songId,
@@ -113,7 +141,7 @@ export async function updateSongWiki(songId: string, data: Partial<SongWiki>): P
       ...data
     };
   }
-  
+
   await saveWiki(wiki);
   return wiki.songs[songId];
 }
@@ -122,14 +150,23 @@ export async function updateSongWiki(songId: string, data: Partial<SongWiki>): P
 export async function importSongsFromTracks(tracks: Track[]): Promise<void> {
   const wiki = await loadWiki();
   let imported = 0;
-  
+
+  // 用于去重的标题+艺术家集合
+  const existingKeys = new Set(
+    Object.values(wiki.songs).map(s => `${s.title} - ${s.artist}`.toLowerCase())
+  );
+
   for (const track of tracks) {
-    if (!wiki.songs[track.id]) {
+    const key = `${track.title} - ${track.artist}`.toLowerCase();
+
+    // 如果ID不存在，并且标题+艺术家组合也不存在
+    if (!wiki.songs[track.id] && !existingKeys.has(key)) {
       wiki.songs[track.id] = generateDefaultWiki(track);
+      existingKeys.add(key);
       imported++;
     }
   }
-  
+
   if (imported > 0) {
     await saveWiki(wiki);
     console.log(`Imported ${imported} songs into Wiki`);
