@@ -23,6 +23,7 @@ export interface Preferences {
   dislikes: string[];
   history: PlaybackHistoryItem[];
   moodAffinity: Record<string, number>;
+  memoryInsight?: string;
 }
 
 export interface RuntimeSettings {
