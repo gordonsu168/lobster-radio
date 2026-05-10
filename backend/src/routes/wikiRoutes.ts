@@ -92,8 +92,6 @@ wikiRouter.post("/chat/:id", async (req: Request, res: Response) => {
         ...vibeList,
         ...triviaList,
         ...funFactList.map(f => `告诉你个小秘密哦，${f}`),
-        `此时此刻，你在做什么呢？`,
-        `好的音乐，就应该和好朋友一起分享。`,
       ];
     }
     
@@ -101,8 +99,8 @@ wikiRouter.post("/chat/:id", async (req: Request, res: Response) => {
     if (allChats.length === 0) {
       allChats = [
         `${song.artist}的《${song.title}》，希望你喜欢。`,
-        `让音乐陪你度过美好的时光。`,
-        `龙虾电台，你的专属私人电台。`,
+        `接下来为您带来的是《${song.title}》。`,
+        `继续聆听，${song.artist}的《${song.title}》。`,
       ];
     }
     

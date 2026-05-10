@@ -5,11 +5,11 @@
   "dislikes": [],
   "history": [
     {
-      "id": "local-iKvnmoTkvaAubXAz",
-      "title": "特别的爱给特别的你",
+      "id": "local-vreW_g-aEvy5tcDM",
+      "title": "星语心愿",
       "artist": "未知艺术家",
       "album": "一人一首成名歌",
-      "previewUrl": "http://localhost:4000/api/library/stream/L1VzZXJzL2dvcmRvbi9Eb3dubG9hZHMvTXVzaWMvQ29tcGlsYXRpb25zL-S4gOS6uuS4gOmmluaIkOWQjeatjC8wNCDnibnliKvnmoTniLHnu5nnibnliKvnmoTkvaAubXAz",
+      "previewUrl": "http://localhost:4000/api/library/stream/L1VzZXJzL1NoYXJlZC9NdXNpYy9Db21waWxhdGlvbnMv5LiA5Lq65LiA6aaW5oiQ5ZCN5q2MLzExIOaYn-ivreW_g-aEvy5tcDM",
       "artwork": "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?auto=format&fit=crop&w=500&q=80",
       "moodTags": [
         "Working",
@@ -17,16 +17,33 @@
         "本地"
       ],
       "energy": 50,
-      "explanation": "来自你的本地音乐库：04 特别的爱给特别的你.mp3 Curated for working mode with context: Music recommendation based on mood",
+      "explanation": "来自你的本地音乐库：11 星语心愿.mp3 Curated for working mode with context: Music recommendation based on mood",
       "source": "local",
-      "playedAt": "2026-05-09T10:26:31.866Z"
+      "playedAt": "2026-05-10T06:09:17.958Z"
     },
     {
-      "id": "local-iKvnmoTkvaAubXAz",
-      "title": "特别的爱给特别的你",
+      "id": "local-wj-mbtuW6pi5tcDM",
+      "title": "摄氏零度",
+      "artist": "张敬轩",
+      "album": "Unknown Album",
+      "previewUrl": "http://localhost:4000/api/library/stream/L1VzZXJzL1NoYXJlZC9NdXNpYy9Vbmtub3duIEFydGlzdC9Vbmtub3duIEFsYnVtL-W8oOaVrOi9qSAtIOaRhOawj-mbtuW6pi5tcDM",
+      "artwork": "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?auto=format&fit=crop&w=500&q=80",
+      "moodTags": [
+        "Working",
+        "local",
+        "本地"
+      ],
+      "energy": 50,
+      "explanation": "来自你的本地音乐库：张敬轩 - 摄氏零度.mp3 Curated for working mode with context: Music recommendation based on mood",
+      "source": "local",
+      "playedAt": "2026-05-10T06:09:17.949Z"
+    },
+    {
+      "id": "local-6uuaDheatjC5tcDM",
+      "title": "浪人情歌",
       "artist": "未知艺术家",
       "album": "一人一首成名歌",
-      "previewUrl": "http://localhost:4000/api/library/stream/L1VzZXJzL2dvcmRvbi9Eb3dubG9hZHMvTXVzaWMvQ29tcGlsYXRpb25zL-S4gOS6uuS4gOmmluaIkOWQjeatjC8wNCDnibnliKvnmoTniLHnu5nnibnliKvnmoTkvaAubXAz",
+      "previewUrl": "http://localhost:4000/api/library/stream/L1VzZXJzL1NoYXJlZC9NdXNpYy9Db21waWxhdGlvbnMv5LiA5Lq65LiA6aaW5oiQ5ZCN5q2MLzA4IOa1quS6uuaDheatjC5tcDM",
       "artwork": "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?auto=format&fit=crop&w=500&q=80",
       "moodTags": [
         "Working",
@@ -34,16 +51,16 @@
         "本地"
       ],
       "energy": 50,
-      "explanation": "来自你的本地音乐库：04 特别的爱给特别的你.mp3 Curated for working mode with context: Music recommendation based on mood",
+      "explanation": "来自你的本地音乐库：08 浪人情歌.mp3 Curated for working mode with context: Music recommendation based on mood",
       "source": "local",
-      "playedAt": "2026-05-09T10:26:31.861Z"
+      "playedAt": "2026-05-10T06:06:12.754Z"
     },
     {
-      "id": "local-iKvnmoTkvaAubXAz",
-      "title": "特别的爱给特别的你",
+      "id": "local-dpeeni-WOuy5tcDM",
+      "title": "秋来秋去",
       "artist": "未知艺术家",
       "album": "一人一首成名歌",
-      "previewUrl": "http://localhost:4000/api/library/stream/L1VzZXJzL2dvcmRvbi9Eb3dubG9hZHMvTXVzaWMvQ29tcGlsYXRpb25zL-S4gOS6uuS4gOmmluaIkOWQjeatjC8wNCDnibnliKvnmoTniLHnu5nnibnliKvnmoTkvaAubXAz",
+      "previewUrl": "http://localhost:4000/api/library/stream/L1VzZXJzL1NoYXJlZC9NdXNpYy9Db21waWxhdGlvbnMv5LiA5Lq65LiA6aaW5oiQ5ZCN5q2ML-eni-adpeeni-WOuy5tcDM",
       "artwork": "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?auto=format&fit=crop&w=500&q=80",
       "moodTags": [
         "Working",
@@ -51,16 +68,16 @@
         "本地"
       ],
       "energy": 50,
-      "explanation": "来自你的本地音乐库：04 特别的爱给特别的你.mp3 Curated for working mode with context: Music recommendation based on mood",
+      "explanation": "来自你的本地音乐库：秋来秋去.mp3 Curated for working mode with context: Music recommendation based on mood",
       "source": "local",
-      "playedAt": "2026-05-09T10:26:17.620Z"
+      "playedAt": "2026-05-10T06:06:12.746Z"
     },
     {
-      "id": "local-iKvnmoTkvaAubXAz",
-      "title": "特别的爱给特别的你",
+      "id": "local-MDIgR2lybHMubXAz",
+      "title": "Girls",
       "artist": "未知艺术家",
-      "album": "一人一首成名歌",
-      "previewUrl": "http://localhost:4000/api/library/stream/L1VzZXJzL2dvcmRvbi9Eb3dubG9hZHMvTXVzaWMvQ29tcGlsYXRpb25zL-S4gOS6uuS4gOmmluaIkOWQjeatjC8wNCDnibnliKvnmoTniLHnu5nnibnliKvnmoTkvaAubXAz",
+      "album": "A Year To Remember",
+      "previewUrl": "http://localhost:4000/api/library/stream/L1VzZXJzL1NoYXJlZC9NdXNpYy9Cb3knei9BIFllYXIgVG8gUmVtZW1iZXIvMDIgR2lybHMubXAz",
       "artwork": "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?auto=format&fit=crop&w=500&q=80",
       "moodTags": [
         "Working",
@@ -68,16 +85,16 @@
         "本地"
       ],
       "energy": 50,
-      "explanation": "来自你的本地音乐库：04 特别的爱给特别的你.mp3 Curated for working mode with context: Music recommendation based on mood",
+      "explanation": "来自你的本地音乐库：02 Girls.mp3 Curated for working mode with context: Music recommendation based on mood",
       "source": "local",
-      "playedAt": "2026-05-09T10:26:17.559Z"
+      "playedAt": "2026-05-10T05:24:02.334Z"
     },
     {
-      "id": "local-iKvnmoTkvaAubXAz",
-      "title": "特别的爱给特别的你",
+      "id": "local-MDIgR2lybHMubXAz",
+      "title": "Girls",
       "artist": "未知艺术家",
-      "album": "一人一首成名歌",
-      "previewUrl": "http://localhost:4000/api/library/stream/L1VzZXJzL2dvcmRvbi9Eb3dubG9hZHMvTXVzaWMvQ29tcGlsYXRpb25zL-S4gOS6uuS4gOmmluaIkOWQjeatjC8wNCDnibnliKvnmoTniLHnu5nnibnliKvnmoTkvaAubXAz",
+      "album": "A Year To Remember",
+      "previewUrl": "http://localhost:4000/api/library/stream/L1VzZXJzL1NoYXJlZC9NdXNpYy9Cb3knei9BIFllYXIgVG8gUmVtZW1iZXIvMDIgR2lybHMubXAz",
       "artwork": "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?auto=format&fit=crop&w=500&q=80",
       "moodTags": [
         "Working",
@@ -85,84 +102,67 @@
         "本地"
       ],
       "energy": 50,
-      "explanation": "来自你的本地音乐库：04 特别的爱给特别的你.mp3 Curated for working mode with context: Music recommendation based on mood",
+      "explanation": "来自你的本地音乐库：02 Girls.mp3 Curated for working mode with context: Music recommendation based on mood",
       "source": "local",
-      "playedAt": "2026-05-09T10:26:17.548Z"
+      "playedAt": "2026-05-10T05:24:02.310Z"
     },
     {
-      "id": "local-iKvnmoTkvaAubXAz",
-      "title": "特别的爱给特别的你",
-      "artist": "未知艺术家",
-      "album": "一人一首成名歌",
-      "previewUrl": "http://localhost:4000/api/library/stream/L1VzZXJzL2dvcmRvbi9Eb3dubG9hZHMvTXVzaWMvQ29tcGlsYXRpb25zL-S4gOS6uuS4gOmmluaIkOWQjeatjC8wNCDnibnliKvnmoTniLHnu5nnibnliKvnmoTkvaAubXAz",
-      "artwork": "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?auto=format&fit=crop&w=500&q=80",
-      "moodTags": [
-        "Working",
-        "local",
-        "本地"
-      ],
-      "energy": 50,
-      "explanation": "来自你的本地音乐库：04 特别的爱给特别的你.mp3 Curated for working mode with context: Music recommendation based on mood",
-      "source": "local",
-      "playedAt": "2026-05-09T10:24:43.163Z"
-    },
-    {
-      "id": "local-iKvnmoTkvaAubXAz",
-      "title": "特别的爱给特别的你",
-      "artist": "未知艺术家",
-      "album": "一人一首成名歌",
-      "previewUrl": "http://localhost:4000/api/library/stream/L1VzZXJzL2dvcmRvbi9Eb3dubG9hZHMvTXVzaWMvQ29tcGlsYXRpb25zL-S4gOS6uuS4gOmmluaIkOWQjeatjC8wNCDnibnliKvnmoTniLHnu5nnibnliKvnmoTkvaAubXAz",
-      "artwork": "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?auto=format&fit=crop&w=500&q=80",
-      "moodTags": [
-        "Working",
-        "local",
-        "本地"
-      ],
-      "energy": 50,
-      "explanation": "来自你的本地音乐库：04 特别的爱给特别的你.mp3 Curated for working mode with context: Music recommendation based on mood",
-      "source": "local",
-      "playedAt": "2026-05-09T10:24:37.008Z"
-    },
-    {
-      "id": "local-iKvnmoTkvaAubXAz",
-      "title": "特别的爱给特别的你",
-      "artist": "未知艺术家",
-      "album": "一人一首成名歌",
-      "previewUrl": "http://localhost:4000/api/library/stream/L1VzZXJzL2dvcmRvbi9Eb3dubG9hZHMvTXVzaWMvQ29tcGlsYXRpb25zL-S4gOS6uuS4gOmmluaIkOWQjeatjC8wNCDnibnliKvnmoTniLHnu5nnibnliKvnmoTkvaAubXAz",
-      "artwork": "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?auto=format&fit=crop&w=500&q=80",
-      "moodTags": [
-        "Working",
-        "local",
-        "本地"
-      ],
-      "energy": 50,
-      "explanation": "来自你的本地音乐库：04 特别的爱给特别的你.mp3 Curated for working mode with context: Music recommendation based on mood",
-      "source": "local",
-      "playedAt": "2026-05-09T10:24:19.756Z"
-    },
-    {
-      "id": "local-iKvnmoTkvaAubXAz",
-      "title": "特别的爱给特别的你",
-      "artist": "未知艺术家",
-      "album": "一人一首成名歌",
-      "previewUrl": "http://localhost:4000/api/library/stream/L1VzZXJzL2dvcmRvbi9Eb3dubG9hZHMvTXVzaWMvQ29tcGlsYXRpb25zL-S4gOS6uuS4gOmmluaIkOWQjeatjC8wNCDnibnliKvnmoTniLHnu5nnibnliKvnmoTkvaAubXAz",
-      "artwork": "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?auto=format&fit=crop&w=500&q=80",
-      "moodTags": [
-        "Working",
-        "local",
-        "本地"
-      ],
-      "energy": 50,
-      "explanation": "来自你的本地音乐库：04 特别的爱给特别的你.mp3 Curated for working mode with context: Music recommendation based on mood",
-      "source": "local",
-      "playedAt": "2026-05-09T10:24:08.527Z"
-    },
-    {
-      "id": "local-MyDmnInkuroubXAz",
+      "id": "local-zIOacieS6ui5tcDM",
       "title": "有人",
       "artist": "未知艺术家",
       "album": "On The Road",
-      "previewUrl": "http://localhost:4000/api/library/stream/L1VzZXJzL2dvcmRvbi9Eb3dubG9hZHMvTXVzaWMvQcyCb8yBwr_Co0HMgXXMgS9PbiBUaGUgUm9hZC8wMyDmnInkuroubXAz",
+      "previewUrl": "http://localhost:4000/api/library/stream/L1VzZXJzL1NoYXJlZC9NdXNpYy9BzIJvzIHCv8KjQcyBdcyBL09uIFRoZSBSb2FkLzAzIOacieS6ui5tcDM",
+      "artwork": "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?auto=format&fit=crop&w=500&q=80",
+      "moodTags": [
+        "Relaxing",
+        "local",
+        "本地"
+      ],
+      "energy": 50,
+      "explanation": "来自你的本地音乐库：03 有人.mp3 Curated for relaxing mode with context: Music recommendation based on mood",
+      "source": "local",
+      "playedAt": "2026-05-09T16:37:36.054Z"
+    },
+    {
+      "id": "local-MDIgR2lybHMubXAz",
+      "title": "Girls",
+      "artist": "未知艺术家",
+      "album": "A Year To Remember",
+      "previewUrl": "http://localhost:4000/api/library/stream/L1VzZXJzL1NoYXJlZC9NdXNpYy9Cb3knei9BIFllYXIgVG8gUmVtZW1iZXIvMDIgR2lybHMubXAz",
+      "artwork": "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?auto=format&fit=crop&w=500&q=80",
+      "moodTags": [
+        "Relaxing",
+        "local",
+        "本地"
+      ],
+      "energy": 50,
+      "explanation": "来自你的本地音乐库：02 Girls.mp3 Curated for relaxing mode with context: Music recommendation based on mood",
+      "source": "local",
+      "playedAt": "2026-05-09T16:00:47.725Z"
+    },
+    {
+      "id": "fallback-3",
+      "title": "Titanium",
+      "artist": "David Guetta ft. Sia",
+      "album": "Nothing but the Beat",
+      "previewUrl": null,
+      "artwork": "https://images.unsplash.com/photo-1511379938547-c1f69419868d?auto=format&fit=crop&w=500&q=80",
+      "moodTags": [
+        "Exercising",
+        "Party",
+        "power"
+      ],
+      "energy": 94,
+      "explanation": "A big-room surge that pushes pace upward when momentum matters. Curated for exercising mode with context: Music recommendation based on mood",
+      "source": "fallback",
+      "playedAt": "2026-05-09T16:00:46.038Z"
+    },
+    {
+      "id": "local-zIOacieS6ui5tcDM",
+      "title": "有人",
+      "artist": "未知艺术家",
+      "album": "On The Road",
+      "previewUrl": "http://localhost:4000/api/library/stream/L1VzZXJzL1NoYXJlZC9NdXNpYy9BzIJvzIHCv8KjQcyBdcyBL09uIFRoZSBSb2FkLzAzIOacieS6ui5tcDM",
       "artwork": "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?auto=format&fit=crop&w=500&q=80",
       "moodTags": [
         "Working",
@@ -172,14 +172,14 @@
       "energy": 50,
       "explanation": "来自你的本地音乐库：03 有人.mp3 Curated for working mode with context: Music recommendation based on mood",
       "source": "local",
-      "playedAt": "2026-05-09T10:20:50.720Z"
+      "playedAt": "2026-05-09T16:00:42.585Z"
     },
     {
-      "id": "local-MyDmnInkuroubXAz",
+      "id": "local-zIOacieS6ui5tcDM",
       "title": "有人",
       "artist": "未知艺术家",
       "album": "On The Road",
-      "previewUrl": "http://localhost:4000/api/library/stream/L1VzZXJzL2dvcmRvbi9Eb3dubG9hZHMvTXVzaWMvQcyCb8yBwr_Co0HMgXXMgS9PbiBUaGUgUm9hZC8wMyDmnInkuroubXAz",
+      "previewUrl": "http://localhost:4000/api/library/stream/L1VzZXJzL1NoYXJlZC9NdXNpYy9BzIJvzIHCv8KjQcyBdcyBL09uIFRoZSBSb2FkLzAzIOacieS6ui5tcDM",
       "artwork": "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?auto=format&fit=crop&w=500&q=80",
       "moodTags": [
         "Working",
@@ -189,14 +189,14 @@
       "energy": 50,
       "explanation": "来自你的本地音乐库：03 有人.mp3 Curated for working mode with context: Music recommendation based on mood",
       "source": "local",
-      "playedAt": "2026-05-09T10:20:50.667Z"
+      "playedAt": "2026-05-09T16:00:41.243Z"
     },
     {
-      "id": "local-MyDmnInkuroubXAz",
+      "id": "local-zIOacieS6ui5tcDM",
       "title": "有人",
       "artist": "未知艺术家",
       "album": "On The Road",
-      "previewUrl": "http://localhost:4000/api/library/stream/L1VzZXJzL2dvcmRvbi9Eb3dubG9hZHMvTXVzaWMvQcyCb8yBwr_Co0HMgXXMgS9PbiBUaGUgUm9hZC8wMyDmnInkuroubXAz",
+      "previewUrl": "http://localhost:4000/api/library/stream/L1VzZXJzL1NoYXJlZC9NdXNpYy9BzIJvzIHCv8KjQcyBdcyBL09uIFRoZSBSb2FkLzAzIOacieS6ui5tcDM",
       "artwork": "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?auto=format&fit=crop&w=500&q=80",
       "moodTags": [
         "Working",
@@ -206,14 +206,14 @@
       "energy": 50,
       "explanation": "来自你的本地音乐库：03 有人.mp3 Curated for working mode with context: Music recommendation based on mood",
       "source": "local",
-      "playedAt": "2026-05-09T10:20:50.662Z"
+      "playedAt": "2026-05-09T15:59:46.074Z"
     },
     {
-      "id": "local-MyDmnInkuroubXAz",
+      "id": "local-zIOacieS6ui5tcDM",
       "title": "有人",
       "artist": "未知艺术家",
       "album": "On The Road",
-      "previewUrl": "http://localhost:4000/api/library/stream/L1VzZXJzL2dvcmRvbi9Eb3dubG9hZHMvTXVzaWMvQcyCb8yBwr_Co0HMgXXMgS9PbiBUaGUgUm9hZC8wMyDmnInkuroubXAz",
+      "previewUrl": "http://localhost:4000/api/library/stream/L1VzZXJzL1NoYXJlZC9NdXNpYy9BzIJvzIHCv8KjQcyBdcyBL09uIFRoZSBSb2FkLzAzIOacieS6ui5tcDM",
       "artwork": "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?auto=format&fit=crop&w=500&q=80",
       "moodTags": [
         "Working",
@@ -223,126 +223,126 @@
       "energy": 50,
       "explanation": "来自你的本地音乐库：03 有人.mp3 Curated for working mode with context: Music recommendation based on mood",
       "source": "local",
-      "playedAt": "2026-05-09T10:20:17.236Z"
+      "playedAt": "2026-05-09T15:59:46.065Z"
     },
     {
-      "id": "local-MyDmnInkuroubXAz",
-      "title": "有人",
-      "artist": "未知艺术家",
-      "album": "On The Road",
-      "previewUrl": "http://localhost:4000/api/library/stream/L1VzZXJzL2dvcmRvbi9Eb3dubG9hZHMvTXVzaWMvQcyCb8yBwr_Co0HMgXXMgS9PbiBUaGUgUm9hZC8wMyDmnInkuroubXAz",
-      "artwork": "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?auto=format&fit=crop&w=500&q=80",
+      "id": "fallback-6",
+      "title": "Run Boy Run",
+      "artist": "Woodkid",
+      "album": "The Golden Age",
+      "previewUrl": null,
+      "artwork": "https://images.unsplash.com/photo-1501386761578-eac5c94b800a?auto=format&fit=crop&w=500&q=80",
       "moodTags": [
+        "Exercising",
         "Working",
-        "local",
-        "本地"
+        "cinematic"
       ],
-      "energy": 50,
-      "explanation": "来自你的本地音乐库：03 有人.mp3 Curated for working mode with context: Music recommendation based on mood",
-      "source": "local",
-      "playedAt": "2026-05-09T10:20:09.472Z"
+      "energy": 88,
+      "explanation": "Percussive drive and cinematic urgency keep the pulse high. Curated for working mode with context: Music recommendation based on mood",
+      "source": "fallback",
+      "playedAt": "2026-05-09T15:57:22.900Z"
     },
     {
-      "id": "local-MyDmnInkuroubXAz",
-      "title": "有人",
-      "artist": "未知艺术家",
-      "album": "On The Road",
-      "previewUrl": "http://localhost:4000/api/library/stream/L1VzZXJzL2dvcmRvbi9Eb3dubG9hZHMvTXVzaWMvQcyCb8yBwr_Co0HMgXXMgS9PbiBUaGUgUm9hZC8wMyDmnInkuroubXAz",
-      "artwork": "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?auto=format&fit=crop&w=500&q=80",
+      "id": "fallback-6",
+      "title": "Run Boy Run",
+      "artist": "Woodkid",
+      "album": "The Golden Age",
+      "previewUrl": null,
+      "artwork": "https://images.unsplash.com/photo-1501386761578-eac5c94b800a?auto=format&fit=crop&w=500&q=80",
       "moodTags": [
+        "Exercising",
         "Working",
-        "local",
-        "本地"
+        "cinematic"
       ],
-      "energy": 50,
-      "explanation": "来自你的本地音乐库：03 有人.mp3 Curated for working mode with context: Music recommendation based on mood",
-      "source": "local",
-      "playedAt": "2026-05-09T10:20:02.472Z"
+      "energy": 88,
+      "explanation": "Percussive drive and cinematic urgency keep the pulse high. Curated for working mode with context: Music recommendation based on mood",
+      "source": "fallback",
+      "playedAt": "2026-05-09T15:57:22.893Z"
     },
     {
-      "id": "local-MyDmnInkuroubXAz",
-      "title": "有人",
-      "artist": "未知艺术家",
-      "album": "On The Road",
-      "previewUrl": "http://localhost:4000/api/library/stream/L1VzZXJzL2dvcmRvbi9Eb3dubG9hZHMvTXVzaWMvQcyCb8yBwr_Co0HMgXXMgS9PbiBUaGUgUm9hZC8wMyDmnInkuroubXAz",
-      "artwork": "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?auto=format&fit=crop&w=500&q=80",
+      "id": "netease-buildin-10",
+      "title": "卡路里",
+      "artist": "火箭少女101",
+      "album": "西虹市首富",
+      "previewUrl": null,
+      "artwork": "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=500&q=80",
       "moodTags": [
-        "Working",
-        "local",
-        "本地"
+        "Party",
+        "欢快",
+        "抖音"
       ],
-      "energy": 50,
-      "explanation": "来自你的本地音乐库：03 有人.mp3 Curated for working mode with context: Music recommendation based on mood",
-      "source": "local",
-      "playedAt": "2026-05-09T10:19:50.236Z"
+      "energy": 95,
+      "explanation": "燃烧我的卡路里！派对必备神曲。 Curated for party mode with context: Music recommendation based on mood",
+      "source": "netease",
+      "playedAt": "2026-05-09T15:56:56.898Z"
     },
     {
-      "id": "local-MyDmnInkuroubXAz",
-      "title": "有人",
-      "artist": "未知艺术家",
-      "album": "On The Road",
-      "previewUrl": "http://localhost:4000/api/library/stream/L1VzZXJzL2dvcmRvbi9Eb3dubG9hZHMvTXVzaWMvQcyCb8yBwr_Co0HMgXXMgS9PbiBUaGUgUm9hZC8wMyDmnInkuroubXAz",
-      "artwork": "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?auto=format&fit=crop&w=500&q=80",
+      "id": "netease-buildin-5",
+      "title": "晴天",
+      "artist": "周杰伦",
+      "album": "叶惠美",
+      "previewUrl": null,
+      "artwork": "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?auto=format&fit=crop&w=500&q=80",
       "moodTags": [
-        "Working",
-        "local",
-        "本地"
+        "Relaxing",
+        "怀旧",
+        "流行"
       ],
-      "energy": 50,
-      "explanation": "来自你的本地音乐库：03 有人.mp3 Curated for working mode with context: Music recommendation based on mood",
-      "source": "local",
-      "playedAt": "2026-05-09T10:19:42.773Z"
+      "energy": 65,
+      "explanation": "周董的经典，回忆青春的味道。 Curated for relaxing mode with context: Music recommendation based on mood",
+      "source": "netease",
+      "playedAt": "2026-05-09T15:56:50.964Z"
     },
     {
-      "id": "local-MyDmnInkuroubXAz",
-      "title": "有人",
-      "artist": "未知艺术家",
-      "album": "On The Road",
-      "previewUrl": "http://localhost:4000/api/library/stream/L1VzZXJzL2dvcmRvbi9Eb3dubG9hZHMvTXVzaWMvQcyCb8yBwr_Co0HMgXXMgS9PbiBUaGUgUm9hZC8wMyDmnInkuroubXAz",
-      "artwork": "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?auto=format&fit=crop&w=500&q=80",
+      "id": "fallback-6",
+      "title": "Run Boy Run",
+      "artist": "Woodkid",
+      "album": "The Golden Age",
+      "previewUrl": null,
+      "artwork": "https://images.unsplash.com/photo-1501386761578-eac5c94b800a?auto=format&fit=crop&w=500&q=80",
       "moodTags": [
+        "Exercising",
         "Working",
-        "local",
-        "本地"
+        "cinematic"
       ],
-      "energy": 50,
-      "explanation": "来自你的本地音乐库：03 有人.mp3 Curated for working mode with context: Music recommendation based on mood",
-      "source": "local",
-      "playedAt": "2026-05-09T10:19:30.073Z"
+      "energy": 88,
+      "explanation": "Percussive drive and cinematic urgency keep the pulse high. Curated for working mode with context: Music recommendation based on mood",
+      "source": "fallback",
+      "playedAt": "2026-05-09T15:56:21.035Z"
     },
     {
-      "id": "local-MyDmnInkuroubXAz",
-      "title": "有人",
-      "artist": "未知艺术家",
-      "album": "On The Road",
-      "previewUrl": "http://localhost:4000/api/library/stream/L1VzZXJzL2dvcmRvbi9Eb3dubG9hZHMvTXVzaWMvQcyCb8yBwr_Co0HMgXXMgS9PbiBUaGUgUm9hZC8wMyDmnInkuroubXAz",
-      "artwork": "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?auto=format&fit=crop&w=500&q=80",
+      "id": "fallback-6",
+      "title": "Run Boy Run",
+      "artist": "Woodkid",
+      "album": "The Golden Age",
+      "previewUrl": null,
+      "artwork": "https://images.unsplash.com/photo-1501386761578-eac5c94b800a?auto=format&fit=crop&w=500&q=80",
       "moodTags": [
+        "Exercising",
         "Working",
-        "local",
-        "本地"
+        "cinematic"
       ],
-      "energy": 50,
-      "explanation": "来自你的本地音乐库：03 有人.mp3 Curated for working mode with context: Music recommendation based on mood",
-      "source": "local",
-      "playedAt": "2026-05-09T10:18:12.793Z"
+      "energy": 88,
+      "explanation": "Percussive drive and cinematic urgency keep the pulse high. Curated for working mode with context: Music recommendation based on mood",
+      "source": "fallback",
+      "playedAt": "2026-05-09T15:56:16.607Z"
     },
     {
-      "id": "local-MyDmnInkuroubXAz",
-      "title": "有人",
-      "artist": "未知艺术家",
-      "album": "On The Road",
-      "previewUrl": "http://localhost:4000/api/library/stream/L1VzZXJzL2dvcmRvbi9Eb3dubG9hZHMvTXVzaWMvQcyCb8yBwr_Co0HMgXXMgS9PbiBUaGUgUm9hZC8wMyDmnInkuroubXAz",
-      "artwork": "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?auto=format&fit=crop&w=500&q=80",
+      "id": "netease-buildin-10",
+      "title": "卡路里",
+      "artist": "火箭少女101",
+      "album": "西虹市首富",
+      "previewUrl": null,
+      "artwork": "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=500&q=80",
       "moodTags": [
-        "Working",
-        "local",
-        "本地"
+        "Party",
+        "欢快",
+        "抖音"
       ],
-      "energy": 50,
-      "explanation": "来自你的本地音乐库：03 有人.mp3 Curated for working mode with context: Music recommendation based on mood",
-      "source": "local",
-      "playedAt": "2026-05-09T10:18:12.721Z"
+      "energy": 95,
+      "explanation": "燃烧我的卡路里！派对必备神曲。 Curated for party mode with context: Music recommendation based on mood",
+      "source": "netease",
+      "playedAt": "2026-05-09T15:53:28.932Z"
     }
   ],
   "moodAffinity": {
