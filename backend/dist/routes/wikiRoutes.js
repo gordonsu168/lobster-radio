@@ -81,16 +81,14 @@ wikiRouter.post("/chat/:id", async (req, res) => {
                 ...vibeList,
                 ...triviaList,
                 ...funFactList.map(f => `告诉你个小秘密哦，${f}`),
-                `此时此刻，你在做什么呢？`,
-                `好的音乐，就应该和好朋友一起分享。`,
             ];
         }
         // 如果没有素材，用默认模板
         if (allChats.length === 0) {
             allChats = [
                 `${song.artist}的《${song.title}》，希望你喜欢。`,
-                `让音乐陪你度过美好的时光。`,
-                `龙虾电台，你的专属私人电台。`,
+                `接下来为您带来的是《${song.title}》。`,
+                `继续聆听，${song.artist}的《${song.title}》。`,
             ];
         }
         // 随机选一条
@@ -110,15 +108,15 @@ wikiRouter.post("/chat/:id", async (req, res) => {
 // 生成旁白
 wikiRouter.post("/narration/:id", async (req, res) => {
     try {
-        const { style } = req.body;
+        const { style, language } = req.body;
         const song = await getSongWiki(req.params.id);
         if (!song) {
             res.status(404).json({ error: "Song not found" });
             return;
         }
         const narration = style
-            ? generateNarration(song, style)
-            : generateRandomNarration(song);
+            ? generateNarration(song, style, language)
+            : generateRandomNarration(song, language);
         res.json({
             songId: song.id,
             title: song.title,
@@ -133,7 +131,7 @@ wikiRouter.post("/narration/:id", async (req, res) => {
 // 批量生成旁白
 wikiRouter.post("/narration/batch", async (req, res) => {
     try {
-        const { songIds, style } = req.body;
+        const { songIds, style, language } = req.body;
         const results = [];
         for (const id of songIds) {
             const song = await getSongWiki(id);
@@ -141,7 +139,7 @@ wikiRouter.post("/narration/batch", async (req, res) => {
                 results.push({
                     songId: song.id,
                     title: song.title,
-                    narration: style ? generateNarration(song, style) : generateRandomNarration(song)
+                    narration: style ? generateNarration(song, style, language) : generateRandomNarration(song, language)
                 });
             }
         }

@@ -1,4 +1,5 @@
-import { LearningAgent, MoodAnalyzerAgent, MusicCuratorAgent, NarratorAgent } from "lobster-radio-agents";
+import { LearningAgent, MusicCuratorAgent, } from "lobster-radio-agents";
+import { generateNarration } from "./narrationGenerator.js";
 import { fallbackCatalog } from "../data/fallbackCatalog.js";
 import { getPreferences, savePreferences } from "./storageService.js";
 import { searchTracksByMood as searchSpotify } from "./spotifyService.js";
@@ -52,17 +53,13 @@ function scoreTracks(tracks, preferences, mood, preferredSource) {
         .sort((a, b) => b.score - a.score)
         .map(({ track }) => track);
 }
-export async function buildRecommendations(mood) {
+export async function buildRecommendations(mood, style = "classic", language) {
     const preferences = await getPreferences();
     const secrets = await resolveRuntimeSecrets();
-    const moodAnalyzer = new MoodAnalyzerAgent();
     const musicCurator = new MusicCuratorAgent();
-    const narrator = new NarratorAgent();
-    const context = await moodAnalyzer.analyze({
-        selectedMood: mood,
-        timeOfDay: getTimeSegment(),
-        weatherApiKey: secrets.weatherApiKey
-    });
+    // 使用传入的语言参数，如果没有则使用设置中的语言
+    const djLanguage = (language || secrets.djLanguage);
+    console.log(`🌐 buildRecommendations - 传入语言: ${language}, 设置语言: ${secrets.djLanguage}, 最终语言: ${djLanguage}`);
     // 多源音乐搜索：本地音乐优先
     const localTracks = await getLocalTracksByMood(mood);
     const neteaseTracks = await searchNetEase(mood);
@@ -85,17 +82,14 @@ export async function buildRecommendations(mood) {
     const ranked = scoreTracks([...sourceTracks, ...backup], preferences, mood, secrets.preferredMusicSource);
     const curated = await musicCurator.curate({
         mood,
-        contextSummary: context.summary,
+        contextSummary: "Music recommendation based on mood",
         candidateTracks: ranked,
         preferences
     });
     const selectedTrack = curated[0] || backup[0];
-    const narration = await narrator.generate({
-        mood,
-        contextSummary: context.summary,
-        track: selectedTrack,
-        history: preferences.history.slice(0, 5)
-    });
+    console.log(`🎵 生成旁白 - 歌曲: ${selectedTrack.title}, 风格: ${style}, 语言: ${djLanguage}`);
+    const narration = generateNarration(selectedTrack, style, djLanguage);
+    console.log(`🎙️ 生成的旁白: ${narration}`);
     const historyEntry = {
         ...selectedTrack,
         playedAt: new Date().toISOString()
@@ -107,7 +101,7 @@ export async function buildRecommendations(mood) {
     });
     return {
         mood,
-        contextSummary: context.summary,
+        contextSummary: "Lobster Radio recommendation",
         narration,
         tracks: curated,
         selectedTrack: selectedTrack
