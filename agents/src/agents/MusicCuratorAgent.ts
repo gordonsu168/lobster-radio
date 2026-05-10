@@ -21,15 +21,26 @@ export class MusicCuratorAgent {
       return true;
     });
 
-    return filtered
-      .sort((a, b) => {
-        const aLiked = input.preferences.likes.includes(a.id) ? 1 : 0;
-        const bLiked = input.preferences.likes.includes(b.id) ? 1 : 0;
-        const aDisliked = input.preferences.dislikes.includes(a.id) ? 1 : 0;
-        const bDisliked = input.preferences.dislikes.includes(b.id) ? 1 : 0;
-        return bLiked - aLiked || aDisliked - bDisliked || b.energy - a.energy;
-      })
-      .slice(0, 20) // 🎵 增加到 20 首歌！
+    const scoredTracks = filtered.map((track) => {
+      let score = 0;
+
+      if (input.preferences.likes.includes(track.id)) score += 100;
+      if (input.preferences.dislikes.includes(track.id)) score -= 100;
+
+      score += track.energy;
+
+      const inHistory = input.preferences.history?.some((h) => h.id === track.id) ?? false;
+      if (inHistory) score -= 50;
+
+      score += Math.random() * 10;
+
+      return { track, score };
+    });
+
+    return scoredTracks
+      .sort((a, b) => b.score - a.score)
+      .map((item) => item.track)
+      .slice(0, 20)
       .map((track) => ({
         ...track,
         explanation: `${track.explanation} Curated for ${input.mood.toLowerCase()} mode with context: ${input.contextSummary}`
