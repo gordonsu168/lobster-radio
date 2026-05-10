@@ -35,4 +35,14 @@ describe('NarratorAgent Prompts', () => {
     expect(agent.getSystemPrompt('vibe', 'en-US')).toContain('cultural impact');
     expect(agent.getSystemPrompt('trivia', 'en-US')).toContain('recording process');
   });
+
+  it('should return longer fallbacks (2-3 sentences)', () => {
+    const agent = new NarratorAgent() as unknown as { getFallbackTemplate: Function };
+    const track = { title: 'Test', artist: 'Tester', album: 'Album' } as any;
+    const classicFallback = agent.getFallbackTemplate(track, 'classic', 'en-US');
+    const sentences = classicFallback.split(/[.!?。！？]+/).filter((s: string) => s.trim().length > 0);
+    expect(sentences.length).toBeGreaterThanOrEqual(2);
+    // Spot check one of the new profound generic sentences
+    expect(agent.getFallbackTemplate(track, 'night', 'en-US')).toMatch(/(mood|unwind|melody|atmosphere|conversation|soul|dreams|friend|peaceful|quiet)/i);
+  });
 });

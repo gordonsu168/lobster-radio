@@ -39,77 +39,77 @@ export class NarratorAgent {
     const templates = {
       "zh-HK": {
         classic: [
-          `欢迎返到龙虾电台，而家为你送上嘅系${track.artist}嘅《${track.title}》，收录喺大碟《${track.album}》入面，希望你钟意。`,
-          `正在锁定龙虾电台，而家播紧嘅系${track.artist}嘅《${track.title}》，一齐嚟欣赏啦。`,
-          `呢度系龙虾电台，接下来呢首歌，${track.artist}嘅《${track.title}》，希望可以陪你度过呢段美好时光。`,
-          `${track.artist}嘅《${track.title}》，收录喺《${track.album}》入面，希望呢首歌可以陪住你。`,
+          `欢迎返到龙虾电台，而家为你送上嘅系${track.artist}嘅《${track.title}》。呢首歌收录喺大碟《${track.album}》入面，见证住佢地音乐旅程上嘅一个重要时刻。希望呢把熟悉嘅声音可以唤起你心底嘅共鸣。`,
+          `正在锁定龙虾电台，而家播紧嘅系${track.artist}嘅《${track.title}》。一首经典嘅好歌，往往可以带我地穿越时空，返到最纯粹嘅一刻。一齐嚟用心欣赏啦。`,
+          `继续留喺龙虾电台，而家送出${track.artist}嘅代表作《${track.title}》。收录喺《${track.album}》里面嘅呢首歌，绝对系当时乐坛嘅一大突破。由得音乐慢慢带出当时嘅回忆。`,
+          `听紧龙虾电台嘅你，准备好迎接呢首经典未？${track.artist}主唱嘅《${track.title}》，真系百听不厌。用心去感受每一个音符带嚟嘅感动。`
         ],
         night: [
-          `夜阑人静，等${track.artist}嘅《${track.title}》陪你度过呢个安静嘅夜晚。`,
-          `而家系深夜时分，听听${track.artist}嘅《${track.title}》，好衬而家嘅心情。`,
-          `夜啦，有歌陪你。${track.artist}嘅《${track.title}》，送俾夜猫子嘅你。`,
-          `呢个夜晚，等《${track.title}》嘅旋律陪你放松一下。`,
+          `夜阑人静，等${track.artist}嘅《${track.title}》陪你度过呢个安静嘅夜晚。旋律当中流露嘅细腻情感，好啱而家静落嚟嘅心情。由得音乐带走全日嘅疲惫啦。`,
+          `而家系深夜时分，听听${track.artist}嘅《${track.title}》。每一个音符都仿佛喺度同夜空对话，安抚住每一颗未瞓嘅心。送俾夜猫子嘅你。`,
+          `夜阑人静嘅时候，最啱听${track.artist}嘅《${track.title}》。呢首歌就好似一位老朋友，喺耳边细细声同你诉说心事。愿你有个好梦。`,
+          `喺呢个宁静嘅夜空下，由${track.artist}同佢嘅《${track.title}》陪伴你。抛开日间嘅烦恼，畀自己一个彻底放松嘅时刻。晚安。`
         ],
         vibe: [
-          `嚟啦嚟啦！就系而家！${track.artist}嘅《${track.title}》，跟住节奏一齐郁！`,
-          `各位朋友！准备好未！${track.artist}嘅《${track.title}》，俾啲反应！`,
-          `Let's go！接下来呢首歌你实识唱！${track.artist}嘅《${track.title}》！`,
-          `就系呢个感觉！${track.artist}嘅《${track.title}》，一齐嚟啦！`,
+          `嚟啦嚟啦！就系而家！${track.artist}嘅《${track.title}》！呢首歌嘅节奏同编曲真系无得顶，绝对系带动气氛嘅绝佳之作。跟住节奏一齐郁啦！`,
+          `各位朋友！准备好未！${track.artist}嘅《${track.title}》准备炸爆你嘅喇叭。呢种充满能量嘅音乐风格，就系我地而家最需要嘅感觉！`,
+          `全场最High嘅时刻到啦！${track.artist}带嚟呢首《${track.title}》绝对可以令你热血沸腾。放开手脚，跟住强劲嘅节拍尽情狂欢啦！`,
+          `你准备好迎接呢股强烈嘅音浪未？${track.artist}嘅《${track.title}》一出，边个可以抵挡得住呢种魅力！将音量开到最大，感受呢份无与伦比嘅震撼！`
         ],
         trivia: [
-          `你知唔知？${track.artist}嘅《${track.title}》收录喺《${track.album}》呢张大碟入面，几得意下？`,
-          `讲个冷知识俾你听，《${track.title}》系${track.artist}嘅代表作之一，估唔到吧？`,
-          `同你分享下，《${track.title}》呢首歌出自${track.artist}嘅专辑《${track.album}》。学到嘢啦！`,
+          `同你分享一个细节，${track.artist}嘅《${track.title}》其实蕴含住好多精心设计嘅音乐元素。这首歌收录喺《${track.album}》入面，绝对值得你细细品味。试下听埋背景入面嘅层次感啦。`,
+          `考下你啦，${track.artist}嘅《${track.title}》背后原来有个不为人知嘅故事。当年录音嗰阵，佢哋加入咗一啲特别嘅声效。下次听嗰阵不妨留意下。`,
+          `关于${track.artist}呢首《${track.title}》，有个好有趣嘅冷知识。原来首歌嘅创作灵感系源自一个偶然嘅机遇。音乐世界真系充满惊喜。`
         ]
       },
       "zh-CN": {
         classic: [
-          `欢迎回到龙虾电台，现在为你送上的是${track.artist}的《${track.title}》，收录在专辑《${track.album}》中，希望你喜欢。`,
-          `正在收听龙虾电台，现在播放的是${track.artist}的《${track.title}》，一起来欣赏吧。`,
-          `这里是龙虾电台，接下来这首歌，${track.artist}的《${track.title}》，希望能陪你度过这段美好时光。`,
-          `${track.artist}的《${track.title}》，收录在《${track.album}》中，希望这首歌能陪伴你。`,
+          `欢迎回到龙虾电台，现在为你送上的是${track.artist}的《${track.title}》。这首歌收录在专辑《${track.album}》中，见证了他们音乐旅程上的一个重要时刻。希望这熟悉的声音能唤起你心底的共鸣。`,
+          `正在收听龙虾电台，现在播放的是${track.artist}的《${track.title}》。一首经典的好歌，往往能带我们穿越时空，回到最纯粹的那一刻。一起来用心欣赏吧。`,
+          `继续留在龙虾电台，现在送出${track.artist}的代表作《${track.title}》。收录在《${track.album}》里的这首歌，绝对是当时乐坛的一大突破。让音乐慢慢带出当时的回忆。`,
+          `听着龙虾电台的你，准备好迎接这首经典了吗？${track.artist}主唱的《${track.title}》，真是百听不厌。用心去感受每一个音符带来的感动。`
         ],
         night: [
-          `夜深人静，让${track.artist}的《${track.title}》陪你度过这个安静的夜晚。`,
-          `现在是深夜时分，听听${track.artist}的《${track.title}》，很适合现在的心情。`,
-          `夜了，有歌陪你。${track.artist}的《${track.title}》，送给夜猫子的你。`,
-          `这个夜晚，让《${track.title}》的旋律陪你放松一下。`,
+          `夜深人静，让${track.artist}的《${track.title}》陪你度过这个安静的夜晚。旋律中流露的细腻情感，很适合现在平静的心情。让音乐带走一天的疲惫吧。`,
+          `现在是深夜时分，听听${track.artist}的《${track.title}》。每一个音符都仿佛在与夜空对话，安抚着每一颗未眠的心。送给夜猫子的你。`,
+          `夜深人静的时候，最适合听${track.artist}的《${track.title}》。这首歌就像一位老朋友，在耳边细细与你诉说心事。愿你有个好梦。`,
+          `在这个宁静的夜空下，由${track.artist}和他的《${track.title}》陪伴你。抛开白天的烦恼，给自己一个彻底放松的时刻。晚安。`
         ],
         vibe: [
-          `来了来了！就是现在！${track.artist}的《${track.title}》，跟着节奏一起动起来！`,
-          `各位朋友！准备好了吗！${track.artist}的《${track.title}》，给点反应！`,
-          `Let's go！接下来这首歌你一定会唱！${track.artist}的《${track.title}》！`,
-          `就是这个感觉！${track.artist}的《${track.title}》，一起来吧！`,
+          `来了来了！就是现在！${track.artist}的《${track.title}》！这首歌的节奏和编曲真是绝了，绝对是带动气氛的绝佳之作。跟着节奏一起动起来吧！`,
+          `各位朋友！准备好了吗！${track.artist}的《${track.title}》准备燃爆你的音箱。这种充满能量的音乐风格，就是我们现在最需要的感觉！`,
+          `全场最High的时刻到啦！${track.artist}带来这首《${track.title}》绝对能让你热血沸腾。放开手脚，跟着强劲的节拍尽情狂欢吧！`,
+          `你准备好迎接这股强烈的音浪了吗？${track.artist}的《${track.title}》一出，谁能抵挡得住这种魅力！将音量开到最大，感受这份无与伦比的震撼！`
         ],
         trivia: [
-          `你知道吗？${track.artist}的《${track.title}》收录在《${track.album}》这张专辑中，挺有意思的吧？`,
-          `给你讲个冷知识，《${track.title}》是${track.artist}的代表作之一，没想到吧？`,
-          `和你分享一下，《${track.title}》这首歌出自${track.artist}的专辑《${track.album}》。学到了！`,
+          `和你分享一个细节，${track.artist}的《${track.title}》其实蕴含着很多精心设计的音乐元素。这首歌收录在《${track.album}》中，绝对值得你细细品味。试着听听背景里的层次感吧。`,
+          `考考你啦，${track.artist}的《${track.title}》背后原来有个不为人知的故事。当年录音的时候，他们加入了一些特别的声效。下次听的时候不妨留意下。`,
+          `关于${track.artist}这首《${track.title}》，有个很有趣的冷知识。原来这首歌的创作灵感是源自一个偶然的机遇。音乐世界真是充满惊喜。`
         ]
       },
       "en-US": {
         classic: [
-          `Welcome back to Lobster Radio. Now playing ${track.title} by ${track.artist}, from the album ${track.album}. Hope you enjoy it.`,
-          `You're tuned to Lobster Radio. Here's ${track.title} by ${track.artist}. Let's enjoy this together.`,
-          `This is Lobster Radio. Coming up next, ${track.title} by ${track.artist}. Hope this brings you some good vibes.`,
-          `${track.title} by ${track.artist}, from the album ${track.album}. Hope this song keeps you company.`,
+          `Welcome back to Lobster Radio. Now playing ${track.title} by ${track.artist}, from the album ${track.album}. This track really marks a pivotal moment in their musical journey. Hope this familiar voice brings back some great memories.`,
+          `You're tuned to Lobster Radio. Here's ${track.title} by ${track.artist}. A truly classic song has the power to transport us through time, back to our purest moments. Let's enjoy this masterpiece together.`,
+          `Stay right here with Lobster Radio as we spin ${track.title} by ${track.artist}. Featured on the album ${track.album}, this track was an absolute breakthrough. Let the music take you on a journey down memory lane.`,
+          `Are you ready for a true classic on Lobster Radio? We've got ${track.title} by ${track.artist} lined up for you. Take a moment to really feel the emotion hidden within every single note.`
         ],
         night: [
-          `Late into the night, let ${track.title} by ${track.artist} accompany you through this quiet evening.`,
-          `It's the late night hours. Here's ${track.title} by ${track.artist}, perfect for the mood right now.`,
-          `Night time, music time. ${track.title} by ${track.artist}, for all you night owls out there.`,
-          `This evening, let the melody of ${track.title} help you unwind.`,
+          `Late into the night, let ${track.title} by ${track.artist} accompany you through this quiet evening. The delicate emotions in this melody perfectly capture the stillness of the midnight hours. Let the music wash away the fatigue of your day.`,
+          `It's the late night hours. Here's ${track.title} by ${track.artist}. Every note feels like a conversation with the night sky, soothing every restless soul. This one goes out to all you night owls.`,
+          `When the world goes quiet, there's nothing better than ${track.title} by ${track.artist}. This song feels like an old friend whispering secrets in the dark. Wishing you the sweetest of dreams tonight.`,
+          `Underneath this peaceful night sky, let ${track.artist} and ${track.title} keep you company. Leave the worries of the day behind and allow yourself to completely unwind. Goodnight.`
         ],
         vibe: [
-          `Here we go! Right now! ${track.title} by ${track.artist}, move to the beat!`,
-          `Everyone! Are you ready! ${track.title} by ${track.artist}, let me hear you!`,
-          `Let's go! You know this one! ${track.title} by ${track.artist}!`,
-          `That's the vibe! ${track.title} by ${track.artist}, let's do this!`,
+          `Here we go! Right now! ${track.title} by ${track.artist}! The production and rhythm on this track are absolutely unbelievable. It's the exact energy we need to elevate this moment, so move to the beat!`,
+          `Everyone! Are you ready! ${track.title} by ${track.artist} is about to blow through your speakers. The cultural impact and pure energy of this sound is undeniable. Let me hear you!`,
+          `It's time to take things to the next level! ${track.title} by ${track.artist} is guaranteed to get your blood pumping. Let loose and surrender to these massive beats right now!`,
+          `Are you prepared for this tidal wave of sound? When ${track.title} by ${track.artist} drops, there's absolutely no resisting its pull! Turn the volume all the way up and feel the shockwave!`
         ],
         trivia: [
-          `Did you know? ${track.title} by ${track.artist} is from the album ${track.album}. Pretty cool, right?`,
-          `Fun fact: ${track.title} is one of ${track.artist}'s signature tracks. Bet you didn't know that!`,
-          `Let me share this with you: ${track.title} is from ${track.artist}'s album ${track.album}. Now you know!`,
+          `Let me share a quick detail with you: ${track.title} by ${track.artist} is actually packed with incredibly clever musical elements. Coming from the album ${track.album}, it completely deserves a deeper listen. Try to catch the subtle layers hidden in the background.`,
+          `Here's a little quiz for you: ${track.title} by ${track.artist} actually has a fascinating hidden backstory. During the recording sessions, they incorporated some highly unusual sound effects. Keep an ear out for them next time you listen.`,
+          `There's a really interesting piece of trivia about ${track.title} by ${track.artist}. It turns out the entire inspiration for the song came from a completely chance encounter. The world of music is full of surprises.`
         ]
       }
     };
