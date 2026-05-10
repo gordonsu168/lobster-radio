@@ -14,7 +14,8 @@
   "scripts": {
     "dev": "tsc -w -p tsconfig.json --preserveWatchOutput",
     "build": "tsc -p tsconfig.json",
-    "lint": "tsc --noEmit -p tsconfig.json"
+    "lint": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run"
   },
   "dependencies": {
     "@langchain/core": "^0.3.55",
@@ -23,6 +24,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.15.3",
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "vitest": "^4.1.5"
   }
 }
