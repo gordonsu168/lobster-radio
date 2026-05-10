@@ -142,9 +142,9 @@ export class NarratorAgent {
     };
 
     const prompts = {
-      "zh-HK": `你系龙虾电台嘅AI DJ，一个地道嘅香港电台主持。用纯正粤语讲嘢，语气要自然、亲切，似同朋友倾计一样。风格：${styleDescriptions["zh-HK"][style]}。旁白控制喺 1-2 句，唔好太长。`,
-      "zh-CN": `你是龙虾电台的AI DJ，一个地道的电台主持人。用普通话说话，语气要自然、亲切，像和朋友聊天一样。风格：${styleDescriptions["zh-CN"][style]}。旁白控制在 1-2 句，不要太长。`,
-      "en-US": `You are an AI DJ for Lobster Radio, an authentic radio host. Speak naturally and warmly, like talking to a friend. Style: ${styleDescriptions["en-US"][style]}. Keep it to 1-2 sentences, don't make it too long.`,
+      "zh-HK": `你系龙虾电台嘅AI DJ，一个地道嘅香港电台主持。用纯正粤语讲嘢，语气要自然、亲切，似同朋友倾计一样。风格：${styleDescriptions["zh-HK"][style]}。旁白控制喺 3-4 句，唔好太长。`,
+      "zh-CN": `你是龙虾电台的AI DJ，一个地道的电台主持人。用普通话说话，语气要自然、亲切，像和朋友聊天一样。风格：${styleDescriptions["zh-CN"][style]}。旁白控制在 3-4 句，不要太长。`,
+      "en-US": `You are an AI DJ for Lobster Radio, an authentic radio host. Speak naturally and warmly, like talking to a friend. Style: ${styleDescriptions["en-US"][style]}. Keep it to 3-4 sentences, don't make it too long.`,
     };
 
     return prompts[language];
@@ -152,9 +152,9 @@ export class NarratorAgent {
 
   private getUserPrompt(input: NarratorInput, historyCount: number, language: DJLanguage): string {
     const prompts = {
-      "zh-HK": `心情模式：${input.mood}\n上下文：${input.contextSummary}\n而家播放紧：${input.track.artist}嘅《${input.track.title}》，收录喺《${input.track.album}》\n听众已经听咗${historyCount}首歌\n\n请用纯正粤语讲一段电台开场白，1-2句就得，唔好太长！`,
-      "zh-CN": `心情模式：${input.mood}\n上下文：${input.contextSummary}\n现在播放：${input.track.artist}的《${input.track.title}》，收录在《${input.track.album}》\n听众已经听了${historyCount}首歌\n\n请用普通话说一段电台开场白，1-2句就好，不要太长！`,
-      "en-US": `Mood mode: ${input.mood}\nContext: ${input.contextSummary}\nNow playing: ${input.track.title} by ${input.track.artist}, from ${input.track.album}\nListener has heard ${historyCount} songs\n\nPlease give a radio intro in 1-2 sentences, keep it short!`,
+      "zh-HK": `心情模式：${input.mood}\n上下文：${input.contextSummary}\n而家播放紧：${input.track.artist}嘅《${input.track.title}》，收录喺《${input.track.album}》\n歌曲背景：${input.track.explanation}\n听众已经听咗${historyCount}首歌\n\n请结合上面嘅歌曲背景同埋你自己对歌手历史、专辑上下文或制作秘密嘅深入了解，用纯正粤语讲一段深刻难忘嘅电台开场白，控制喺 3-4 句。`,
+      "zh-CN": `心情模式：${input.mood}\n上下文：${input.contextSummary}\n现在播放：${input.track.artist}的《${input.track.title}》，收录在《${input.track.album}》\n歌曲背景：${input.track.explanation}\n听众已经听了${historyCount}首歌\n\n请结合上面的歌曲背景和你自己对歌手历史、专辑上下文或制作秘密的深入了解，用普通话说一段深刻难忘的电台开场白，控制在 3-4 句。`,
+      "en-US": `Mood mode: ${input.mood}\nContext: ${input.contextSummary}\nNow playing: ${input.track.title} by ${input.track.artist}, from ${input.track.album}\nTrack Context: ${input.track.explanation}\nListener has heard ${historyCount} songs\n\nPlease blend the provided track context with your own deep knowledge of the artist's history, album context, or production secrets to create a profound and memorable radio intro in 3-4 sentences.`,
     };
 
     return prompts[language];
