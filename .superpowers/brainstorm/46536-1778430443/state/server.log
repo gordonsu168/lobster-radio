@@ -1,0 +1,9 @@
+{"type":"server-started","port":56409,"host":"127.0.0.1","url_host":"localhost","url":"http://localhost:56409","screen_dir":"/Users/huya/Documents/github/lobster-radio/.superpowers/brainstorm/46536-1778430443/content","state_dir":"/Users/huya/Documents/github/lobster-radio/.superpowers/brainstorm/46536-1778430443/state"}
+{"type":"screen-added","file":"/Users/huya/Documents/github/lobster-radio/.superpowers/brainstorm/46536-1778430443/content/chat-placement.html"}
+{"source":"user-event","type":"click","text":"A\n    \n      Persistent Sidebar (Right side)\n      A dedicated chat panel always visible on the side. Feels like you're in a studio chatting with the DJ.","choice":"sidebar","id":null,"timestamp":1778430537306}
+{"source":"user-event","type":"click","text":"A\n    \n      Persistent Sidebar (Right side)\n      A dedicated chat panel always visible on the side. Feels like you're in a studio chatting with the DJ.","choice":"sidebar","id":null,"timestamp":1778430567766}
+{"type":"screen-added","file":"/Users/huya/Documents/github/lobster-radio/.superpowers/brainstorm/46536-1778430443/content/chat-responsibility.html"}
+{"source":"user-event","type":"click","text":"A\n    \n      Implicit Profiling (Background Updates)\n      The Chat Agent acts as a friendly listener. It secretly extracts your preferences/mood from the conversation and saves them to the Memory System, which the DJ uses to play better music and adjust its script naturally.","choice":"implicit","id":null,"timestamp":1778430592000}
+{"type":"screen-added","file":"/Users/huya/Documents/github/lobster-radio/.superpowers/brainstorm/46536-1778430443/content/sidebar-layout.html"}
+{"type":"screen-added","file":"/Users/huya/Documents/github/lobster-radio/.superpowers/brainstorm/46536-1778430443/content/waiting.html"}
+{"type":"server-stopped","reason":"idle timeout"}
