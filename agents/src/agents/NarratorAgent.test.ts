@@ -45,4 +45,25 @@ describe('NarratorAgent Prompts', () => {
     // Spot check one of the new profound generic sentences
     expect(agent.getFallbackTemplate(track, 'night', 'en-US')).toMatch(/(mood|unwind|melody|atmosphere|conversation|soul|dreams|friend|peaceful|quiet)/i);
   });
+
+  it('should include memory instructions in the user prompt', () => {
+    const agent = new NarratorAgent() as unknown as { getUserPrompt: Function };
+    const input: Parameters<NarratorAgent['generate']>[0] = {
+      mood: 'Working',
+      contextSummary: 'Focused afternoon',
+      shortTermMemory: 'User listened to 5 songs today and skipped 2.',
+      longTermMemory: 'Their favorite artists include Artist B.',
+      track: {
+        id: '1', title: 'Song', artist: 'Artist', album: 'Album',
+        previewUrl: null, artwork: '', moodTags: [], energy: 0,
+        explanation: 'A deep electronic track about focus.',
+        source: 'local'
+      },
+      history: []
+    } as any;
+    const userPrompt = agent.getUserPrompt(input, 0, 'en-US');
+    expect(userPrompt).toContain('User listened to 5 songs today and skipped 2.');
+    expect(userPrompt).toContain('Their favorite artists include Artist B.');
+    expect(userPrompt).toContain('use the provided Short-Term and Long-Term memory context to make your commentary more personalized');
+  });
 });

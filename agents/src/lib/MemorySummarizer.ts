@@ -24,6 +24,12 @@ export function getTopArtists(prefs: Preferences, count: number = 2): string[] {
     }
   }
 
+  if (prefs.likes) {
+    for (const artistName of prefs.likes) {
+      artistCounts[artistName] = (artistCounts[artistName] || 0) + 1;
+    }
+  }
+
   return Object.entries(artistCounts)
     .sort((a, b) => b[1] - a[1])
     .map(entry => entry[0])

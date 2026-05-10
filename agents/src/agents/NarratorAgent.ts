@@ -7,6 +7,8 @@ export type DJStyle = "classic" | "night" | "vibe" | "trivia";
 interface NarratorInput {
   mood: MoodOption;
   contextSummary: string;
+  shortTermMemory?: string;
+  longTermMemory?: string;
   track: Track;
   history: PlaybackHistoryItem[];
   style?: DJStyle;
@@ -151,10 +153,15 @@ export class NarratorAgent {
   }
 
   private getUserPrompt(input: NarratorInput, historyCount: number, language: DJLanguage): string {
+    const shortMem = input.shortTermMemory || "None";
+    const longMem = input.longTermMemory || "None";
+
     const prompts = {
-      "zh-HK": `心情模式：${input.mood}\n上下文：${input.contextSummary}\n而家播放紧：${input.track.artist}嘅《${input.track.title}》，收录喺《${input.track.album}》\n歌曲背景：${input.track.explanation}\n听众已经听咗${historyCount}首歌\n\n请结合上面嘅歌曲背景同埋你自己对歌手历史、专辑上下文或制作秘密嘅深入了解，用纯正粤语讲一段深刻难忘嘅电台开场白，控制喺 3-4 句。`,
-      "zh-CN": `心情模式：${input.mood}\n上下文：${input.contextSummary}\n现在播放：${input.track.artist}的《${input.track.title}》，收录在《${input.track.album}》\n歌曲背景：${input.track.explanation}\n听众已经听了${historyCount}首歌\n\n请结合上面的歌曲背景和你自己对歌手历史、专辑上下文或制作秘密的深入了解，用普通话说一段深刻难忘的电台开场白，控制在 3-4 句。`,
-      "en-US": `Mood mode: ${input.mood}\nContext: ${input.contextSummary}\nNow playing: ${input.track.title} by ${input.track.artist}, from ${input.track.album}\nTrack Context: ${input.track.explanation}\nListener has heard ${historyCount} songs\n\nPlease blend the provided track context with your own deep knowledge of the artist's history, album context, or production secrets to create a profound and memorable radio intro in 3-4 sentences.`,
+      "zh-HK": `心情模式：${input.mood}\n上下文：${input.contextSummary}\n短期记忆：${shortMem}\n长期记忆：${longMem}\n而家播放紧：${input.track.artist}嘅《${input.track.title}》，收录喺《${input.track.album}》\n歌曲背景：${input.track.explanation}\n听众已经听咗${historyCount}首歌\n\n请利用提供嘅短期同长期记忆令你嘅旁白更个性化（例如：如果听众今日成日飞歌，可以讲下转下口味；如果播紧佢最钟意嘅歌手，就提下）。请结合上面嘅歌曲背景同埋你自己对歌手历史、专辑上下文或制作秘密嘅深入了解，用纯正粤语讲一段深刻难忘嘅电台开场白，控制喺 3-4 句。`,
+
+      "zh-CN": `心情模式：${input.mood}\n上下文：${input.contextSummary}\n短期记忆：${shortMem}\n长期记忆：${longMem}\n现在播放：${input.track.artist}的《${input.track.title}》，收录在《${input.track.album}》\n歌曲背景：${input.track.explanation}\n听众已经听了${historyCount}首歌\n\n请利用提供的短期和长期记忆让你的旁白更个性化（例如：如果听众今天经常切歌，可以提一下换换口味；如果正播放他们最喜欢的歌手，可以提一下）。请结合上面的歌曲背景和你自己对歌手历史、专辑上下文或制作秘密的深入了解，用普通话说一段深刻难忘的电台开场白，控制在 3-4 句。`,
+
+      "en-US": `Mood mode: ${input.mood}\nContext: ${input.contextSummary}\nShort-Term Memory: ${shortMem}\nLong-Term Memory: ${longMem}\nNow playing: ${input.track.title} by ${input.track.artist}, from ${input.track.album}\nTrack Context: ${input.track.explanation}\nListener has heard ${historyCount} songs\n\nPlease use the provided Short-Term and Long-Term memory context to make your commentary more personalized (e.g., if they skipped a lot today, mention a change of pace; if playing a favorite artist, acknowledge it). Please blend the provided track context with your own deep knowledge of the artist's history, album context, or production secrets to create a profound and memorable radio intro in 3-4 sentences.`
     };
 
     return prompts[language];

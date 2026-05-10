@@ -65,9 +65,10 @@ describe('MemorySummarizer', () => {
     expect(longTerm).toContain('Working');
   });
 
-  it('should get top artists correctly', () => {
+  it('should get top artists correctly including likes', () => {
     const prefs = {
-      likes: [], dislikes: [], moodAffinity: {},
+      likes: ['Artist D', 'Artist D', 'Artist C'],
+      dislikes: [], moodAffinity: {},
       history: [
         createMockTrack({ artist: 'Artist A' }),
         createMockTrack({ artist: 'Artist B' }),
