@@ -1,0 +1,86 @@
+# Music Curator Algorithm Variety Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** Modify the music curation algorithm to use a point-based score including a history penalty and random variance so the track order doesn't repeat deterministically.
+
+**Architecture:** We will replace the `.sort()` chained logic in `MusicCuratorAgent.ts` with a `map` -> `sort` -> `map` flow. Each track gets a calculated `score`, tracks are sorted descending by that score, and then we extract the top 20 tracks.
+
+**Tech Stack:** TypeScript.
+
+---
+
+### Task 1: Update the sorting logic to a scoring algorithm
+
+**Files:**
+- Modify: `/Users/huya/Documents/github/lobster-radio/agents/src/agents/MusicCuratorAgent.ts`
+
+*(Note: There is no test suite configured for the `agents` project, so we will skip test file steps and verify via build).*
+
+- [ ] **Step 1: Write the updated implementation**
+
+Update `agents/src/agents/MusicCuratorAgent.ts`. Replace the chained `.sort(...)` block on the `filtered` array with a scoring mechanism:
+
+```typescript
+import type { MoodOption, Preferences, Track } from "../types.js";
+
+interface MusicCuratorInput {
+  mood: MoodOption;
+  contextSummary: string;
+  candidateTracks: Track[];
+  preferences: Preferences;
+}
+
+export class MusicCuratorAgent {
+  async curate(input: MusicCuratorInput): Promise<Track[]> {
+    // 去重 + 过滤乱码歌曲
+    const filtered = input.candidateTracks.filter((track, index, all) => {
+      const isDuplicate = all.findIndex((item) => item.id === track.id) === index;
+      if (!isDuplicate) return false;
+
+      // 过滤乱码标题（包含非中文/英文/数字/常用标点的）
+      const hasGarbled = /[\uE000-\uF8FF\uFFF0-\uFFFF\u0000-\u001F]/.test(track.title);
+      if (hasGarbled) return false;
+
+      return true;
+    });
+
+    const scoredTracks = filtered.map((track) => {
+      let score = 0;
+
+      if (input.preferences.likes.includes(track.id)) score += 100;
+      if (input.preferences.dislikes.includes(track.id)) score -= 100;
+
+      score += track.energy;
+
+      const inHistory = input.preferences.history?.some((h) => h.id === track.id) ?? false;
+      if (inHistory) score -= 50;
+
+      score += Math.random() * 10;
+
+      return { track, score };
+    });
+
+    return scoredTracks
+      .sort((a, b) => b.score - a.score)
+      .map((item) => item.track)
+      .slice(0, 20)
+      .map((track) => ({
+        ...track,
+        explanation: `${track.explanation} Curated for ${input.mood.toLowerCase()} mode with context: ${input.contextSummary}`
+      }));
+  }
+}
+```
+
+- [ ] **Step 2: Verify the build passes**
+
+Run: `cd agents && npm run build`
+Expected: Passes without TypeScript errors.
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add agents/src/agents/MusicCuratorAgent.ts
+git commit -m "feat(agents): implement variety scoring algorithm for music curator"
+```
