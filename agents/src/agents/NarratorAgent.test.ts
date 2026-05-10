@@ -27,4 +27,12 @@ describe('NarratorAgent Prompts', () => {
     expect(userPrompt).toContain('blend the provided track context with your own deep knowledge');
     expect(userPrompt).toContain('3-4 sentences');
   });
+
+  it('should include specific insight instructions per style', () => {
+    const agent = new NarratorAgent() as unknown as { getSystemPrompt: Function };
+    expect(agent.getSystemPrompt('classic', 'en-US')).toContain('career trajectory');
+    expect(agent.getSystemPrompt('night', 'en-US')).toContain('lyrical meaning');
+    expect(agent.getSystemPrompt('vibe', 'en-US')).toContain('cultural impact');
+    expect(agent.getSystemPrompt('trivia', 'en-US')).toContain('recording process');
+  });
 });

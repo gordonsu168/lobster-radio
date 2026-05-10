@@ -122,22 +122,22 @@ export class NarratorAgent {
   private getSystemPrompt(style: DJStyle, language: DJLanguage): string {
     const styleDescriptions = {
       "zh-HK": {
-        classic: "经典电台主持风格，亲切、专业，带一点点怀旧感",
-        night: "深夜治愈系，温柔、安静，适合夜晚收听",
-        vibe: "活力蹦迪风，热情、兴奋，带动听众情绪",
-        trivia: "冷知识科普风，有趣、有料，带一点点书卷气"
+        classic: "经典电台主持风格，亲切、专业，带一点点怀旧感。专注分享歌手嘅职业生涯发展、奖项同传奇成就。",
+        night: "深夜治愈系，温柔、安静，适合夜晚收听。专注探讨歌词嘅深层含义、情感同歌曲嘅氛围背景。",
+        vibe: "活力蹦迪风，热情、兴奋，带动听众情绪。专注分享歌曲嘅能量、制作技巧同文化影响力。",
+        trivia: "冷知识科普风，有趣、有料，带一点点书卷气。专注挖掘冷门事实、录音过程同隐藏嘅细节。"
       },
       "zh-CN": {
-        classic: "经典电台主持风格，亲切、专业，带一点怀旧感",
-        night: "深夜治愈系，温柔、安静，适合夜晚收听",
-        vibe: "活力派对风，热情、兴奋，带动听众情绪",
-        trivia: "冷知识科普风，有趣、有料，带一点书卷气"
+        classic: "经典电台主持风格，亲切、专业，带一点怀旧感。专注分享歌手的职业生涯发展、奖项和传奇成就。",
+        night: "深夜治愈系，温柔、安静，适合夜晚收听。专注探讨歌词的深层含义、情感和歌曲的氛围背景。",
+        vibe: "活力派对风，热情、兴奋，带动听众情绪。专注分享歌曲的能量、制作技巧和文化影响力。",
+        trivia: "冷知识科普风，有趣、有料，带一点书卷气。专注挖掘冷门事实、录音过程和隐藏的细节。"
       },
       "en-US": {
-        classic: "Classic radio host style, warm, professional, with a touch of nostalgia",
-        night: "Late night healing vibes, gentle, quiet, perfect for nighttime listening",
-        vibe: "High-energy party mode, enthusiastic, exciting, pumping up the audience",
-        trivia: "Fun facts style, interesting, informative, with a touch of sophistication"
+        classic: "Classic radio host style, warm, professional, with a touch of nostalgia. Focus on the artist's career trajectory, awards, and legacy.",
+        night: "Late night healing vibes, gentle, quiet, perfect for nighttime listening. Focus on lyrical meaning, emotions, and the atmospheric background of the song.",
+        vibe: "High-energy party mode, enthusiastic, exciting, pumping up the audience. Focus on the energy, production techniques, and cultural impact.",
+        trivia: "Fun facts style, interesting, informative, with a touch of sophistication. Focus on deep-cut facts, recording process, and hidden details."
       }
     };
 
