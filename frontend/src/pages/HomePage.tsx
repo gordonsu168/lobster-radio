@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { ChatPanel } from "../components/ChatPanel";
 import { HistoryPanel } from "../components/HistoryPanel";
 import { MoodSelector } from "../components/MoodSelector";
 import { PlayerCard } from "../components/PlayerCard";
@@ -556,26 +557,52 @@ export function HomePage() {
       />
 
       <section className="grid gap-6 lg:grid-cols-[1.1fr,0.9fr]">
-        <TrackQueue
-          tracks={queue}
-          currentTrackId={currentTrack?.id ?? null}
-          onSelect={(track: Track) => {
-            setPayload((existing) => (existing ? { ...existing, selectedTrack: track } : existing));
+        <div className="flex flex-col gap-6">
+          <TrackQueue
+            tracks={queue}
+            currentTrackId={currentTrack?.id ?? null}
+            onSelect={(track: Track) => {
+              setPayload((existing) => (existing ? { ...existing, selectedTrack: track } : existing));
+              userInteractedRef.current = true;
+              // 点击队列歌曲时：先生成新歌曲的旁白，再播放
+              generateNarration(track.id, djStyle, djLanguage)
+                .then((result) => {
+                  setCurrentNarration(result.narration);
+                  void playNarrationThenMusic(result.narration, track);
+                })
+                .catch(() => {
+                  const fallback = `欢迎收听龙虾电台，为您播放${track.artist}的《${track.title}》。`;
+                  setCurrentNarration(fallback);
+                  void playNarrationThenMusic(fallback, track);
+                });
+            }}
+          />
+          <HistoryPanel history={preferences?.history ?? []} />
+        </div>
+        <ChatPanel
+          currentTrack={currentTrack}
+          onSkipRequested={() => {
+            // Trigger skip logic - replicate what onNextTrack does
+            if (!payload?.tracks || !payload.selectedTrack || !audioRef.current) return;
             userInteractedRef.current = true;
-            // 点击队列歌曲时：先生成新歌曲的旁白，再播放
-            generateNarration(track.id, djStyle, djLanguage)
-              .then((result) => {
-                setCurrentNarration(result.narration);
-                void playNarrationThenMusic(result.narration, track);
-              })
-              .catch(() => {
-                const fallback = `欢迎收听龙虾电台，为您播放${track.artist}的《${track.title}》。`;
-                setCurrentNarration(fallback);
-                void playNarrationThenMusic(fallback, track);
-              });
+            const currentIndex = payload.tracks.findIndex((t) => t.id === payload.selectedTrack?.id);
+            const nextIndex = (currentIndex + 1) % payload.tracks.length;
+            const nextTrack = payload.tracks[nextIndex];
+            if (nextTrack?.previewUrl) {
+              setPayload((prev) => prev ? { ...prev, selectedTrack: nextTrack } : null);
+              generateNarration(nextTrack.id, djStyle, djLanguage)
+                .then((result) => {
+                  setCurrentNarration(result.narration);
+                  playNarrationThenMusic(result.narration, nextTrack);
+                })
+                .catch(() => {
+                  const fallbackNarration = `接下来为您播放${nextTrack.artist}的《${nextTrack.title}》。`;
+                  setCurrentNarration(fallbackNarration);
+                  playNarrationThenMusic(fallbackNarration, nextTrack);
+                });
+            }
           }}
         />
-        <HistoryPanel history={preferences?.history ?? []} />
       </section>
 
       <section className="rounded-[28px] border border-white/10 bg-white/5 p-5">
