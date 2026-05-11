@@ -1,13 +1,14 @@
-import { RadioIcon, Cog6ToothIcon, BookOpenIcon } from "@heroicons/react/24/solid";
+import { RadioIcon, Cog6ToothIcon, BookOpenIcon, SignalIcon } from "@heroicons/react/24/solid";
 import { NavLink, Route, Routes, useLocation } from "react-router-dom";
 import { HomePage } from "./pages/HomePage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { WikiPage } from "./pages/WikiPage";
+import { RadioModePage } from "./pages/RadioModePage";
 import DesktopApp from "./DesktopApp";
 
 export default function App() {
   const location = useLocation();
-  
+
   // 🖥️ 桌面版独立界面 - 访问 /desktop
   if (location.pathname === '/desktop') {
     return <DesktopApp />;
@@ -26,7 +27,7 @@ export default function App() {
               <p className="text-sm text-mist">Adaptive music, voiced by AI.</p>
             </div>
           </div>
-          <nav className="flex items-center gap-3">
+          <nav className="flex items-center gap-3 flex-wrap">
             <NavLink
               to="/"
               className={({ isActive }) =>
@@ -34,6 +35,17 @@ export default function App() {
               }
             >
               Station
+            </NavLink>
+            <NavLink
+              to="/radio"
+              className={({ isActive }) =>
+                `inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${
+                  isActive ? "bg-white text-slate-950" : "border border-white/10 text-white hover:bg-white/10"
+                }`
+              }
+            >
+              <SignalIcon className="h-4 w-4" />
+              Infinite
             </NavLink>
             <NavLink
               to="/wiki"
@@ -62,6 +74,7 @@ export default function App() {
 
         <Routes>
           <Route path="/" element={<HomePage />} />
+          <Route path="/radio" element={<RadioModePage />} />
           <Route path="/wiki" element={<WikiPage />} />
           <Route path="/settings" element={<SettingsPage />} />
         </Routes>
