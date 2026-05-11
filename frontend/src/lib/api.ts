@@ -3,6 +3,7 @@ import type {
   PreferencesSnapshot,
   RecommendationPayload,
   RuntimeSettings,
+  Track,
   VoiceOption
 } from "../types";
 
@@ -109,5 +110,20 @@ export function generateChat(trackId: string, style: DJStyle, position?: string)
   }>(`/api/wiki/chat/${encodeURIComponent(trackId)}`, {
     method: "POST",
     body: JSON.stringify({ style, position })
+  });
+}
+
+export interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+export function sendChatMessage(message: string, history: ChatMessage[], currentTrack: Track | null) {
+  return request<{
+    reply: string;
+    skipRequested: boolean;
+  }>("/api/chat", {
+    method: "POST",
+    body: JSON.stringify({ message, history, currentTrack })
   });
 }
