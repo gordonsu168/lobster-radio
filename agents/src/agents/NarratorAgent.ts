@@ -4,11 +4,12 @@ import type { DJLanguage, MoodOption, PlaybackHistoryItem, Track } from "../type
 
 export type DJStyle = "classic" | "night" | "vibe" | "trivia";
 
-interface NarratorInput {
+export interface NarratorInput {
   mood: MoodOption;
   contextSummary: string;
   shortTermMemory?: string;
   longTermMemory?: string;
+  memoryInsight?: string;
   track: Track;
   history: PlaybackHistoryItem[];
   style?: DJStyle;
@@ -164,6 +165,11 @@ export class NarratorAgent {
       "en-US": `Mood mode: ${input.mood}\nContext: ${input.contextSummary}\nShort-Term Memory: ${shortMem}\nLong-Term Memory: ${longMem}\nNow playing: ${input.track.title} by ${input.track.artist}, from ${input.track.album}\nTrack Context: ${input.track.explanation}\nListener has heard ${historyCount} songs\n\nPlease use the provided Short-Term and Long-Term memory context to make your commentary more personalized (e.g., if they skipped a lot today, mention a change of pace; if playing a favorite artist, acknowledge it). Please blend the provided track context with your own deep knowledge of the artist's history, album context, or production secrets to create a profound and memorable radio intro in 3-4 sentences.`
     };
 
-    return prompts[language];
+    let prompt = prompts[language];
+    if (input.memoryInsight) {
+      prompt += `\n\nPRODUCER NOTE: ${input.memoryInsight}. Acknowledge this in your narration naturally.`;
+    }
+
+    return prompt;
   }
 }
