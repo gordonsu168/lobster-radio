@@ -16,11 +16,11 @@ chatRouter.post("/", async (req, res) => {
       });
     }
 
-    const { message, history, currentTrack } = req.body as {
-      message: string;
-      history: ChatMessage[];
-      currentTrack: Track | null;
-    };
+    // Validate history - default to empty array if missing or not an array
+    const history = Array.isArray(req.body.history) ? req.body.history : [];
+    // Validate currentTrack - allow null/undefined as per type signature
+    const currentTrack = req.body.currentTrack === null || req.body.currentTrack === undefined ? null : req.body.currentTrack;
+    const message = req.body.message;
 
     const prefs = await getPreferences();
     const output = await producer.generateResponse(message, history, currentTrack, prefs);
