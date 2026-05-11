@@ -4,4 +4,4 @@ export { NarratorAgent } from "./agents/NarratorAgent.js";
 export { LearningAgent } from "./agents/LearningAgent.js";
 export { ProducerAgent } from "./agents/ProducerAgent.js";
 export * from "./lib/MemorySummarizer.js";
-export type { DJLanguage, DJStyle, MoodOption, PlaybackHistoryItem, Preferences, Track } from "./types.js";
+export type { ChatMessage, DJLanguage, DJStyle, MoodOption, PlaybackHistoryItem, Preferences, Track } from "./types.js";
