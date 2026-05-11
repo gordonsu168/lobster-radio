@@ -556,7 +556,7 @@ export function HomePage() {
         onAutoChatToggle={setAutoChatEnabled}
       />
 
-      <section className="grid gap-6 lg:grid-cols-[1.1fr,0.9fr]">
+      <section className="grid gap-6 lg:grid-cols-[2fr,1fr]">
         <div className="flex flex-col gap-6">
           <TrackQueue
             tracks={queue}
@@ -579,30 +579,9 @@ export function HomePage() {
           />
           <HistoryPanel history={preferences?.history ?? []} />
         </div>
-        <ChatPanel
-          currentTrack={currentTrack}
-          onSkipRequested={() => {
-            // Trigger skip logic - replicate what onNextTrack does
-            if (!payload?.tracks || !payload.selectedTrack || !audioRef.current) return;
-            userInteractedRef.current = true;
-            const currentIndex = payload.tracks.findIndex((t) => t.id === payload.selectedTrack?.id);
-            const nextIndex = (currentIndex + 1) % payload.tracks.length;
-            const nextTrack = payload.tracks[nextIndex];
-            if (nextTrack?.previewUrl) {
-              setPayload((prev) => prev ? { ...prev, selectedTrack: nextTrack } : null);
-              generateNarration(nextTrack.id, djStyle, djLanguage)
-                .then((result) => {
-                  setCurrentNarration(result.narration);
-                  playNarrationThenMusic(result.narration, nextTrack);
-                })
-                .catch(() => {
-                  const fallbackNarration = `接下来为您播放${nextTrack.artist}的《${nextTrack.title}》。`;
-                  setCurrentNarration(fallbackNarration);
-                  playNarrationThenMusic(fallbackNarration, nextTrack);
-                });
-            }
-          }}
-        />
+        <div className="hidden lg:block">
+          {/* Placeholder to maintain grid balance */}
+        </div>
       </section>
 
       <section className="rounded-[28px] border border-white/10 bg-white/5 p-5">
@@ -611,6 +590,48 @@ export function HomePage() {
           {loading ? "Rebuilding the station..." : payload?.contextSummary ?? "No listening context yet."}
         </p>
       </section>
+
+      {/* Context Summary */}
+      <section className="rounded-[28px] border border-white/10 bg-white/5 p-5 mb-28">
+        <p className="text-xs uppercase tracking-[0.25em] text-mist">Context Summary</p>
+        <p className="mt-3 text-sm leading-7 text-slate-200">
+          {loading ? "Rebuilding the station..." : payload?.contextSummary ?? "No listening context yet."}
+        </p>
+      </section>
+
+      {/* Floating chat panel fixed at bottom of viewport */}
+      <div className="fixed bottom-0 left-0 right-0 bg-gradient-to-t from-slate-900 via-slate-900 to-transparent pt-8 pb-4 px-4 z-50">
+        <div className="max-w-5xl mx-auto">
+          <ChatPanel
+            currentTrack={currentTrack}
+            onSkipRequested={() => {
+              // Trigger skip logic - replicate what onNextTrack does
+              if (!payload?.tracks || !payload.selectedTrack || !audioRef.current) return;
+              userInteractedRef.current = true;
+              const currentIndex = payload.tracks.findIndex((t) => t.id === payload.selectedTrack?.id);
+              const nextIndex = (currentIndex + 1) % payload.tracks.length;
+              const nextTrack = payload.tracks[nextIndex];
+              if (nextTrack?.previewUrl) {
+                setPayload((prev) => prev ? { ...prev, selectedTrack: nextTrack } : null);
+                generateNarration(nextTrack.id, djStyle, djLanguage)
+                  .then((result) => {
+                    setCurrentNarration(result.narration);
+                    playNarrationThenMusic(result.narration, nextTrack);
+                  })
+                  .catch(() => {
+                    const fallbackNarration = `接下来为您播放${nextTrack.artist}的《${nextTrack.title}》。`;
+                    setCurrentNarration(fallbackNarration);
+                    playNarrationThenMusic(fallbackNarration, nextTrack);
+                  });
+              }
+            }}
+            onRefreshRequested={() => {
+              // Refresh recommendations with current mood
+              refreshRecommendations(mood);
+            }}
+          />
+        </div>
+      </div>
     </div>
   );
 }

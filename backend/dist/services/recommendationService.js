@@ -1,4 +1,4 @@
-import { LearningAgent, MusicCuratorAgent, } from "lobster-radio-agents";
+import { LearningAgent, MusicCuratorAgent, NarratorAgent, } from "lobster-radio-agents";
 import { generateNarration } from "./narrationGenerator.js";
 import { fallbackCatalog } from "../data/fallbackCatalog.js";
 import { getPreferences, savePreferences } from "./storageService.js";
@@ -88,15 +88,43 @@ export async function buildRecommendations(mood, style = "classic", language) {
     });
     const selectedTrack = curated[0] || backup[0];
     console.log(`🎵 生成旁白 - 歌曲: ${selectedTrack.title}, 风格: ${style}, 语言: ${djLanguage}`);
-    const narration = generateNarration(selectedTrack, style, djLanguage);
-    console.log(`🎙️ 生成的旁白: ${narration}`);
+    // Use NarratorAgent if memoryInsight exists, otherwise use template-based
+    let narration;
+    const hasMemoryInsight = !!preferences.memoryInsight;
+    let updatedPreferences = { ...preferences };
+    if (hasMemoryInsight) {
+        try {
+            const narratorAgent = new NarratorAgent();
+            narration = await narratorAgent.generate({
+                mood,
+                contextSummary: "Lobster Radio recommendation",
+                memoryInsight: preferences.memoryInsight,
+                track: selectedTrack,
+                history: preferences.history,
+                style,
+                language: djLanguage,
+            });
+            console.log(`🎙️ 使用 NarratorAgent 和 memoryInsight 生成的旁白: ${narration}`);
+            // Clear memoryInsight after use so it doesn't get reused
+            updatedPreferences.memoryInsight = undefined;
+        }
+        catch (error) {
+            console.error("❌ NarratorAgent failed, falling back to template:", error);
+            narration = generateNarration(selectedTrack, style, djLanguage);
+            console.log(`🎙️ 回退使用模板生成的旁白: ${narration}`);
+        }
+    }
+    else {
+        narration = generateNarration(selectedTrack, style, djLanguage);
+        console.log(`🎙️ 使用模板生成的旁白: ${narration}`);
+    }
     const historyEntry = {
         ...selectedTrack,
         playedAt: new Date().toISOString()
     };
-    const dedupedHistory = [historyEntry, ...preferences.history].slice(0, 20);
+    const dedupedHistory = [historyEntry, ...updatedPreferences.history].slice(0, 20);
     await savePreferences({
-        ...preferences,
+        ...updatedPreferences,
         history: dedupedHistory
     });
     return {

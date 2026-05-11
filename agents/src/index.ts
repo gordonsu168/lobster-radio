@@ -5,3 +5,4 @@ export { LearningAgent } from "./agents/LearningAgent.js";
 export { ProducerAgent } from "./agents/ProducerAgent.js";
 export * from "./lib/MemorySummarizer.js";
 export type { ChatMessage, DJLanguage, DJStyle, MoodOption, PlaybackHistoryItem, Preferences, Track } from "./types.js";
+export type { ToolCall } from "./agents/ProducerAgent.js";

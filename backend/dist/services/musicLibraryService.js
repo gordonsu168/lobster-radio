@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { createReadStream } from "node:fs";
 import { resolveRuntimeSecrets } from "./settingsResolver.js";
+import wikiData from "../data/songs-wiki.json" with { type: "json" };
 // 支持的音频格式
 const SUPPORTED_EXTENSIONS = new Set([
     ".mp3",
@@ -121,8 +122,9 @@ async function parseTrack(filePath) {
     // 用完整文件名做 hash，避免 ID 重复
     const filePathBase64 = Buffer.from(filePath).toString("base64url");
     const fileHash = filePathBase64.slice(-16);
-    return {
-        id: `local-${fileHash}`,
+    const trackId = `local-${fileHash}`;
+    let result = {
+        id: trackId,
         title,
         artist,
         album,
@@ -133,6 +135,14 @@ async function parseTrack(filePath) {
         explanation: `来自你的本地音乐库：${filename}`,
         source: "local"
     };
+    // Merge with wiki data if it exists - use correct artist/title/album from wiki
+    const wikiEntry = wikiData.songs[trackId];
+    if (wikiEntry) {
+        result.title = wikiEntry.title || result.title;
+        result.artist = wikiEntry.artist || result.artist;
+        result.album = wikiEntry.album || result.album;
+    }
+    return result;
 }
 // 扫描并重建音乐库
 export async function scanMusicLibrary(force = false) {

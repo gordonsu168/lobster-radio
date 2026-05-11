@@ -1,13 +1,14 @@
 import { useState, useRef, useEffect } from "react";
-import { sendChatMessage, type ChatMessage } from "../lib/api";
+import { sendChatMessage, type ChatMessage, type ToolResult } from "../lib/api";
 import type { Track } from "../types";
 
 interface ChatPanelProps {
   currentTrack: Track | null;
   onSkipRequested: () => void;
+  onRefreshRequested?: () => void;
 }
 
-export function ChatPanel({ currentTrack, onSkipRequested }: ChatPanelProps) {
+export function ChatPanel({ currentTrack, onSkipRequested, onRefreshRequested }: ChatPanelProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -35,6 +36,10 @@ export function ChatPanel({ currentTrack, onSkipRequested }: ChatPanelProps) {
       if (response.skipRequested) {
         onSkipRequested();
       }
+      // If refresh was requested by tool, trigger it
+      if (onRefreshRequested && response.toolResults?.some(t => t.name === "refreshRecommendations")) {
+        onRefreshRequested();
+      }
     } catch (err) {
       setMessages([...newHistory, { role: "assistant", content: "Error: Could not reach the producer." }]);
     } finally {
@@ -43,18 +48,17 @@ export function ChatPanel({ currentTrack, onSkipRequested }: ChatPanelProps) {
   }
 
   return (
-    <div className="flex flex-col h-[500px] rounded-2xl bg-white/5 border border-white/10 overflow-hidden">
-      <div className="bg-white/10 p-3 border-b border-white/10">
+    <div className="flex flex-col max-h-[40vh] rounded-2xl bg-white/5 border border-white/10 overflow-hidden backdrop-blur-sm">
+      <div className="bg-white/10 p-2 border-b border-white/10 shrink-0">
         <h3 className="text-sm font-semibold text-white">Producer Chat</h3>
-        <p className="text-xs text-slate-400">Tell us what you want to hear</p>
       </div>
-      <div className="flex-1 overflow-y-auto p-4 space-y-4" ref={scrollRef}>
+      <div className="flex-1 overflow-y-auto p-3 space-y-3" ref={scrollRef}>
         {messages.length === 0 && (
-          <p className="text-sm text-slate-500 text-center mt-10">Chat with the producer to request songs or change the mood.</p>
+          <p className="text-sm text-slate-500 text-center mt-4">Chat with the producer to request songs or change the mood.</p>
         )}
         {messages.map((m, i) => (
           <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-            <div className={`max-w-[80%] rounded-xl px-4 py-2 text-sm ${
+            <div className={`max-w-[80%] rounded-xl px-3 py-2 text-sm ${
               m.role === "user" ? "bg-pulse/20 text-pulse border border-pulse/30" : "bg-white/10 text-white"
             }`}>
               {m.content}
@@ -63,7 +67,7 @@ export function ChatPanel({ currentTrack, onSkipRequested }: ChatPanelProps) {
         ))}
         {loading && <p className="text-xs text-slate-400">Producer is typing...</p>}
       </div>
-      <form onSubmit={handleSend} className="p-3 border-t border-white/10 flex gap-2">
+      <form onSubmit={handleSend} className="p-3 border-t border-white/10 flex gap-2 shrink-0">
         <input
           type="text"
           value={input}

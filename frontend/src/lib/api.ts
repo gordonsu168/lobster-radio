@@ -118,10 +118,16 @@ export interface ChatMessage {
   content: string;
 }
 
+export interface ToolResult {
+  name: string;
+  result: string;
+}
+
 export function sendChatMessage(message: string, history: ChatMessage[], currentTrack: Track | null) {
   return request<{
     reply: string;
     skipRequested: boolean;
+    toolResults?: ToolResult[];
   }>("/api/chat", {
     method: "POST",
     body: JSON.stringify({ message, history, currentTrack })

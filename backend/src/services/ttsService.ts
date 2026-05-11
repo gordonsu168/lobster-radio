@@ -303,7 +303,7 @@ async function synthesizeWithEdgeTTS(text: string, voice: string, language?: str
   try {
     // 使用 Python edge-tts 命令行生成
     await execAsync(
-      `python3 -m edge_tts --voice "${edgeVoice}" --text "${text.replace(/"/g, '\\"')}" --write-media "${mp3File}"`,
+      `/usr/bin/python3 -m edge_tts --voice "${edgeVoice}" --text "${text.replace(/"/g, '\\"')}" --write-media "${mp3File}"`,
       { timeout: 30000 }
     );
     

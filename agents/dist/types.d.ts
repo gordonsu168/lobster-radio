@@ -24,3 +24,7 @@ export interface Preferences {
     moodAffinity: Record<string, number>;
     memoryInsight?: string;
 }
+export interface ChatMessage {
+    role: "user" | "assistant";
+    content: string;
+}

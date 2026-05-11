@@ -1,10 +1,11 @@
 import type { DJLanguage, MoodOption, PlaybackHistoryItem, Track } from "../types.js";
 export type DJStyle = "classic" | "night" | "vibe" | "trivia";
-interface NarratorInput {
+export interface NarratorInput {
     mood: MoodOption;
     contextSummary: string;
     shortTermMemory?: string;
     longTermMemory?: string;
+    memoryInsight?: string;
     track: Track;
     history: PlaybackHistoryItem[];
     style?: DJStyle;
@@ -16,4 +17,3 @@ export declare class NarratorAgent {
     private getSystemPrompt;
     private getUserPrompt;
 }
-export {};
