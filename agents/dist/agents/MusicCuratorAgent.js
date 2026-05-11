@@ -27,7 +27,7 @@ export class MusicCuratorAgent {
         return scoredTracks
             .sort((a, b) => b.score - a.score)
             .map((item) => item.track)
-            .slice(0, 50)
+            .slice(0, 20)
             .map((track) => ({
             ...track,
             explanation: `${track.explanation} Curated for ${input.mood.toLowerCase()} mode with context: ${input.contextSummary}`

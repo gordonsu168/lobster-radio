@@ -3,6 +3,8 @@ export type DJStyle = "classic" | "night" | "vibe" | "trivia";
 interface NarratorInput {
     mood: MoodOption;
     contextSummary: string;
+    shortTermMemory?: string;
+    longTermMemory?: string;
     track: Track;
     history: PlaybackHistoryItem[];
     style?: DJStyle;

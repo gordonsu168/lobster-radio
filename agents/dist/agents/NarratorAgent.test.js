@@ -1,0 +1,64 @@
+import { describe, it, expect } from 'vitest';
+import { NarratorAgent } from './NarratorAgent.js';
+describe('NarratorAgent Prompts', () => {
+    it('should request 3-4 sentences in the system prompt', () => {
+        const agent = new NarratorAgent();
+        const sysPrompt = agent.getSystemPrompt('classic', 'en-US');
+        expect(sysPrompt).toContain('3-4 sentences');
+        expect(sysPrompt).not.toContain('1-2 sentences');
+    });
+    it('should include track explanation and blend instructions in the user prompt', () => {
+        const agent = new NarratorAgent();
+        const input = {
+            mood: 'Working',
+            contextSummary: 'Focused afternoon',
+            track: {
+                id: '1', title: 'Song', artist: 'Artist', album: 'Album',
+                previewUrl: null, artwork: '', moodTags: [], energy: 0,
+                explanation: 'A deep electronic track about focus.',
+                source: 'local'
+            },
+            history: []
+        };
+        const userPrompt = agent.getUserPrompt(input, 0, 'en-US');
+        expect(userPrompt).toContain('A deep electronic track about focus.');
+        expect(userPrompt).toContain('blend the provided track context with your own deep knowledge');
+        expect(userPrompt).toContain('3-4 sentences');
+    });
+    it('should include specific insight instructions per style', () => {
+        const agent = new NarratorAgent();
+        expect(agent.getSystemPrompt('classic', 'en-US')).toContain('career trajectory');
+        expect(agent.getSystemPrompt('night', 'en-US')).toContain('lyrical meaning');
+        expect(agent.getSystemPrompt('vibe', 'en-US')).toContain('cultural impact');
+        expect(agent.getSystemPrompt('trivia', 'en-US')).toContain('recording process');
+    });
+    it('should return longer fallbacks (2-3 sentences)', () => {
+        const agent = new NarratorAgent();
+        const track = { title: 'Test', artist: 'Tester', album: 'Album' };
+        const classicFallback = agent.getFallbackTemplate(track, 'classic', 'en-US');
+        const sentences = classicFallback.split(/[.!?。！？]+/).filter((s) => s.trim().length > 0);
+        expect(sentences.length).toBeGreaterThanOrEqual(2);
+        // Spot check one of the new profound generic sentences
+        expect(agent.getFallbackTemplate(track, 'night', 'en-US')).toMatch(/(mood|unwind|melody|atmosphere|conversation|soul|dreams|friend|peaceful|quiet)/i);
+    });
+    it('should include memory instructions in the user prompt', () => {
+        const agent = new NarratorAgent();
+        const input = {
+            mood: 'Working',
+            contextSummary: 'Focused afternoon',
+            shortTermMemory: 'User listened to 5 songs today and skipped 2.',
+            longTermMemory: 'Their favorite artists include Artist B.',
+            track: {
+                id: '1', title: 'Song', artist: 'Artist', album: 'Album',
+                previewUrl: null, artwork: '', moodTags: [], energy: 0,
+                explanation: 'A deep electronic track about focus.',
+                source: 'local'
+            },
+            history: []
+        };
+        const userPrompt = agent.getUserPrompt(input, 0, 'en-US');
+        expect(userPrompt).toContain('User listened to 5 songs today and skipped 2.');
+        expect(userPrompt).toContain('Their favorite artists include Artist B.');
+        expect(userPrompt).toContain('use the provided Short-Term and Long-Term memory context to make your commentary more personalized');
+    });
+});

@@ -1,4 +1,5 @@
-import { callModel } from "../lib/model.js";
+import { createOptionalModel } from "../lib/model.js";
+import { SystemMessage, HumanMessage } from "@langchain/core/messages";
 import type { Preferences, Track } from "../types.js";
 
 export interface ChatMessage {
@@ -24,6 +25,14 @@ export class ProducerAgent {
     currentTrack: Track | null,
     preferences: Preferences | null
   ): Promise<ProducerOutput> {
+    const model = createOptionalModel();
+    if (!model) {
+      return {
+        reply: "收到，我会告诉DJ的。",
+        directives: {}
+      };
+    }
+
     const prompt = `You are the Producer for Lobster Radio, a personalized AI radio station.
 Your job is to chat with the listener, acknowledge their messages, and extract any directives or preferences.
 You must output ONLY valid JSON matching this schema:
@@ -44,16 +53,18 @@ History: ${JSON.stringify(history)}
 User message: ${message}`;
 
     try {
-      const response = await callModel({
-        system: "You output strictly valid JSON.",
-        prompt,
-        temperature: 0.7,
-      });
-      return JSON.parse(response) as ProducerOutput;
+      const result = await model.invoke([
+        new SystemMessage("You output strictly valid JSON."),
+        new HumanMessage(prompt)
+      ]);
+      const content = typeof result.content === "string" ? result.content : JSON.stringify(result.content);
+      // clean up any markdown code blocks
+      const cleanContent = content.replace(/```json/g, '').replace(/```/g, '').trim();
+      return JSON.parse(cleanContent) as ProducerOutput;
     } catch (e) {
       console.error("ProducerAgent failed to parse JSON", e);
       return {
-        reply: "Got it. I'll let the DJ know.",
+        reply: "收到，我会告诉DJ的。",
         directives: {}
       };
     }
