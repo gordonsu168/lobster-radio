@@ -8,7 +8,7 @@ import {
   type SongWiki
 } from "../services/wikiService.js";
 import { generateNarration, generateRandomNarration, type DJStyle } from "../services/narrationGenerator.js";
-import { NarratorAgent, type DJLanguage } from "lobster-radio-agents";
+import { NarratorAgent, RadioDJAgent, type DJLanguage } from "lobster-radio-agents";
 
 export const wikiRouter = Router();
 
@@ -172,7 +172,7 @@ wikiRouter.post("/narration/batch", async (req: Request, res: Response) => {
 // 生成歌曲结束 outro 闲聊
 wikiRouter.post("/outro/:id", async (req: Request, res: Response) => {
   try {
-    const { style, language } = req.body as { style?: DJStyle; language?: string };
+    const { style, language, contextSummary = "" } = req.body as { style?: DJStyle; language?: string; contextSummary?: string };
     const song = await getSongWiki(req.params.id);
 
     if (!song) {
@@ -191,12 +191,12 @@ wikiRouter.post("/outro/:id", async (req: Request, res: Response) => {
       const vibes = song.djMaterial.vibe;
       outro = vibes[Math.floor(Math.random() * vibes.length)];
     } else {
-      // 没有预存素材，调用 NarratorAgent 生成
+      // 没有预存素材，调用 RadioDJAgent 生成
       try {
-        const narratorAgent = new NarratorAgent();
-        outro = await narratorAgent.generateOutro(song, (language || "zh-CN") as DJLanguage);
+        const radioDJAgent = new RadioDJAgent();
+        outro = await radioDJAgent.generateOutro(song, (style || "classic") as DJStyle, (language || "zh-CN") as DJLanguage, contextSummary);
       } catch (error) {
-        console.error("NarratorAgent generateOutro failed, falling back to template:", error);
+        console.error("RadioDJAgent generateOutro failed, falling back to template:", error);
         // fallback 模板
         outro = `${song.artist}的《${song.title}》听完了，希望你喜欢。接下来，我们继续听下一首歌。`;
       }
@@ -218,6 +218,7 @@ wikiRouter.post("/outro/:id", async (req: Request, res: Response) => {
 // 获取歌曲中间插播的冷知识 trivia
 wikiRouter.get("/trivia/:id", async (req: Request, res: Response) => {
   try {
+    const { style = "trivia", language = "zh-CN" } = req.query as { style?: DJStyle; language?: string };
     const song = await getSongWiki(req.params.id);
 
     if (!song) {
@@ -225,7 +226,7 @@ wikiRouter.get("/trivia/:id", async (req: Request, res: Response) => {
       return;
     }
 
-    // 只返回预存素材，不自动生成（用户要求：确实有趣的才加上）
+    // 优先使用预存素材
     let trivia: string | null = null;
     if (song.djMaterial?.funFact && song.djMaterial.funFact.length > 0) {
       const facts = song.djMaterial.funFact;
@@ -233,10 +234,18 @@ wikiRouter.get("/trivia/:id", async (req: Request, res: Response) => {
     } else if (song.trivia && song.trivia.length > 0) {
       // fallback 到旧 trivia 字段
       trivia = song.trivia[Math.floor(Math.random() * song.trivia.length)];
+    } else {
+      // 没有预存素材，调用 RadioDJAgent 生成
+      try {
+        const radioDJAgent = new RadioDJAgent();
+        trivia = await radioDJAgent.generateMidTrackTrivia(song, style as DJStyle, language as DJLanguage);
+      } catch (error) {
+        console.error("RadioDJAgent generateMidTrackTrivia failed:", error);
+      }
     }
 
-    // Add Cache-Control header for static content
-    res.setHeader("Cache-Control", "public, max-age=86400");
+    // Disable caching for trivia to ensure fresh generation
+    res.setHeader("Cache-Control", "no-cache");
 
     res.json({
       songId: song.id,
