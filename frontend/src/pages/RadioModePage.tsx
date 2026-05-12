@@ -89,14 +89,20 @@ export function RadioModePage() {
     }
   }, []);
 
-  // 当当前歌曲播放完毕，先播 outro，再加载下一首
-  const handleTrackEnd = async () => {
-    if (isNarrationPlayingRef.current) {
-      isNarrationPlayingRef.current = false;
+  // 当 currentTrack 被设置且还没有开始播放时，自动开始播放
+  // 使用函数式更新确保拿到最新的状态
+  useEffect(() => {
+    if (!currentTrack || !currentNarration || isPlaying || isNarrationPlayingRef.current) {
       return;
     }
+    playNarrationThenMusic(currentNarration, currentTrack);
+  }, [currentTrack, currentNarration, isPlaying]);
 
-    if (isLoadingNextRef.current) {
+  // 当当前歌曲播放完毕，先播 outro，再加载下一首
+  const handleTrackEnd = async () => {
+    // 如果正在播放旁白（intro/outro），不要触发切歌
+    // 这是因为同一个 audio 元素用于播放旁白，旁白结束会触发 onEnded
+    if (isNarrationPlayingRef.current || isLoadingNextRef.current) {
       return;
     }
 
@@ -165,16 +171,18 @@ export function RadioModePage() {
     try {
       const result = await getRecommendations(mood, djLanguage);
       // 将新推荐添加到队列末尾
-      setQueue(prev => [...prev, ...result.tracks]);
+      setQueue(prev => {
+        // 闭包内检查，如果队列原本是空且结果有歌，取出第一首作为当前播放
+        if (prev.length === 0 && result.tracks.length > 0) {
+          const [first, ...rest] = result.tracks;
+          setCurrentTrack(first);
+          setCurrentNarration(result.narration);
+          return rest;
+        }
+        return [...prev, ...result.tracks];
+      });
       const latestPreferences = await getPreferences();
       setPreferences(latestPreferences);
-      // 如果没有当前播放的歌曲，播放第一首
-      if (!currentTrack && result.tracks.length > 0) {
-        const [first, ...rest] = result.tracks;
-        setCurrentTrack(first);
-        setQueue(rest);
-        setCurrentNarration(result.narration);
-      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load recommendations");
     } finally {
