@@ -4,7 +4,8 @@ import type {
   RecommendationPayload,
   RuntimeSettings,
   Track,
-  VoiceOption
+  VoiceOption,
+  DJStyle
 } from "../types";
 
 const API_BASE = (window as Window & { __LOBSTER_API__?: string }).__LOBSTER_API__ ?? "http://localhost:4000";
@@ -85,7 +86,6 @@ export function scanLibrary() {
   }>("/api/library/scan", { method: "POST" });
 }
 
-export type DJStyle = "classic" | "night" | "vibe" | "trivia";
 
 export function generateNarration(trackId: string, style: DJStyle, language?: string) {
   return request<{
@@ -113,14 +113,15 @@ export function generateChat(trackId: string, style: DJStyle, position?: string)
   });
 }
 
-export function getTrivia(trackId: string) {
-  return request<{
-    songId: string;
-    title: string;
-    artist: string;
-    hasTrivia: boolean;
-    trivia: string | null;
-  }>(`/api/wiki/trivia/${encodeURIComponent(trackId)}`);
+export function generateOutro(songId: string, style: DJStyle, language: string) {
+  return request<{ outro: string }>(`/api/wiki/outro/${encodeURIComponent(songId)}`, {
+    method: "POST",
+    body: JSON.stringify({ style, language }),
+  });
+}
+
+export function getTrivia(songId: string) {
+  return request<{ hasTrivia: boolean; trivia: string | null }>(`/api/wiki/trivia/${encodeURIComponent(songId)}`);
 }
 
 export interface ChatMessage {

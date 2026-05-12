@@ -6,8 +6,8 @@ import { PlayerCard } from "../components/PlayerCard";
 import { StatsStrip } from "../components/StatsStrip";
 import { TrackQueue } from "../components/TrackQueue";
 import { Waveform } from "../components/Waveform";
-import { getPreferences, getRecommendations, submitFeedback, synthesizeNarration, generateNarration, generateChat, getSettings, type DJStyle } from "../lib/api";
-import type { MoodOption, PreferencesSnapshot, RecommendationPayload, Track, VoiceOption } from "../types";
+import { getPreferences, getRecommendations, submitFeedback, synthesizeNarration, generateNarration, generateChat, getSettings } from "../lib/api";
+import type { MoodOption, PreferencesSnapshot, RecommendationPayload, Track, VoiceOption, DJStyle } from "../types";
 
 export function HomePage() {
   const [mood, setMood] = useState<MoodOption>("Working");
