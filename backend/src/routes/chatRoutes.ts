@@ -1,11 +1,27 @@
 import { Router } from "express";
-import { ProducerAgent, type ChatMessage, type ToolCall } from "lobster-radio-agents";
-import { getPreferences, savePreferences } from "../services/storageService.js";
+import { ProducerAgent, MemoryAgent, type ChatMessage, type ToolCall } from "lobster-radio-agents";
+import { getPreferences, savePreferences, addChatHistory } from "../services/storageService.js";
 import { getSongWiki, updateSongWiki } from "../services/wikiService.js";
 import type { Track } from "lobster-radio-agents";
 
 export const chatRouter = Router();
 const producer = new ProducerAgent();
+const memoryAgent = new MemoryAgent();
+
+chatRouter.post("/reflect", async (req, res) => {
+  try {
+    const prefs = await getPreferences();
+    const newInsight = await memoryAgent.summarize(prefs);
+    if (newInsight) {
+      prefs.memoryInsight = newInsight;
+      await savePreferences(prefs);
+    }
+    res.json({ success: true, insight: newInsight });
+  } catch (error) {
+    console.error("Error reflecting on memory:", error);
+    res.status(500).json({ error: "Reflection failed" });
+  }
+});
 
 chatRouter.post("/", async (req, res) => {
   try {
@@ -26,8 +42,15 @@ chatRouter.post("/", async (req, res) => {
     const prefs = await getPreferences();
     const output = await producer.generateResponse(message, history, currentTrack, prefs);
 
-    // Apply directives implicitly
+    // Save chat to persistent history
+    addChatHistory("user", message);
+    if (output.reply) {
+      addChatHistory("assistant", output.reply);
+    }
+
     let updated = false;
+
+    // Apply directives implicitly
     if (output.directives) {
       if (output.directives.memoryInsight) {
         prefs.memoryInsight = output.directives.memoryInsight;

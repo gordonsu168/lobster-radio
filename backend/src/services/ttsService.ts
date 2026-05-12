@@ -156,13 +156,13 @@ function getCache(text: string, voice: string, provider: string): TTSType | null
   return memoryCache[key] || null;
 }
 
-// 设置缓存
-function setCache(text: string, voice: string, provider: string, data: TTSType): void {
+  // 设置缓存
+function setCache(text: string, voice: string, provider: string, data: Omit<TTSType, 'cachedAt'>): void {
   const key = getCacheKey(text, voice, provider);
   memoryCache[key] = {
     ...data,
     cachedAt: new Date().toISOString(),
-  };
+  } as TTSType;
   // 异步保存，不阻塞
   setImmediate(saveCache);
 }

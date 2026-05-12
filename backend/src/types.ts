@@ -10,7 +10,7 @@ export interface Track {
   moodTags: string[];
   energy: number;
   explanation: string;
-  source: "spotify" | "netease" | "fallback";
+  source: "spotify" | "netease" | "local" | "fallback";
 }
 
 export interface PlaybackHistoryItem extends Track {
@@ -24,6 +24,7 @@ export interface Preferences {
   history: PlaybackHistoryItem[];
   moodAffinity: Record<string, number>;
   memoryInsight?: string;
+  chatHistory?: { role: "user" | "assistant"; content: string }[];
 }
 
 export interface RuntimeSettings {

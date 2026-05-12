@@ -22,8 +22,11 @@ export function HomePage() {
   const [djStyle, setDjStyle] = useState<"classic" | "night" | "vibe" | "trivia">("classic");
   const [djLanguage, setDjLanguage] = useState<"zh-CN" | "zh-HK" | "en-US">("zh-CN");
   const [autoChatEnabled, setAutoChatEnabled] = useState(true);
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
+  const [userInteracted, setUserInteracted] = useState(false);
   const isSpeakingRef = useRef(false);
   const isNarrationPlayingRef = useRef(false);
+  const hasStartedInitialPlayRef = useRef(false);
   // 自动闲聊触发控制
   const chatTriggeredRef = useRef<Set<number>>(new Set()); // 已触发的时间点
   const lastChatTimeRef = useRef<number>(0); // 上次闲聊时间
@@ -57,7 +60,10 @@ export function HomePage() {
         setDjLanguage(settings.djLanguage as any);
         console.log("🌐 使用用户设置的语言:", settings.djLanguage);
       }
-    }).catch(() => {});
+      setSettingsLoaded(true);
+    }).catch(() => {
+      setSettingsLoaded(true);
+    });
 
     // 预热语音合成（触发 voice 加载）
     if ("speechSynthesis" in window) {
@@ -71,6 +77,7 @@ export function HomePage() {
 
     const unlockAudio = () => {
       userInteractedRef.current = true;
+      setUserInteracted(true);
       document.removeEventListener("click", unlockAudio);
       document.removeEventListener("keydown", unlockAudio);
     };
@@ -84,10 +91,25 @@ export function HomePage() {
     };
   }, []);
 
-  // 当心情或语言改变时，自动刷新推荐
+  // 当心情或语言改变时，自动刷新推荐（等待设置加载完成后）
   useEffect(() => {
-    refreshRecommendations(mood);
-  }, [mood, djLanguage]);
+    if (settingsLoaded) {
+      refreshRecommendations(mood);
+    }
+  }, [mood, djLanguage, settingsLoaded]);
+
+  // 首次加载且用户有交互后，自动开始播放
+  useEffect(() => {
+    if (
+      payload?.selectedTrack &&
+      userInteracted &&
+      !hasStartedInitialPlayRef.current
+    ) {
+      hasStartedInitialPlayRef.current = true;
+      const narration = currentNarration || payload.narration || `欢迎收听龙虾电台，为您播放${payload.selectedTrack.artist}的《${payload.selectedTrack.title}》。`;
+      playNarrationThenMusic(narration, payload.selectedTrack);
+    }
+  }, [payload?.selectedTrack?.id, currentNarration, userInteracted]);
 
   const currentTrack = payload?.selectedTrack ?? null;
 
@@ -97,7 +119,8 @@ export function HomePage() {
     if (payload?.selectedTrack) {
       // 重置闲聊触发状态
       chatTriggeredRef.current.clear();
-      lastChatTimeRef.current = 0;
+      // 设置当前时间，确保前30秒内（通常是刚放完旁白的时候）不会触发新的闲聊
+      lastChatTimeRef.current = Date.now();
     }
   }, [payload?.selectedTrack?.id]);
 
@@ -116,8 +139,8 @@ export function HomePage() {
       const duration = audio.duration || 180; // 默认3分钟
       const now = Date.now();
 
-      // 距离上次闲聊至少30秒
-      if (now - lastChatTimeRef.current < 30000) {
+      // 距离上次闲聊至少 45 秒，避免话太多
+      if (now - lastChatTimeRef.current < 45000) {
         return;
       }
 
@@ -126,11 +149,10 @@ export function HomePage() {
 
       // 定义触发时间点（秒）
       const triggerPoints = [
-        10,      // 开头：打个招呼
-        duration * 0.25,  // 1/4处
-        duration * 0.5,   // 中间
-        duration * 0.75,  // 3/4处
-        duration - 15,    // 结束前15秒
+        30,               // 开头 30 秒左右
+        duration * 0.33,  // 1/3处
+        duration * 0.66,  // 2/3处
+        duration - 20,    // 结束前20秒
       ];
 
       // 检查是否到达某个触发点（+/-2秒容错）
@@ -222,7 +244,9 @@ export function HomePage() {
     
     // 标记用户已交互
     userInteractedRef.current = true;
-    
+    setUserInteracted(true);
+    hasStartedInitialPlayRef.current = true;
+
     // 先停止正在播放的音乐
     if (audioRef.current) {
       audioRef.current.pause();
@@ -307,6 +331,8 @@ export function HomePage() {
       handlePlayPause();
     } else {
       userInteractedRef.current = true;
+      setUserInteracted(true);
+      hasStartedInitialPlayRef.current = true;
       // 先播放旁白，再播放音乐
       const narration = currentNarration || payload?.narration || `欢迎收听龙虾电台，为您播放${currentTrack.artist}的《${currentTrack.title}》。`;
       playNarrationThenMusic(narration, currentTrack);
@@ -325,7 +351,9 @@ export function HomePage() {
     
     // 标记用户已交互，解锁音频
     userInteractedRef.current = true;
-    
+    setUserInteracted(true);
+    hasStartedInitialPlayRef.current = true;
+
     // 先停止正在播放的音乐
     if (audioRef.current) {
       audioRef.current.pause();
@@ -370,7 +398,9 @@ export function HomePage() {
     
     // 标记用户已交互
     userInteractedRef.current = true;
-    
+    setUserInteracted(true);
+    hasStartedInitialPlayRef.current = true;
+
     try {
       // 1. 生成闲聊内容
       const chatResult = await generateChat(currentTrack.id, djStyle, "manual");
@@ -535,6 +565,8 @@ export function HomePage() {
         onNextTrack={() => {
           if (!payload?.tracks || !payload.selectedTrack || !audioRef.current) return;
           userInteractedRef.current = true;
+          setUserInteracted(true);
+          hasStartedInitialPlayRef.current = true;
           const currentIndex = payload.tracks.findIndex((t) => t.id === payload.selectedTrack?.id);
           const nextIndex = (currentIndex + 1) % payload.tracks.length;
           const nextTrack = payload.tracks[nextIndex];
@@ -564,6 +596,8 @@ export function HomePage() {
             onSelect={(track: Track) => {
               setPayload((existing) => (existing ? { ...existing, selectedTrack: track } : existing));
               userInteractedRef.current = true;
+              setUserInteracted(true);
+              hasStartedInitialPlayRef.current = true;
               // 点击队列歌曲时：先生成新歌曲的旁白，再播放
               generateNarration(track.id, djStyle, djLanguage)
                 .then((result) => {
@@ -608,6 +642,8 @@ export function HomePage() {
               // Trigger skip logic - replicate what onNextTrack does
               if (!payload?.tracks || !payload.selectedTrack || !audioRef.current) return;
               userInteractedRef.current = true;
+              setUserInteracted(true);
+              hasStartedInitialPlayRef.current = true;
               const currentIndex = payload.tracks.findIndex((t) => t.id === payload.selectedTrack?.id);
               const nextIndex = (currentIndex + 1) % payload.tracks.length;
               const nextTrack = payload.tracks[nextIndex];

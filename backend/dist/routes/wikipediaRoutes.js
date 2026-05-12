@@ -5,7 +5,7 @@ export const wikipediaRouter = Router();
 // 搜索维基百科
 wikipediaRouter.get("/search", async (req, res) => {
     try {
-        const query = Array.isArray(req.query.q) ? req.query.q[0] : req.query.q;
+        const query = (Array.isArray(req.query.q) ? req.query.q[0] : req.query.q);
         if (!query) {
             res.status(400).json({ error: "Query required" });
             return;
@@ -20,7 +20,7 @@ wikipediaRouter.get("/search", async (req, res) => {
 // 搜索单首歌曲信息
 wikipediaRouter.get("/song/:title", async (req, res) => {
     try {
-        const artist = Array.isArray(req.query.artist) ? req.query.artist[0] : req.query.artist;
+        const artist = (Array.isArray(req.query.artist) ? req.query.artist[0] : req.query.artist);
         const info = await searchSongInfo(req.params.title, artist);
         if (!info) {
             res.status(404).json({ error: "Song info not found" });

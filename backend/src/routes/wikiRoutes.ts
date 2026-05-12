@@ -25,7 +25,7 @@ wikiRouter.get("/", async (_req: Request, res: Response) => {
 // 获取单首歌曲 Wiki
 wikiRouter.get("/song/:id", async (req: Request, res: Response) => {
   try {
-    const song = await getSongWiki(req.params.id);
+    const song = await getSongWiki(req.params.id as string);
     if (!song) {
       res.status(404).json({ error: "Song not found" });
       return;
@@ -39,7 +39,7 @@ wikiRouter.get("/song/:id", async (req: Request, res: Response) => {
 // 更新歌曲 Wiki
 wikiRouter.put("/song/:id", async (req: Request, res: Response) => {
   try {
-    const updated = await updateSongWiki(req.params.id, req.body as Partial<SongWiki>);
+    const updated = await updateSongWiki(req.params.id as string, req.body as Partial<SongWiki>);
     res.json(updated);
   } catch (e) {
     res.status(500).json({ error: "Failed to update song wiki" });
@@ -49,7 +49,7 @@ wikiRouter.put("/song/:id", async (req: Request, res: Response) => {
 // 搜索 Wiki
 wikiRouter.get("/search", async (req: Request, res: Response) => {
   try {
-    const query = Array.isArray(req.query.q) ? req.query.q[0] : req.query.q as string;
+    const query = (Array.isArray(req.query.q) ? req.query.q[0] : req.query.q) as string;
     const results = await searchWiki(query);
     res.json({ count: results.length, results });
   } catch (e) {
@@ -61,7 +61,7 @@ wikiRouter.get("/search", async (req: Request, res: Response) => {
 wikiRouter.post("/chat/:id", async (req: Request, res: Response) => {
   try {
     const { style, position } = req.body as { style?: DJStyle, position?: string };
-    const song = await getSongWiki(req.params.id);
+    const song = await getSongWiki(req.params.id as string);
     
     if (!song) {
       res.status(404).json({ error: "Song not found" });
@@ -124,7 +124,7 @@ wikiRouter.post("/chat/:id", async (req: Request, res: Response) => {
 wikiRouter.post("/narration/:id", async (req: Request, res: Response) => {
   try {
     const { style, language } = req.body as { style?: DJStyle; language?: string };
-    const song = await getSongWiki(req.params.id);
+    const song = await getSongWiki(req.params.id as string);
     
     if (!song) {
       res.status(404).json({ error: "Song not found" });
@@ -173,7 +173,7 @@ wikiRouter.post("/narration/batch", async (req: Request, res: Response) => {
 wikiRouter.post("/outro/:id", async (req: Request, res: Response) => {
   try {
     const { style, language, contextSummary = "" } = req.body as { style?: DJStyle; language?: string; contextSummary?: string };
-    const song = await getSongWiki(req.params.id);
+    const song = await getSongWiki(req.params.id as string);
 
     if (!song) {
       res.status(404).json({ error: "Song not found" });
@@ -220,7 +220,7 @@ wikiRouter.post("/outro/:id", async (req: Request, res: Response) => {
 wikiRouter.get("/trivia/:id", async (req: Request, res: Response) => {
   try {
     const { style = "trivia", language = "zh-CN" } = req.query as { style?: DJStyle; language?: string };
-    const song = await getSongWiki(req.params.id);
+    const song = await getSongWiki(req.params.id as string);
 
     if (!song) {
       res.status(404).json({ error: "Song not found" });

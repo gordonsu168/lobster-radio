@@ -23,6 +23,7 @@ export interface Preferences {
     history: PlaybackHistoryItem[];
     moodAffinity: Record<string, number>;
     memoryInsight?: string;
+    chatHistory?: ChatMessage[];
 }
 export interface ChatMessage {
     role: "user" | "assistant";

@@ -1,7 +1,7 @@
 import { LearningAgent, MusicCuratorAgent, RadioDJAgent, } from "lobster-radio-agents";
 import { generateNarration } from "./narrationGenerator.js";
 import { fallbackCatalog } from "../data/fallbackCatalog.js";
-import { getPreferences, savePreferences } from "./storageService.js";
+import { getPreferences, savePreferences, addPlayHistory, updateFeedback } from "./storageService.js";
 import { searchTracksByMood as searchSpotify } from "./spotifyService.js";
 import { searchTracksByMood as searchNetEase } from "./neteaseService.js";
 import { getLocalTracksByMood } from "./musicLibraryService.js";
@@ -109,11 +109,8 @@ export async function buildRecommendations(mood, style = "classic", language) {
         ...selectedTrack,
         playedAt: new Date().toISOString()
     };
-    const dedupedHistory = [historyEntry, ...updatedPreferences.history].slice(0, 20);
-    await savePreferences({
-        ...updatedPreferences,
-        history: dedupedHistory
-    });
+    addPlayHistory(historyEntry);
+    await savePreferences(updatedPreferences);
     return {
         mood,
         contextSummary: "Lobster Radio recommendation",
@@ -131,5 +128,6 @@ export async function captureFeedback(trackId, feedback, mood) {
         mood,
         preferences
     });
+    updateFeedback(trackId, feedback);
     return savePreferences(updated);
 }

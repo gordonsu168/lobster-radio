@@ -66,7 +66,7 @@ function getRandomItem(arr: string[]) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
-function getRandomItems(arr: string[], count: number) {
+function getRandomItems<T>(arr: T[], count: number): T[] {
   const shuffled = [...arr].sort(() => Math.random() - 0.5);
   return shuffled.slice(0, count);
 }

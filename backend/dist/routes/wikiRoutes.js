@@ -40,7 +40,7 @@ wikiRouter.put("/song/:id", async (req, res) => {
 // 搜索 Wiki
 wikiRouter.get("/search", async (req, res) => {
     try {
-        const query = Array.isArray(req.query.q) ? req.query.q[0] : req.query.q;
+        const query = (Array.isArray(req.query.q) ? req.query.q[0] : req.query.q);
         const results = await searchWiki(query);
         res.json({ count: results.length, results });
     }

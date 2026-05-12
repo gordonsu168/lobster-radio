@@ -47,7 +47,6 @@ const RELEASE_YEARS: Record<string, Record<string, number>> = {
     "最佳损友": 2006,
     "夕阳无限好": 2005,
     "葡萄成熟时": 2005,
-    "浮夸": 2005,
     "与我常在": 1997,
     "天下无双": 1998,
   },

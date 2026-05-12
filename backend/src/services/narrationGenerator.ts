@@ -266,7 +266,7 @@ function generateNight(song: SongWiki): string {
   const connector = getSongConnector();
   const patterns = [
     `${song.artist}${connector}《${song.title}》${pick(phrases.vibes)}`,
-    `${pick(phrases.titles[0]).replace("{}", song.title)}`,
+    `${pick(phrases.titles).replace("{}", song.title)}`,
   ];
   
   return `${intro}${pick(patterns)}`;
