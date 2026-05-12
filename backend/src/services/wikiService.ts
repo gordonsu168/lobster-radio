@@ -25,6 +25,7 @@ export interface SongWiki {
   // DJ 素材库
   djMaterial?: {
     intro?: string[];
+    outro?: string[];
     vibe?: string[];
     funFact?: string[];
   };
@@ -83,6 +84,7 @@ function generateDefaultWiki(track: Track): SongWiki {
     trivia: [],
     djMaterial: {
       intro: [],
+      outro: [],
       vibe: [],
       funFact: []
     },

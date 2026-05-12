@@ -1,4 +1,18 @@
 import type { DJLanguage, MoodOption, PlaybackHistoryItem, Track } from "../types.js";
+export interface SongWiki {
+    id: string;
+    title: string;
+    artist: string;
+    album: string;
+    explanation?: string;
+    djMaterial?: {
+        intro?: string[];
+        outro?: string[];
+        vibe?: string[];
+        funFact?: string[];
+    };
+    trivia?: string[];
+}
 export type DJStyle = "classic" | "night" | "vibe" | "trivia";
 export interface NarratorInput {
     mood: MoodOption;
@@ -16,4 +30,8 @@ export declare class NarratorAgent {
     private getFallbackTemplate;
     private getSystemPrompt;
     private getUserPrompt;
+    generateOutro(song: SongWiki, style?: DJStyle, language?: DJLanguage): Promise<string>;
+    private getFallbackOutro;
+    private getOutroSystemPrompt;
+    private getOutroUserPrompt;
 }

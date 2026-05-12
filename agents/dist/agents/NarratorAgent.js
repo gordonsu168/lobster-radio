@@ -141,4 +141,50 @@ export class NarratorAgent {
         }
         return prompt;
     }
+    async generateOutro(song, style = "classic", language = "zh-CN") {
+        const model = createOptionalModel();
+        if (!model) {
+            return this.getFallbackOutro(song.artist, song.title, style, language);
+        }
+        const systemPrompt = this.getOutroSystemPrompt(style, language);
+        const userPrompt = this.getOutroUserPrompt(song, language);
+        const result = await model.invoke([
+            new SystemMessage(systemPrompt),
+            new HumanMessage(userPrompt)
+        ]);
+        return typeof result.content === "string" ? result.content : JSON.stringify(result.content);
+    }
+    getFallbackOutro(artist, title, style, language) {
+        const fallbacks = {
+            "zh-CN": `${artist}的《${title}》听完了，希望你喜欢。接下来继续下一首歌。`,
+            "zh-HK": `${artist}嘅《${title}》听完咗，希望你钟意。跟住继续听下一首歌。`,
+            "en-US": `That was ${title} by ${artist}. Hope you enjoyed it. Coming up next, we have another track for you.`
+        };
+        return fallbacks[language] || fallbacks["zh-CN"];
+    }
+    getOutroSystemPrompt(style, language) {
+        const prompts = {
+            "zh-HK": `你系龙虾电台嘅AI DJ。刚播完一首歌，用1-2句话简单讲下对呢首歌嘅感受，然后自然过渡到下一首歌。语气要亲切自然，唔好太长。`,
+            "zh-CN": `你是龙虾电台的AI DJ。刚播放完一首歌，用1-2句话简单谈谈对这首歌的感受，然后自然过渡到下一首歌。语气要亲切自然，不要太长。`,
+            "en-US": `You are the AI DJ for Lobster Radio. We just finished playing a song. Give a quick 1-2 sentence comment on the track, then transition naturally to the next song. Keep it warm and conversational, don't make it too long.`
+        };
+        return prompts[language];
+    }
+    getOutroUserPrompt(song, language) {
+        const prompts = {
+            "zh-HK": `刚播完嘅系：${song.artist} - 《${song.title}》，专辑：《${song.album}》
+背景：${song.explanation || "暂无"}
+
+请讲一段简短嘅ending评论：`,
+            "zh-CN": `刚播放完的是：${song.artist} - 《${song.title}》，专辑：《${song.album}》
+背景：${song.explanation || "暂无"}
+
+请说一段简短的结尾评论：`,
+            "en-US": `We just finished playing: ${song.title} by ${song.artist}, from the album ${song.album}
+Context: ${song.explanation || "None"}
+
+Give a quick closing comment:`
+        };
+        return prompts[language];
+    }
 }

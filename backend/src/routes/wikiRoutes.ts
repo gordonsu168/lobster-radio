@@ -8,6 +8,7 @@ import {
   type SongWiki
 } from "../services/wikiService.js";
 import { generateNarration, generateRandomNarration, type DJStyle } from "../services/narrationGenerator.js";
+import { NarratorAgent, type DJLanguage } from "lobster-radio-agents";
 
 export const wikiRouter = Router();
 
@@ -150,7 +151,7 @@ wikiRouter.post("/narration/batch", async (req: Request, res: Response) => {
   try {
     const { songIds, style, language } = req.body as { songIds: string[]; style?: DJStyle; language?: string };
     const results: Array<{ songId: string; title: string; narration: string }> = [];
-    
+
     for (const id of songIds) {
       const song = await getSongWiki(id);
       if (song) {
@@ -161,10 +162,56 @@ wikiRouter.post("/narration/batch", async (req: Request, res: Response) => {
         });
       }
     }
-    
+
     res.json({ count: results.length, results });
   } catch (e) {
     res.status(500).json({ error: "Failed to generate narrations" });
+  }
+});
+
+// 生成歌曲结束 outro 闲聊
+wikiRouter.post("/outro/:id", async (req: Request, res: Response) => {
+  try {
+    const { style, language } = req.body as { style?: DJStyle; language?: string };
+    const song = await getSongWiki(req.params.id);
+
+    if (!song) {
+      res.status(404).json({ error: "Song not found" });
+      return;
+    }
+
+    let outro: string;
+
+    // 如果有预存的 outro 素材，随机选一条
+    if (song.djMaterial?.outro && song.djMaterial.outro.length > 0) {
+      const outros = song.djMaterial.outro;
+      outro = outros[Math.floor(Math.random() * outros.length)];
+    } else if (song.djMaterial?.vibe && song.djMaterial.vibe.length > 0) {
+      // 如果没有 outro 但有 vibe 素材，用 vibe
+      const vibes = song.djMaterial.vibe;
+      outro = vibes[Math.floor(Math.random() * vibes.length)];
+    } else {
+      // 没有预存素材，调用 NarratorAgent 生成
+      try {
+        const narratorAgent = new NarratorAgent();
+        outro = await narratorAgent.generateOutro(song, (language || "zh-CN") as DJLanguage);
+      } catch (error) {
+        console.error("NarratorAgent generateOutro failed, falling back to template:", error);
+        // fallback 模板
+        outro = `${song.artist}的《${song.title}》听完了，希望你喜欢。接下来，我们继续听下一首歌。`;
+      }
+    }
+
+    res.json({
+      songId: song.id,
+      title: song.title,
+      artist: song.artist,
+      style: style || "classic",
+      outro,
+      generated: !song.djMaterial?.outro?.length,
+    });
+  } catch (e) {
+    res.status(500).json({ error: "Failed to generate outro" });
   }
 });
 
