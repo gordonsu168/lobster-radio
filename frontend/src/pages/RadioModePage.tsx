@@ -5,11 +5,18 @@ import {
   getRecommendations,
   getSettings,
   generateNarration,
+  generateOutro,
+  getTrivia,
   synthesizeNarration,
   submitFeedback,
   type ChatMessage,
 } from "../lib/api";
 import type { MoodOption, PreferencesSnapshot, RecommendationPayload, Track, VoiceOption, DJStyle } from "../types";
+
+// Constants for audio behavior
+const TRIVIA_VOLUME_DUCK = 0.25;
+const TRIGGER_MIN_PROGRESS = 0.3;
+const TRIGGER_MAX_PROGRESS = 0.6;
 
 export function RadioModePage() {
   const [queue, setQueue] = useState<Track[]>([]);
@@ -24,6 +31,9 @@ export function RadioModePage() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentNarration, setCurrentNarration] = useState<string>("");
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
+  const [currentOutro, setCurrentOutro] = useState<string>("");
+  const [currentTrivia, setCurrentTrivia] = useState<string>("");
+  const triviaTriggeredRef = useRef(false); // 是否已触发过本次插播
 
   const isNarrationPlayingRef = useRef(false);
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -79,7 +89,7 @@ export function RadioModePage() {
     }
   }, []);
 
-  // 当当前歌曲播放完毕，自动加载下一首
+  // 当当前歌曲播放完毕，先播 outro，再加载下一首
   const handleTrackEnd = async () => {
     if (isNarrationPlayingRef.current) {
       isNarrationPlayingRef.current = false;
@@ -91,12 +101,31 @@ export function RadioModePage() {
     }
 
     isLoadingNextRef.current = true;
-    await playNextTrack();
+
+    // 新增：如果有当前歌曲，先播放 outro
+    if (currentTrack) {
+      try {
+        const { outro } = await generateOutro(currentTrack.id, djStyle, djLanguage);
+        setCurrentOutro(outro);
+        await playOutroThenNext(outro);
+      } catch (err) {
+        console.warn("Outro generation failed, skipping:", err);
+        await playNextTrack();
+      }
+    } else {
+      await playNextTrack();
+    }
+
     isLoadingNextRef.current = false;
   };
 
   // 播放下一首
   const playNextTrack = async () => {
+    // 重置 trivia 状态
+    triviaTriggeredRef.current = false;
+    setCurrentTrivia("");
+    setCurrentOutro("");
+
     // 如果队列少于2首，异步加载更多推荐
     if (queue.length <= 1) {
       await loadMoreRecommendations("Working");
@@ -188,8 +217,18 @@ export function RadioModePage() {
             audioRef.current.load();
             setIsPlaying(true);
 
-            audioRef.current.addEventListener("ended", playMusicAfterNarration, { once: true });
-            audioRef.current.play().catch(playMusicAfterNarration);
+            const handleEnded = () => {
+              URL.revokeObjectURL(url);
+              playMusicAfterNarration();
+            };
+
+            const handleError = () => {
+              URL.revokeObjectURL(url);
+              playMusicAfterNarration();
+            };
+
+            audioRef.current.addEventListener("ended", handleEnded, { once: true });
+            audioRef.current.play().catch(handleError);
           } else {
             // 没有旁白，直接播放音乐
             if (audioRef.current && track.previewUrl) {
@@ -212,6 +251,149 @@ export function RadioModePage() {
           resolve();
         });
     });
+  };
+
+  // 播放 outro 闲聊，然后播放下一首歌的旁白和音乐
+  const playOutroThenNext = async (outroText: string): Promise<void> => {
+    return new Promise((resolve) => {
+      if (!audioRef.current) {
+        resolve();
+        return;
+      }
+
+      userInteractedRef.current = true;
+      audioRef.current.pause();
+
+      const afterOutroEnded = () => {
+        isNarrationPlayingRef.current = false;
+        playNextTrack();
+        resolve();
+      };
+
+      synthesizeNarration(outroText, voice, { emotion: djEmotion, language: djLanguage })
+        .then(response => {
+          if (response.audioBase64 && audioRef.current) {
+            const binary = atob(response.audioBase64);
+            const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+            const blob = new Blob([bytes], { type: response.mimeType || "audio/mpeg" });
+            const url = URL.createObjectURL(blob);
+
+            isNarrationPlayingRef.current = true;
+            audioRef.current.src = url;
+            audioRef.current.load();
+            setIsPlaying(true);
+
+            const handleEnded = () => {
+              URL.revokeObjectURL(url);
+              afterOutroEnded();
+            };
+
+            const handleError = () => {
+              URL.revokeObjectURL(url);
+              afterOutroEnded();
+            };
+
+            audioRef.current.addEventListener("ended", handleEnded, { once: true });
+            audioRef.current.play().catch(handleError);
+          } else {
+            // 没有音频，直接继续
+            playNextTrack();
+            resolve();
+          }
+        })
+        .catch(() => {
+          // 出错直接继续
+          playNextTrack();
+          resolve();
+        });
+    });
+  };
+
+  // 处理歌曲进度，触发 mid-track trivia 插播
+  const handleTimeUpdate = () => {
+    if (!audioRef.current || !currentTrack || triviaTriggeredRef.current) {
+      return;
+    }
+
+    const duration = audioRef.current.duration;
+    const currentTime = audioRef.current.currentTime;
+
+    // 在歌曲 30% - 60% 区间触发（选大约中间位置）
+    if (currentTime > duration * TRIGGER_MIN_PROGRESS && currentTime < duration * TRIGGER_MAX_PROGRESS) {
+      triviaTriggeredRef.current = true;
+      playMidTrackTrivia();
+    }
+  };
+
+  // 播放 mid-track 冷知识旁白（降低主音量 → 播旁白 → 恢复音量）
+  const playMidTrackTrivia = async () => {
+    if (!currentTrack || !audioRef.current) return;
+
+    try {
+      const { hasTrivia, trivia } = await getTrivia(currentTrack.id);
+      if (!hasTrivia || !trivia) return;
+
+      setCurrentTrivia(trivia);
+      const originalVolume = audioRef.current.volume;
+
+      // 降低主音乐音量
+      audioRef.current.volume = TRIVIA_VOLUME_DUCK;
+
+      // 播放 trivia
+      return new Promise<void>((resolve) => {
+        synthesizeNarration(trivia, voice, { emotion: "whisper", language: djLanguage })
+          .then(response => {
+            if (response.audioBase64 && audioRef.current) {
+              const binary = atob(response.audioBase64);
+              const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+              const blob = new Blob([bytes], { type: response.mimeType || "audio/mpeg" });
+              const url = URL.createObjectURL(blob);
+
+              const tempAudio = new Audio(url);
+              tempAudio.play().catch((error) => {
+                console.warn("Trivia audio play failed:", error);
+                if (audioRef.current) {
+                  audioRef.current.volume = originalVolume;
+                }
+                setCurrentTrivia("");
+                URL.revokeObjectURL(url);
+                resolve();
+              });
+              tempAudio.onended = () => {
+                if (audioRef.current) {
+                  audioRef.current.volume = originalVolume;
+                }
+                setCurrentTrivia("");
+                URL.revokeObjectURL(url);
+                resolve();
+              };
+              tempAudio.onerror = () => {
+                if (audioRef.current) {
+                  audioRef.current.volume = originalVolume;
+                }
+                setCurrentTrivia("");
+                URL.revokeObjectURL(url);
+                resolve();
+              };
+            } else {
+              if (audioRef.current) {
+                audioRef.current.volume = originalVolume;
+              }
+              setCurrentTrivia("");
+              resolve();
+            }
+          })
+          .catch(() => {
+            if (audioRef.current) {
+              audioRef.current.volume = originalVolume;
+            }
+            setCurrentTrivia("");
+            resolve();
+          });
+      });
+    } catch (err) {
+      console.warn("Mid-track trivia failed, skipping:", err);
+    }
   };
 
   // 播放暂停
@@ -273,6 +455,7 @@ export function RadioModePage() {
       <audio
         ref={audioRef}
         onEnded={handleTrackEnd}
+        onTimeUpdate={handleTimeUpdate}
         onPlay={() => setIsPlaying(true)}
         onPause={() => setIsPlaying(false)}
         crossOrigin="anonymous"
@@ -361,6 +544,26 @@ export function RadioModePage() {
                   <p className="text-xs uppercase tracking-[0.25em] text-mist mb-3 text-center">DJ Intro</p>
                   <p className="text-base leading-relaxed text-slate-200 text-center italic">
                     {currentNarration}
+                  </p>
+                </div>
+              )}
+
+              {/* DJ Outro - 歌曲结束闲聊 */}
+              {currentOutro && (
+                <div className="mt-4 rounded-[28px] border border-white/10 bg-black/20 p-5">
+                  <p className="text-xs uppercase tracking-[0.25em] text-mist mb-3 text-center">DJ Outro</p>
+                  <p className="text-base leading-relaxed text-slate-200 text-center italic">
+                    {currentOutro}
+                  </p>
+                </div>
+              )}
+
+              {/* DJ Trivia - 歌曲中间插播 */}
+              {currentTrivia && (
+                <div className="mt-4 rounded-[28px] border border-yellow-300/30 bg-yellow-500/10 p-5">
+                  <p className="text-xs uppercase tracking-[0.25em] text-mist mb-3 text-center">💡 Trivia</p>
+                  <p className="text-base leading-relaxed text-slate-200 text-center italic">
+                    {currentTrivia}
                   </p>
                 </div>
               )}
