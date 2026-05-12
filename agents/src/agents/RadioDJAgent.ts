@@ -151,16 +151,18 @@ export class RadioDJAgent {
   async generateMidTrackTrivia(
     song: SongWiki,
     style: DJStyle,
-    language: DJLanguage
+    language: DJLanguage,
+    preStoredFact?: string
   ): Promise<string> {
     const model = createOptionalModel();
 
     if (!model) {
-      return this.getFallbackTrivia(song, style, language);
+      // If no model, just use the pre-stored fact directly or a fallback
+      return preStoredFact || this.getFallbackTrivia(song, language);
     }
 
     const systemPrompt = this.getSystemPrompt(style, language);
-    const userPrompt = this.getTriviaUserPrompt(song, language);
+    const userPrompt = this.getTriviaUserPrompt(song, language, preStoredFact);
 
     const result = await model.invoke([
       new SystemMessage(systemPrompt),
@@ -256,11 +258,15 @@ export class RadioDJAgent {
   }
 
   // Trivia user prompt
-  private getTriviaUserPrompt(song: SongWiki, language: DJLanguage): string {
+  private getTriviaUserPrompt(song: SongWiki, language: DJLanguage, preStoredFact?: string): string {
+    const factText = preStoredFact ? `\n\n这里有一个关于这首歌的素材/冷知识："${preStoredFact}"\n请以电台主持人的口吻，把这个冷知识用1-2句话自然地讲出来，像在分享一个小故事。不要死板地读，加入你的感受。` : `\n\n请分享一个关于这首歌的有趣冷知识或小故事，只用1句话。`;
+    const factTextHK = preStoredFact ? `\n\n呢度有一個關於呢首歌嘅素材/冷知識："${preStoredFact}"\n請以電台主持人的口吻，把呢個冷知識用1-2句話自然地講出來，像在分享一個小故事。唔好死板咁讀，加入你嘅感受。` : `\n\n請分享一個關於呢首歌嘅有趣冷知識或小故事，只用1句話。`;
+    const factTextEN = preStoredFact ? `\n\nHere is a fun fact/material about this song: "${preStoredFact}"\nPlease retell this fact in a natural, storytelling radio DJ tone in 1-2 sentences. Don't just read it, add your own feeling.` : `\n\nPlease share an interesting trivia or small story about this song, in just 1 sentence.`;
+
     const prompts = {
-      "zh-CN": `歌曲：${song.artist}的《${song.title}》\n专辑：《${song.album}》\n背景：${song.explanation || "暂无"}\n\n请分享一个关于这首歌的有趣冷知识或小故事，只用1句话。`,
-      "zh-HK": `歌曲：${song.artist}嘅《${song.title}》\n專輯：《${song.album}》\n背景：${song.explanation || "暫無"}\n\n請分享一個關於呢首歌嘅有趣冷知識或小故事，只用1句話。`,
-      "en-US": `Song: ${song.title} by ${song.artist}\nAlbum: ${song.album}\nContext: ${song.explanation || "None"}\n\nPlease share an interesting trivia or small story about this song, in just 1 sentence.`
+      "zh-CN": `歌曲：${song.artist}的《${song.title}》\n专辑：《${song.album}》\n背景：${song.explanation || "暂无"}${factText}`,
+      "zh-HK": `歌曲：${song.artist}嘅《${song.title}》\n專輯：《${song.album}》\n背景：${song.explanation || "暫無"}${factTextHK}`,
+      "en-US": `Song: ${song.title} by ${song.artist}\nAlbum: ${song.album}\nContext: ${song.explanation || "None"}${factTextEN}`
     };
 
     return prompts[language];
@@ -395,7 +401,7 @@ export class RadioDJAgent {
   }
 
   // Fallback trivia templates
-  private getFallbackTrivia(song: SongWiki, style: DJStyle, language: DJLanguage): string {
+  private getFallbackTrivia(song: SongWiki, language: DJLanguage): string {
     const templates = {
       "zh-CN": [
         `这首歌${song.title}录了整整一个月才完成。`,

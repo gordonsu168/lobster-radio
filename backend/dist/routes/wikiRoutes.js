@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { getAllSongs, getSongWiki, updateSongWiki, searchWiki } from "../services/wikiService.js";
 import { generateNarration, generateRandomNarration } from "../services/narrationGenerator.js";
+import { RadioDJAgent } from "lobster-radio-agents";
 export const wikiRouter = Router();
 // 获取所有歌曲 Wiki
 wikiRouter.get("/", async (_req, res) => {
@@ -147,6 +148,99 @@ wikiRouter.post("/narration/batch", async (req, res) => {
     }
     catch (e) {
         res.status(500).json({ error: "Failed to generate narrations" });
+    }
+});
+// 生成歌曲结束 outro 闲聊
+wikiRouter.post("/outro/:id", async (req, res) => {
+    try {
+        const { style, language, contextSummary = "" } = req.body;
+        const song = await getSongWiki(req.params.id);
+        if (!song) {
+            res.status(404).json({ error: "Song not found" });
+            return;
+        }
+        let outro;
+        // 如果有预存的 outro 素材，随机选一条
+        if (song.djMaterial?.outro && song.djMaterial.outro.length > 0) {
+            const outros = song.djMaterial.outro;
+            outro = outros[Math.floor(Math.random() * outros.length)];
+        }
+        else if (song.djMaterial?.vibe && song.djMaterial.vibe.length > 0) {
+            // 如果没有 outro 但有 vibe 素材，用 vibe
+            const vibes = song.djMaterial.vibe;
+            outro = vibes[Math.floor(Math.random() * vibes.length)];
+        }
+        else {
+            // 没有预存素材，调用 RadioDJAgent 生成
+            try {
+                const radioDJAgent = new RadioDJAgent();
+                const { memoryInsight } = req.body;
+                outro = await radioDJAgent.generateOutro(song, (style || "classic"), (language || "zh-CN"), contextSummary, memoryInsight);
+            }
+            catch (error) {
+                console.error("RadioDJAgent generateOutro failed, falling back to template:", error);
+                // fallback 模板
+                outro = `${song.artist}的《${song.title}》听完了，希望你喜欢。接下来，我们继续听下一首歌。`;
+            }
+        }
+        res.json({
+            songId: song.id,
+            title: song.title,
+            artist: song.artist,
+            style: style || "classic",
+            outro,
+            generated: !song.djMaterial?.outro?.length,
+        });
+    }
+    catch (e) {
+        res.status(500).json({ error: "Failed to generate outro" });
+    }
+});
+// 获取歌曲中间插播的冷知识 trivia
+wikiRouter.get("/trivia/:id", async (req, res) => {
+    try {
+        const { style = "trivia", language = "zh-CN" } = req.query;
+        const song = await getSongWiki(req.params.id);
+        if (!song) {
+            res.status(404).json({ error: "Song not found" });
+            return;
+        }
+        // 获取预存素材作为事实依据
+        let preStoredFact = null;
+        if (song.djMaterial?.funFact && song.djMaterial.funFact.length > 0) {
+            const facts = song.djMaterial.funFact;
+            preStoredFact = facts[Math.floor(Math.random() * facts.length)];
+        }
+        else if (song.trivia && song.trivia.length > 0) {
+            // fallback 到旧 trivia 字段
+            preStoredFact = song.trivia[Math.floor(Math.random() * song.trivia.length)];
+        }
+        let trivia = null;
+        // 只有在确实有冷知识时才插入（确实有趣的才加）
+        if (preStoredFact) {
+            try {
+                const radioDJAgent = new RadioDJAgent();
+                // 每次都让 AI 重新演绎这个冷知识，保证不千篇一律，像真实的 DJ 分享
+                trivia = await radioDJAgent.generateMidTrackTrivia(song, style, language, preStoredFact);
+            }
+            catch (error) {
+                console.error("RadioDJAgent generateMidTrackTrivia failed:", error);
+                trivia = preStoredFact; // AI失败时 fallback 到原素材
+            }
+        }
+        // Disable caching for trivia to ensure fresh generation
+        res.setHeader("Cache-Control", "no-cache");
+        res.json({
+            songId: song.id,
+            title: song.title,
+            artist: song.artist,
+            hasTrivia: !!trivia,
+            trivia,
+        });
+    }
+    catch (e) {
+        console.error("Failed to get trivia:", e);
+        res.status(500).json({ error: "Failed to get trivia" });
     }
 });
 // 从本地音乐库导入到 Wiki

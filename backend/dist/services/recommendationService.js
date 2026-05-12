@@ -1,4 +1,4 @@
-import { LearningAgent, MusicCuratorAgent, NarratorAgent, } from "lobster-radio-agents";
+import { LearningAgent, MusicCuratorAgent, RadioDJAgent, } from "lobster-radio-agents";
 import { generateNarration } from "./narrationGenerator.js";
 import { fallbackCatalog } from "../data/fallbackCatalog.js";
 import { getPreferences, savePreferences } from "./storageService.js";
@@ -88,35 +88,22 @@ export async function buildRecommendations(mood, style = "classic", language) {
     });
     const selectedTrack = curated[0] || backup[0];
     console.log(`🎵 生成旁白 - 歌曲: ${selectedTrack.title}, 风格: ${style}, 语言: ${djLanguage}`);
-    // Use NarratorAgent if memoryInsight exists, otherwise use template-based
+    // Use RadioDJAgent for persona-based narration (new: more natural radio DJ style)
+    // Fallback to template-based generation if RadioDJ fails
     let narration;
     const hasMemoryInsight = !!preferences.memoryInsight;
     let updatedPreferences = { ...preferences };
-    if (hasMemoryInsight) {
-        try {
-            const narratorAgent = new NarratorAgent();
-            narration = await narratorAgent.generate({
-                mood,
-                contextSummary: "Lobster Radio recommendation",
-                memoryInsight: preferences.memoryInsight,
-                track: selectedTrack,
-                history: preferences.history,
-                style,
-                language: djLanguage,
-            });
-            console.log(`🎙️ 使用 NarratorAgent 和 memoryInsight 生成的旁白: ${narration}`);
-            // Clear memoryInsight after use so it doesn't get reused
-            updatedPreferences.memoryInsight = undefined;
-        }
-        catch (error) {
-            console.error("❌ NarratorAgent failed, falling back to template:", error);
-            narration = generateNarration(selectedTrack, style, djLanguage);
-            console.log(`🎙️ 回退使用模板生成的旁白: ${narration}`);
-        }
+    try {
+        const radioDJ = new RadioDJAgent();
+        narration = await radioDJ.generateIntro(selectedTrack, mood, style, djLanguage, "Lobster Radio recommendation", preferences.memoryInsight);
+        console.log(`🎙️ 使用 RadioDJAgent 生成的旁白: ${narration}`);
+        // Clear memoryInsight after use so it doesn't get reused
+        updatedPreferences.memoryInsight = undefined;
     }
-    else {
+    catch (error) {
+        console.error("❌ RadioDJAgent failed, falling back to template:", error);
         narration = generateNarration(selectedTrack, style, djLanguage);
-        console.log(`🎙️ 使用模板生成的旁白: ${narration}`);
+        console.log(`🎙️ 回退使用模板生成的旁白: ${narration}`);
     }
     const historyEntry = {
         ...selectedTrack,

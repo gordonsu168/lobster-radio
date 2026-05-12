@@ -38,6 +38,7 @@ function generateDefaultWiki(track) {
         trivia: [],
         djMaterial: {
             intro: [],
+            outro: [],
             vibe: [],
             funFact: []
         },

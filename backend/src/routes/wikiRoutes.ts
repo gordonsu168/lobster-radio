@@ -194,7 +194,8 @@ wikiRouter.post("/outro/:id", async (req: Request, res: Response) => {
       // 没有预存素材，调用 RadioDJAgent 生成
       try {
         const radioDJAgent = new RadioDJAgent();
-        outro = await radioDJAgent.generateOutro(song, (style || "classic") as DJStyle, (language || "zh-CN") as DJLanguage, contextSummary);
+        const { memoryInsight } = req.body as { memoryInsight?: string };
+        outro = await radioDJAgent.generateOutro(song, (style || "classic") as DJStyle, (language || "zh-CN") as DJLanguage, contextSummary, memoryInsight);
       } catch (error) {
         console.error("RadioDJAgent generateOutro failed, falling back to template:", error);
         // fallback 模板
@@ -226,21 +227,27 @@ wikiRouter.get("/trivia/:id", async (req: Request, res: Response) => {
       return;
     }
 
-    // 优先使用预存素材
-    let trivia: string | null = null;
+    // 获取预存素材作为事实依据
+    let preStoredFact: string | null = null;
     if (song.djMaterial?.funFact && song.djMaterial.funFact.length > 0) {
       const facts = song.djMaterial.funFact;
-      trivia = facts[Math.floor(Math.random() * facts.length)];
+      preStoredFact = facts[Math.floor(Math.random() * facts.length)];
     } else if (song.trivia && song.trivia.length > 0) {
       // fallback 到旧 trivia 字段
-      trivia = song.trivia[Math.floor(Math.random() * song.trivia.length)];
-    } else {
-      // 没有预存素材，调用 RadioDJAgent 生成
+      preStoredFact = song.trivia[Math.floor(Math.random() * song.trivia.length)];
+    }
+
+    let trivia: string | null = null;
+
+    // 只有在确实有冷知识时才插入（确实有趣的才加）
+    if (preStoredFact) {
       try {
         const radioDJAgent = new RadioDJAgent();
-        trivia = await radioDJAgent.generateMidTrackTrivia(song, style as DJStyle, language as DJLanguage);
+        // 每次都让 AI 重新演绎这个冷知识，保证不千篇一律，像真实的 DJ 分享
+        trivia = await radioDJAgent.generateMidTrackTrivia(song, style as DJStyle, language as DJLanguage, preStoredFact);
       } catch (error) {
         console.error("RadioDJAgent generateMidTrackTrivia failed:", error);
+        trivia = preStoredFact; // AI失败时 fallback 到原素材
       }
     }
 

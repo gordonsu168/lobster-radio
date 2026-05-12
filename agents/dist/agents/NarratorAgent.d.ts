@@ -30,7 +30,7 @@ export declare class NarratorAgent {
     private getFallbackTemplate;
     private getSystemPrompt;
     private getUserPrompt;
-    generateOutro(song: SongWiki, style?: DJStyle, language?: DJLanguage): Promise<string>;
+    generateOutro(song: SongWiki, language?: DJLanguage): Promise<string>;
     private getFallbackOutro;
     private getOutroSystemPrompt;
     private getOutroUserPrompt;

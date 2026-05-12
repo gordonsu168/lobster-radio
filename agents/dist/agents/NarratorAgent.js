@@ -141,12 +141,12 @@ export class NarratorAgent {
         }
         return prompt;
     }
-    async generateOutro(song, style = "classic", language = "zh-CN") {
+    async generateOutro(song, language = "zh-CN") {
         const model = createOptionalModel();
         if (!model) {
-            return this.getFallbackOutro(song.artist, song.title, style, language);
+            return this.getFallbackOutro(song.artist, song.title, language);
         }
-        const systemPrompt = this.getOutroSystemPrompt(style, language);
+        const systemPrompt = this.getOutroSystemPrompt(language);
         const userPrompt = this.getOutroUserPrompt(song, language);
         const result = await model.invoke([
             new SystemMessage(systemPrompt),
@@ -154,7 +154,7 @@ export class NarratorAgent {
         ]);
         return typeof result.content === "string" ? result.content : JSON.stringify(result.content);
     }
-    getFallbackOutro(artist, title, style, language) {
+    getFallbackOutro(artist, title, language) {
         const fallbacks = {
             "zh-CN": `${artist}的《${title}》听完了，希望你喜欢。接下来继续下一首歌。`,
             "zh-HK": `${artist}嘅《${title}》听完咗，希望你钟意。跟住继续听下一首歌。`,
@@ -162,7 +162,7 @@ export class NarratorAgent {
         };
         return fallbacks[language] || fallbacks["zh-CN"];
     }
-    getOutroSystemPrompt(style, language) {
+    getOutroSystemPrompt(language) {
         const prompts = {
             "zh-HK": `你系龙虾电台嘅AI DJ。刚播完一首歌，用1-2句话简单讲下对呢首歌嘅感受，然后自然过渡到下一首歌。语气要亲切自然，唔好太长。`,
             "zh-CN": `你是龙虾电台的AI DJ。刚播放完一首歌，用1-2句话简单谈谈对这首歌的感受，然后自然过渡到下一首歌。语气要亲切自然，不要太长。`,
