@@ -215,6 +215,42 @@ wikiRouter.post("/outro/:id", async (req: Request, res: Response) => {
   }
 });
 
+// 获取歌曲中间插播的冷知识 trivia
+wikiRouter.get("/trivia/:id", async (req: Request, res: Response) => {
+  try {
+    const song = await getSongWiki(req.params.id);
+
+    if (!song) {
+      res.status(404).json({ error: "Song not found" });
+      return;
+    }
+
+    // 只返回预存素材，不自动生成（用户要求：确实有趣的才加上）
+    let trivia: string | null = null;
+    if (song.djMaterial?.funFact && song.djMaterial.funFact.length > 0) {
+      const facts = song.djMaterial.funFact;
+      trivia = facts[Math.floor(Math.random() * facts.length)];
+    } else if (song.trivia && song.trivia.length > 0) {
+      // fallback 到旧 trivia 字段
+      trivia = song.trivia[Math.floor(Math.random() * song.trivia.length)];
+    }
+
+    // Add Cache-Control header for static content
+    res.setHeader("Cache-Control", "public, max-age=86400");
+
+    res.json({
+      songId: song.id,
+      title: song.title,
+      artist: song.artist,
+      hasTrivia: !!trivia,
+      trivia,
+    });
+  } catch (e) {
+    console.error("Failed to get trivia:", e);
+    res.status(500).json({ error: "Failed to get trivia" });
+  }
+});
+
 // 从本地音乐库导入到 Wiki
 wikiRouter.post("/import", async (req: Request, res: Response) => {
   try {

@@ -113,6 +113,16 @@ export function generateChat(trackId: string, style: DJStyle, position?: string)
   });
 }
 
+export function getTrivia(trackId: string) {
+  return request<{
+    songId: string;
+    title: string;
+    artist: string;
+    hasTrivia: boolean;
+    trivia: string | null;
+  }>(`/api/wiki/trivia/${encodeURIComponent(trackId)}`);
+}
+
 export interface ChatMessage {
   role: "user" | "assistant";
   content: string;
