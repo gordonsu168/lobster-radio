@@ -34,8 +34,6 @@ export function RadioModePage() {
   const [currentOutro, setCurrentOutro] = useState<string>("");
   const [currentTrivia, setCurrentTrivia] = useState<string>("");
   const triviaTriggeredRef = useRef(false); // 是否已触发过本次插播
-
-  const isNarrationPlayingRef = useRef(false);
   const audioRef = useRef<HTMLAudioElement>(null);
   const userInteractedRef = useRef(false);
   const isLoadingNextRef = useRef(false);
@@ -214,7 +212,6 @@ export function RadioModePage() {
 
     // Mark that we're already starting playback manually so the useEffect doesn't interfere
     // This prevents track info mismatch because the useEffect won't play with old state
-    isNarrationPlayingRef.current = true;
 
     // 如果取出第一首后剩余队列为空或很少，预加载更多推荐
     // 不等待，让加载在后台完成
