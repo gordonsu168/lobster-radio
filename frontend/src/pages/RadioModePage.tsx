@@ -118,7 +118,7 @@ export function RadioModePage() {
   // 当 currentTrack 被设置且还没有开始播放时，自动开始播放
   // 使用函数式更新确保拿到最新的状态
   useEffect(() => {
-    if (!currentTrack || !currentNarration || isPlaying || isNarrationPlayingRef.current) {
+    if (!currentTrack || !currentNarration || isPlaying) {
       return;
     }
     playNarrationThenMusic(currentNarration, currentTrack);
@@ -126,9 +126,7 @@ export function RadioModePage() {
 
   // 当当前歌曲播放完毕，先播 outro，再加载下一首
   const handleTrackEnd = async () => {
-    // 如果正在播放旁白（intro/outro），不要触发切歌
-    // 这是因为同一个 audio 元素用于播放旁白，旁白结束会触发 onEnded
-    if (isNarrationPlayingRef.current || isLoadingNextRef.current) {
+    if (isLoadingNextRef.current) {
       return;
     }
 
@@ -264,10 +262,10 @@ export function RadioModePage() {
     }
   };
 
-  // 播放旁白然后音乐
+  // 播放旁白然后音乐 - 旁白使用独立 audio 实例
   const playNarrationThenMusic = async (narrationText: string, track: Track): Promise<void> => {
     return new Promise((resolve) => {
-      if (!audioRef.current) {
+      if (!audioRef.current || !track.previewUrl) {
         resolve();
         return;
       }
@@ -276,7 +274,6 @@ export function RadioModePage() {
       audioRef.current.pause();
 
       const playMusicAfterNarration = () => {
-        isNarrationPlayingRef.current = false;
         if (audioRef.current && track.previewUrl) {
           audioRef.current.src = track.previewUrl;
           audioRef.current.load();
@@ -288,42 +285,37 @@ export function RadioModePage() {
 
       synthesizeNarration(narrationText, voice, { emotion: djEmotion, language: djLanguage })
         .then(response => {
-          if (response.audioBase64 && audioRef.current) {
+          if (response.audioBase64) {
             const binary = atob(response.audioBase64);
             const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
             const blob = new Blob([bytes], { type: response.mimeType || "audio/mpeg" });
             const url = URL.createObjectURL(blob);
 
-            isNarrationPlayingRef.current = true;
-            audioRef.current.src = url;
-            audioRef.current.load();
-            setIsPlaying(true);
+            // Create independent audio instance for this narration
+            const narrationAudio = new Audio(url);
+            narrationAudio.crossOrigin = "anonymous";
+            addNarration(narrationAudio);
 
             const handleEnded = () => {
-              URL.revokeObjectURL(url);
+              cleanupNarration(narrationAudio, url);
               playMusicAfterNarration();
             };
 
             const handleError = () => {
-              URL.revokeObjectURL(url);
+              cleanupNarration(narrationAudio, url);
               playMusicAfterNarration();
             };
 
-            audioRef.current.addEventListener("ended", handleEnded, { once: true });
-            audioRef.current.play().catch(handleError);
+            narrationAudio.addEventListener("ended", handleEnded, { once: true });
+            narrationAudio.addEventListener("error", handleError, { once: true });
+            narrationAudio.play().catch(handleError);
           } else {
-            // 没有旁白，直接播放音乐
-            if (audioRef.current && track.previewUrl) {
-              audioRef.current.src = track.previewUrl;
-              audioRef.current.load();
-              audioRef.current.play().catch(() => {});
-              setIsPlaying(true);
-            }
-            resolve();
+            // No narration, play music directly
+            playMusicAfterNarration();
           }
         })
         .catch(() => {
-          // 出错直接播放音乐
+          // Error playing narration, skip directly to music
           if (audioRef.current && track.previewUrl) {
             audioRef.current.src = track.previewUrl;
             audioRef.current.load();
