@@ -714,6 +714,7 @@ export function RadioModePage() {
             onSkipRequested={onSkipRequested}
             onRefreshRequested={handleRefresh}
             onWikiReply={playWikiReply}
+            language={djLanguage}
           />
         </div>
       </div>
