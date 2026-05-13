@@ -9,5 +9,7 @@
   "defaultTtsProvider": "edge",
   "preferredMusicSource": "auto",
   "localMusicPath": "/Users/gordon/Downloads/Music",
-  "djLanguage": "zh-CN"
+  "djLanguage": "zh-CN",
+  "djStyle": "classic",
+  "enableAiNarration": true
 }
