@@ -132,22 +132,38 @@ export function RadioModePage() {
     setCurrentTrivia("");
     setCurrentOutro("");
 
-    // 如果队列少于2首，异步加载更多推荐
-    if (queue.length <= 1) {
-      await loadMoreRecommendations("Working");
-    }
+    // 使用函数式更新确保拿到最新队列并取出第一首
+    // 这避免了闭包陷阱问题
+    let nextTrack: Track | null = null;
+    setQueue(prev => {
+      // 如果队列是空，直接返回
+      if (prev.length === 0) {
+        nextTrack = null;
+        return prev;
+      }
+      // 取出第一首播放，剩余队列保持
+      const [first, ...rest] = prev;
+      nextTrack = first;
+      return rest;
+    });
 
-    if (queue.length === 0) {
+    // 这里必须等一轮状态更新吗？不 - 因为我们已经在同步闭包里拿到了 nextTrack
+    // 即使状态还没更新到组件，我们拿到的值是正确的
+    if (!nextTrack) {
       setError("No tracks available. Please try again later.");
       return;
     }
 
-    // 取出队列第一首作为当前播放
-    const [nextTrack, ...remainingQueue] = queue;
+    // 更新当前曲目的状态
     setCurrentTrack(nextTrack);
-    setQueue(remainingQueue);
 
-    // 生成旁白
+    // 如果取出第一首后剩余队列为空，预加载更多推荐
+    // 不等待，让加载在后台完成
+    if (queue.length <= 1) {
+      await loadMoreRecommendations("Working");
+    }
+
+    // 生成旁白并播放 - 使用我们已经获取的 nextTrack 引用，保证匹配
     try {
       const narrationResult = await generateNarration(nextTrack.id, djStyle, djLanguage);
       setCurrentNarration(narrationResult.narration);
@@ -158,7 +174,7 @@ export function RadioModePage() {
       await playNarrationThenMusic(fallback, nextTrack);
     }
 
-    // 预加载下一批推荐（不等待）
+    // 如果剩余队列长度少于3，预加载
     if (queue.length < 3) {
       loadMoreRecommendations("Working").catch(() => {});
     }
@@ -171,18 +187,17 @@ export function RadioModePage() {
     try {
       const result = await getRecommendations(mood, djLanguage);
       // 将新推荐添加到队列末尾
-      setQueue(prev => {
-        // 闭包内检查，如果队列原本是空且结果有歌，取出第一首作为当前播放
-        if (prev.length === 0 && result.tracks.length > 0) {
-          const [first, ...rest] = result.tracks;
-          setCurrentTrack(first);
-          setCurrentNarration(result.narration);
-          return rest;
-        }
-        return [...prev, ...result.tracks];
-      });
+      setQueue(prev => [...prev, ...result.tracks]);
       const latestPreferences = await getPreferences();
       setPreferences(latestPreferences);
+      // 如果没有任何歌曲，取出第一首开始播放（仅在初始加载时
+      // 这只在没有 currentTrack 的情况（初始加载
+      if (!currentTrack && result.tracks.length > 0) {
+        const [first, ...rest] = result.tracks;
+        setCurrentTrack(first);
+        setQueue(rest);
+        setCurrentNarration(result.narration);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load recommendations");
     } finally {
