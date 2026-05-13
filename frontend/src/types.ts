@@ -55,6 +55,8 @@ export interface RuntimeSettings {
   defaultTtsProvider: "openai" | "elevenlabs" | "edge" | "gemini" | "macsay";
   djLanguage?: "zh-CN" | "zh-HK" | "en-US";
   djEmotion?: "normal" | "happy" | "sad" | "angry" | "calm" | "excited" | "whisper" | "radio";
+  djStyle?: "classic" | "night" | "vibe" | "trivia";
+  enableAiNarration?: boolean;
   preferredMusicSource: "local" | "netease" | "spotify" | "auto";
   localMusicPath: string;
 }

@@ -11,6 +11,8 @@ const initialState: RuntimeSettings = {
   elevenLabsApiKey: "",
   defaultVoice: "alloy",
   defaultTtsProvider: "openai",
+  djStyle: "classic",
+  enableAiNarration: true,
   preferredMusicSource: "auto",
   localMusicPath: ""
 };
@@ -247,6 +249,28 @@ export function SettingsPage() {
             </p>
           </div>
         </div>
+
+        <div>
+          <label className="mb-2 block text-sm font-semibold text-white">AI 功能</label>
+          <label className="flex cursor-pointer items-center gap-3 mb-3">
+            <input
+              type="checkbox"
+              checked={settings.enableAiNarration ?? true}
+              onChange={(event) =>
+                setSettings((current) => ({
+                  ...current,
+                  enableAiNarration: event.target.checked
+                }))
+              }
+              className="h-5 w-5 accent-pulse"
+            />
+            <span className="text-white">AI 智能旁白</span>
+          </label>
+          <p className="text-sm text-slate-400">
+            使用 Gemini AI 生成更自然多样的开场白，关闭则使用固定模板。需要配置 GEMINI_API_KEY。
+          </p>
+        </div>
+
         <button className="rounded-full bg-white px-5 py-3 font-semibold text-slate-950 transition hover:scale-[1.02]">
           Save Settings
         </button>
