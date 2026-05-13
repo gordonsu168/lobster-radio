@@ -2,6 +2,8 @@ import { useState, useRef, useEffect, useImperativeHandle, forwardRef } from "re
 import { sendChatMessage, type ChatMessage, type ToolResult } from "../lib/api";
 import type { Track } from "../types";
 
+const SKIP_REQUEST_MESSAGE = "我想要跳过这首歌";
+
 interface ChatPanelProps {
   currentTrack: Track | null;
   onSkipRequested: () => void;
@@ -19,23 +21,19 @@ const ChatPanel = forwardRef<ChatPanelRef, ChatPanelProps>(({ currentTrack, onSk
   const [loading, setLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  useImperativeHandle(ref, () => ({
-    sendSkipRequest: () => {
-      handleSendSkipRequest();
-    },
-    addAssistantMessage: (content: string) => {
-      setMessages(prev => [...prev, { role: "assistant", content }]);
-    }
-  }));
-
   async function handleSendMessage(content: string) {
-    const newHistory = [...messages, { role: "user" as const, content }];
-    setMessages(newHistory);
+    // Use functional update to avoid stale closure
+    setMessages(prev => {
+      const newHistory = [...prev, { role: "user" as const, content }];
+      return newHistory;
+    });
     setLoading(true);
 
     try {
-      const response = await sendChatMessage(content, messages, currentTrack);
-      setMessages([...newHistory, { role: "assistant", content: response.reply }]);
+      // Get current messages before the request
+      const currentMessages = messages;
+      const response = await sendChatMessage(content, currentMessages, currentTrack);
+      setMessages(prev => [...prev, { role: "assistant", content: response.reply }]);
       if (response.skipRequested) {
         onSkipRequested();
       }
@@ -43,15 +41,22 @@ const ChatPanel = forwardRef<ChatPanelRef, ChatPanelProps>(({ currentTrack, onSk
         onRefreshRequested();
       }
     } catch (err) {
-      setMessages([...newHistory, { role: "assistant", content: "Error: Could not reach the producer." }]);
+      setMessages(prev => [...prev, { role: "assistant", content: "Error: Could not reach the producer." }]);
     } finally {
       setLoading(false);
     }
   }
 
-  async function handleSendSkipRequest() {
-    await handleSendMessage("我想要跳过这首歌");
-  }
+  const handleSendSkipRequest = async () => {
+    await handleSendMessage(SKIP_REQUEST_MESSAGE);
+  };
+
+  useImperativeHandle(ref, () => ({
+    sendSkipRequest: handleSendSkipRequest,
+    addAssistantMessage: (content: string) => {
+      setMessages(prev => [...prev, { role: "assistant", content }]);
+    }
+  }), [handleSendSkipRequest]);
 
   useEffect(() => {
     if (scrollRef.current) {

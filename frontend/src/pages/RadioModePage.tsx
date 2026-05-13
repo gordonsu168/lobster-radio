@@ -9,9 +9,9 @@ import {
   getTrivia,
   synthesizeNarration,
   submitFeedback,
-  type ChatMessage,
 } from "../lib/api";
-import type { MoodOption, PreferencesSnapshot, RecommendationPayload, Track, VoiceOption, DJStyle } from "../types";
+import { createNarrationAudio, cleanupNarrationAudio } from "../lib/audioUtils";
+import type { MoodOption, PreferencesSnapshot, Track, VoiceOption, DJStyle } from "../types";
 
 // Constants for audio behavior
 const TRIVIA_VOLUME_DUCK = 0.25;
@@ -30,7 +30,6 @@ export function RadioModePage() {
   const [error, setError] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentNarration, setCurrentNarration] = useState<string>("");
-  const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [currentOutro, setCurrentOutro] = useState<string>("");
   const [currentTrivia, setCurrentTrivia] = useState<string>("");
   const triviaTriggeredRef = useRef(false); // 是否已触发过本次插播
@@ -39,24 +38,20 @@ export function RadioModePage() {
   const isLoadingNextRef = useRef(false);
   const chatPanelRef = useRef<ChatPanelRef>(null);
 
-  interface NarrationInstance {
-    audio: HTMLAudioElement;
-  }
-
-  const activeNarrationsRef = useRef<NarrationInstance[]>([]);
+  const activeNarrationsRef = useRef<HTMLAudioElement[]>([]);
 
   function addNarration(audio: HTMLAudioElement): void {
-    activeNarrationsRef.current.push({ audio });
+    activeNarrationsRef.current.push(audio);
   }
 
   function removeNarration(audio: HTMLAudioElement): void {
     activeNarrationsRef.current = activeNarrationsRef.current.filter(
-      instance => instance.audio !== audio
+      instance => instance !== audio
     );
   }
 
   function forEachNarration(callback: (audio: HTMLAudioElement) => void): void {
-    activeNarrationsRef.current.forEach(instance => callback(instance.audio));
+    activeNarrationsRef.current.forEach(callback);
   }
 
   function cleanupNarration(audio: HTMLAudioElement, url: string): void {
@@ -146,7 +141,6 @@ export function RadioModePage() {
 
   // 播放下一首
   const playNextTrack = async () => {
-    console.log(`[radio] playNextTrack: starting...`);
     // 重置 trivia 状态
     triviaTriggeredRef.current = false;
     setCurrentTrivia("");
@@ -208,9 +202,9 @@ export function RadioModePage() {
     // Mark that we're already starting playback manually so the useEffect doesn't interfere
     // This prevents track info mismatch because the useEffect won't play with old state
 
-    // 如果取出第一首后剩余队列为空或很少，预加载更多推荐
-    // 不等待，让加载在后台完成
-    if (remainingAfterPop <= 1) {
+    // 如果取出第一首后剩余队列少于3，预加载更多推荐
+    // 不等待，让加载在后台完成（只调用一次，避免重复请求）
+    if (remainingAfterPop < 3) {
       loadMoreRecommendations("Working").catch(() => {});
     }
 
@@ -223,11 +217,6 @@ export function RadioModePage() {
       const fallback = `接下来为您播放${nextTrack.artist}的《${nextTrack.title}》。`;
       setCurrentNarration(fallback);
       await playNarrationThenMusic(fallback, nextTrack);
-    }
-
-    // 如果剩余队列长度少于3，预加载
-    if (remainingAfterPop < 3) {
-      loadMoreRecommendations("Working").catch(() => {});
     }
   };
 
@@ -272,13 +261,10 @@ export function RadioModePage() {
 
       const playMusicAfterNarration = () => {
         if (audioRef.current && track.previewUrl) {
-          console.log(`[radio] 旁白播放完毕，开始播放音乐: ${track.artist} - ${track.title}, url: ${track.previewUrl.substring(0, 60)}...`);
           audioRef.current.src = track.previewUrl;
           audioRef.current.load();
           audioRef.current.play().catch(() => {});
           setIsPlaying(true);
-        } else {
-          console.log(`[radio] 旁白播放完毕，但无法播放音乐: track.previewUrl = ${track.previewUrl}`);
         }
         resolve();
       };
@@ -286,29 +272,27 @@ export function RadioModePage() {
       synthesizeNarration(narrationText, voice, { emotion: djEmotion, language: djLanguage })
         .then(response => {
           if (response.audioBase64) {
-            const binary = atob(response.audioBase64);
-            const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
-            const blob = new Blob([bytes], { type: response.mimeType || "audio/mpeg" });
-            const url = URL.createObjectURL(blob);
+            const { audio: narrationAudio, url } = createNarrationAudio(
+              response.audioBase64,
+              response.mimeType,
+              () => {
+                cleanupNarration(narrationAudio, url);
+                playMusicAfterNarration();
+              },
+              () => {
+                cleanupNarration(narrationAudio, url);
+                playMusicAfterNarration();
+              }
+            );
 
-            // Create independent audio instance for this narration
-            const narrationAudio = new Audio(url);
-            narrationAudio.crossOrigin = "anonymous";
+            // Sync volume with main audio
+            if (audioRef.current) {
+              narrationAudio.volume = audioRef.current.volume;
+            }
             addNarration(narrationAudio);
-
-            const handleEnded = () => {
-              cleanupNarration(narrationAudio, url);
-              playMusicAfterNarration();
-            };
-
-            const handleError = () => {
-              cleanupNarration(narrationAudio, url);
-              playMusicAfterNarration();
-            };
-
-            narrationAudio.addEventListener("ended", handleEnded, { once: true });
-            narrationAudio.addEventListener("error", handleError, { once: true });
-            narrationAudio.play().catch(handleError);
+            narrationAudio.play().catch(() => {
+              // Error already handled in the callback
+            });
           } else {
             // No narration, play music directly
             playMusicAfterNarration();
@@ -337,29 +321,25 @@ export function RadioModePage() {
       synthesizeNarration(outroText, voice, { emotion: djEmotion, language: djLanguage })
         .then(response => {
           if (response.audioBase64 && audioRef.current) {
-            const binary = atob(response.audioBase64);
-            const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
-            const blob = new Blob([bytes], { type: response.mimeType || "audio/mpeg" });
-            const url = URL.createObjectURL(blob);
+            const { audio: outroAudio, url } = createNarrationAudio(
+              response.audioBase64,
+              response.mimeType,
+              () => {
+                cleanupNarration(outroAudio, url);
+                resolve();
+              },
+              () => {
+                cleanupNarration(outroAudio, url);
+                resolve();
+              }
+            );
 
-            // Create independent audio instance for outro
-            const outroAudio = new Audio(url);
-            outroAudio.crossOrigin = "anonymous";
+            // Sync volume with main audio
+            outroAudio.volume = audioRef.current.volume;
             addNarration(outroAudio);
-
-            const handleEnded = () => {
-              cleanupNarration(outroAudio, url);
-              resolve();
-            };
-
-            const handleError = () => {
-              cleanupNarration(outroAudio, url);
-              resolve();
-            };
-
-            outroAudio.addEventListener("ended", handleEnded, { once: true });
-            outroAudio.addEventListener("error", handleError, { once: true });
-            outroAudio.play().catch(handleError);
+            outroAudio.play().catch(() => {
+              // Error already handled in the callback
+            });
           } else {
             resolve();
           }
@@ -411,40 +391,34 @@ export function RadioModePage() {
         synthesizeNarration(trivia, voice, { emotion: "whisper", language: djLanguage })
           .then(response => {
             if (response.audioBase64 && audioRef.current) {
-              const binary = atob(response.audioBase64);
-              const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
-              const blob = new Blob([bytes], { type: response.mimeType || "audio/mpeg" });
-              const url = URL.createObjectURL(blob);
+              const { audio: tempAudio, url } = createNarrationAudio(
+                response.audioBase64,
+                response.mimeType,
+                () => {
+                  cleanupNarration(tempAudio, url);
+                  if (audioRef.current) {
+                    audioRef.current.volume = originalVolume;
+                  }
+                  setCurrentTrivia("");
+                  resolve();
+                },
+                () => {
+                  cleanupNarration(tempAudio, url);
+                  if (audioRef.current) {
+                    audioRef.current.volume = originalVolume;
+                  }
+                  setCurrentTrivia("");
+                  resolve();
+                }
+              );
 
-              const tempAudio = new Audio(url);
-              tempAudio.crossOrigin = "anonymous";
-              addNarration(tempAudio); // Add to active narrations for syncing
-
+              // Sync volume with main audio
+              tempAudio.volume = audioRef.current.volume;
+              addNarration(tempAudio);
               tempAudio.play().catch((error) => {
+                // Error already handled in the callback
                 console.warn("Trivia audio play failed:", error);
-                cleanupNarration(tempAudio, url);
-                if (audioRef.current) {
-                  audioRef.current.volume = originalVolume;
-                }
-                setCurrentTrivia("");
-                resolve();
               });
-              tempAudio.onended = () => {
-                cleanupNarration(tempAudio, url);
-                if (audioRef.current) {
-                  audioRef.current.volume = originalVolume;
-                }
-                setCurrentTrivia("");
-                resolve();
-              };
-              tempAudio.onerror = () => {
-                cleanupNarration(tempAudio, url);
-                if (audioRef.current) {
-                  audioRef.current.volume = originalVolume;
-                }
-                setCurrentTrivia("");
-                resolve();
-              };
             } else {
               if (audioRef.current) {
                 audioRef.current.volume = originalVolume;
@@ -493,8 +467,7 @@ export function RadioModePage() {
   };
 
   // AI DJ 请求切歌 - 实际执行切歌操作
-  const actuallySkipTrack = async () => {
-    console.log(`[radio] actuallySkipTrack: AI requested skip, starting...`);
+  const onSkipRequested = async () => {
     if (isLoadingNextRef.current) return;
 
     if (audioRef.current) {
@@ -696,7 +669,7 @@ export function RadioModePage() {
           <ChatPanel
             ref={chatPanelRef}
             currentTrack={currentTrack}
-            onSkipRequested={actuallySkipTrack}
+            onSkipRequested={onSkipRequested}
             onRefreshRequested={handleRefresh}
           />
         </div>
