@@ -40,6 +40,87 @@ export function RadioModePage() {
 
   const activeNarrationsRef = useRef<HTMLAudioElement[]>([]);
 
+  // 串行化次要旁白（trivia / wiki reply），避免与 intro/outro/其它旁白重叠
+  type NarrationJob = {
+    text: string;
+    emotion: string;
+    onStart?: () => void;
+    onEnd?: () => void;
+  };
+  const narrationQueueRef = useRef<NarrationJob[]>([]);
+  const isNarrationProcessingRef = useRef(false);
+
+  function enqueueNarration(job: NarrationJob): void {
+    narrationQueueRef.current.push(job);
+    void processNarrationQueue();
+  }
+
+  async function processNarrationQueue(): Promise<void> {
+    if (isNarrationProcessingRef.current) return;
+    isNarrationProcessingRef.current = true;
+    try {
+      while (narrationQueueRef.current.length > 0) {
+        // 等待已有 intro/outro 等旁白播完，避免重叠
+        while (activeNarrationsRef.current.length > 0) {
+          await new Promise(r => setTimeout(r, 200));
+        }
+        const job = narrationQueueRef.current.shift();
+        if (!job) break;
+        await playQueuedNarration(job);
+      }
+    } finally {
+      isNarrationProcessingRef.current = false;
+    }
+  }
+
+  function playQueuedNarration(job: NarrationJob): Promise<void> {
+    return new Promise((resolve) => {
+      if (!audioRef.current || !job.text.trim()) {
+        resolve();
+        return;
+      }
+      const originalVolume = audioRef.current.volume;
+      audioRef.current.volume = TRIVIA_VOLUME_DUCK;
+      job.onStart?.();
+
+      const finish = () => {
+        if (audioRef.current) {
+          audioRef.current.volume = originalVolume;
+        }
+        job.onEnd?.();
+        resolve();
+      };
+
+      synthesizeNarration(job.text, voice, { emotion: job.emotion, language: djLanguage })
+        .then(response => {
+          if (response.audioBase64 && audioRef.current) {
+            const { audio: tempAudio, url } = createNarrationAudio(
+              response.audioBase64,
+              response.mimeType,
+              () => {
+                cleanupNarration(tempAudio, url);
+                finish();
+              },
+              () => {
+                cleanupNarration(tempAudio, url);
+                finish();
+              }
+            );
+            tempAudio.volume = audioRef.current.volume;
+            addNarration(tempAudio);
+            tempAudio.play().catch((error) => {
+              console.warn("Queued narration play failed:", error);
+            });
+          } else {
+            finish();
+          }
+        })
+        .catch(() => {
+          finish();
+        });
+    });
+  }
+
   function addNarration(audio: HTMLAudioElement): void {
     activeNarrationsRef.current.push(audio);
   }
@@ -370,7 +451,7 @@ export function RadioModePage() {
     }
   };
 
-  // 播放 mid-track 冷知识旁白（降低主音量 → 播旁白 → 恢复音量）
+  // 播放 mid-track 冷知识旁白（通过队列串行播放，避免与其它旁白重叠）
   const playMidTrackTrivia = async () => {
     if (!currentTrack || !audioRef.current) return;
 
@@ -378,108 +459,27 @@ export function RadioModePage() {
       const { hasTrivia, trivia } = await getTrivia(currentTrack.id);
       if (!hasTrivia || !trivia) return;
 
-      setCurrentTrivia(trivia);
       // Add trivia to chat panel
       chatPanelRef.current?.addAssistantMessage(`💡 冷知识：${trivia}`);
-      const originalVolume = audioRef.current.volume;
 
-      // 降低主音乐音量
-      audioRef.current.volume = TRIVIA_VOLUME_DUCK;
-
-      // 播放 trivia
-      return new Promise<void>((resolve) => {
-        synthesizeNarration(trivia, voice, { emotion: "whisper", language: djLanguage })
-          .then(response => {
-            if (response.audioBase64 && audioRef.current) {
-              const { audio: tempAudio, url } = createNarrationAudio(
-                response.audioBase64,
-                response.mimeType,
-                () => {
-                  cleanupNarration(tempAudio, url);
-                  if (audioRef.current) {
-                    audioRef.current.volume = originalVolume;
-                  }
-                  setCurrentTrivia("");
-                  resolve();
-                },
-                () => {
-                  cleanupNarration(tempAudio, url);
-                  if (audioRef.current) {
-                    audioRef.current.volume = originalVolume;
-                  }
-                  setCurrentTrivia("");
-                  resolve();
-                }
-              );
-
-              // Sync volume with main audio
-              tempAudio.volume = audioRef.current.volume;
-              addNarration(tempAudio);
-              tempAudio.play().catch((error) => {
-                // Error already handled in the callback
-                console.warn("Trivia audio play failed:", error);
-              });
-            } else {
-              if (audioRef.current) {
-                audioRef.current.volume = originalVolume;
-              }
-              setCurrentTrivia("");
-              resolve();
-            }
-          })
-          .catch(() => {
-            if (audioRef.current) {
-              audioRef.current.volume = originalVolume;
-            }
-            setCurrentTrivia("");
-            resolve();
-          });
+      enqueueNarration({
+        text: trivia,
+        emotion: "whisper",
+        onStart: () => setCurrentTrivia(trivia),
+        onEnd: () => setCurrentTrivia(""),
       });
     } catch (err) {
       console.warn("Mid-track trivia failed, skipping:", err);
     }
   };
 
-  // 播放 Producer 通过 fetchWikipedia 查到资料后的回复（降低主音量 → 播旁白 → 恢复音量）
+  // 播放 Producer 通过 fetchWikipedia 查到资料后的回复（通过队列串行播放）
   const playWikiReply = (reply: string) => {
-    if (!audioRef.current || !reply.trim()) return;
-
-    const originalVolume = audioRef.current.volume;
-    audioRef.current.volume = TRIVIA_VOLUME_DUCK;
-
-    synthesizeNarration(reply, voice, { emotion: djEmotion, language: djLanguage })
-      .then(response => {
-        if (response.audioBase64 && audioRef.current) {
-          const { audio: tempAudio, url } = createNarrationAudio(
-            response.audioBase64,
-            response.mimeType,
-            () => {
-              cleanupNarration(tempAudio, url);
-              if (audioRef.current) {
-                audioRef.current.volume = originalVolume;
-              }
-            },
-            () => {
-              cleanupNarration(tempAudio, url);
-              if (audioRef.current) {
-                audioRef.current.volume = originalVolume;
-              }
-            }
-          );
-          tempAudio.volume = audioRef.current.volume;
-          addNarration(tempAudio);
-          tempAudio.play().catch((error) => {
-            console.warn("Wiki reply audio play failed:", error);
-          });
-        } else if (audioRef.current) {
-          audioRef.current.volume = originalVolume;
-        }
-      })
-      .catch(() => {
-        if (audioRef.current) {
-          audioRef.current.volume = originalVolume;
-        }
-      });
+    if (!reply.trim()) return;
+    enqueueNarration({
+      text: reply,
+      emotion: djEmotion,
+    });
   };
 
   // 播放暂停 - 同步作用于音乐和所有正在播放的旁白
