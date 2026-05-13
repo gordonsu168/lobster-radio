@@ -2,6 +2,7 @@ import { Router } from "express";
 import { ProducerAgent, MemoryAgent, type ChatMessage, type ToolCall } from "lobster-radio-agents";
 import { getPreferences, savePreferences, addChatHistory } from "../services/storageService.js";
 import { getSongWiki, updateSongWiki } from "../services/wikiService.js";
+import { fetchWikipediaContent } from "../services/wikipediaService.js";
 import type { Track } from "lobster-radio-agents";
 
 export const chatRouter = Router();
@@ -129,6 +130,18 @@ chatRouter.post("/", async (req, res) => {
                   name: "searchAndAddTrack",
                   result: `Found ${results.length} matches: ${results.map(s => `${s.title} - ${s.artist}`).join("; ")}`
                 });
+              }
+              break;
+            }
+            case "fetchWikipedia": {
+              const { query } = toolCall.parameters as { query: string };
+              try {
+                const content = await fetchWikipediaContent(query);
+                toolResults.push({ name: "fetchWikipedia", result: content });
+                console.log(`[Producer Tool] Fetched Wikipedia for "${query}": ${content.length} characters`);
+              } catch (e) {
+                toolResults.push({ name: "fetchWikipedia", result: `Error: ${e}` });
+                console.error(`[Producer Tool] Wikipedia fetch failed for "${query}":`, e);
               }
               break;
             }
