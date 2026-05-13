@@ -8,6 +8,8 @@ import {
   type SongWiki
 } from "../services/wikiService.js";
 import { generateNarration, generateRandomNarration, type DJStyle } from "../services/narrationGenerator.js";
+import { generateAINarration } from "../services/AINarrationService.js";
+import { getRuntimeSettings } from "../services/storageService.js";
 import { NarratorAgent, RadioDJAgent, type DJLanguage } from "lobster-radio-agents";
 
 export const wikiRouter = Router();
@@ -125,16 +127,33 @@ wikiRouter.post("/narration/:id", async (req: Request, res: Response) => {
   try {
     const { style, language } = req.body as { style?: DJStyle; language?: string };
     const song = await getSongWiki(req.params.id as string);
-    
+    const settings = await getRuntimeSettings();
+
     if (!song) {
       res.status(404).json({ error: "Song not found" });
       return;
     }
-    
-    const narration = style 
-      ? generateNarration(song, style, language as any)
-      : generateRandomNarration(song, language as any);
-    
+
+    let narration: string;
+
+    // Check if AI narration is enabled via env var and user settings
+    const aiEnabled = process.env.DISABLE_AI_NARRATION !== "true" && (settings.enableAiNarration ?? true);
+
+    if (aiEnabled && style) {
+      try {
+        narration = await generateAINarration(song, style);
+      } catch (aiError) {
+        console.warn("AI generation failed, falling back to template:", aiError);
+        narration = style
+          ? generateNarration(song, style, language as any)
+          : generateRandomNarration(song, language as any);
+      }
+    } else {
+      narration = style
+        ? generateNarration(song, style, language as any)
+        : generateRandomNarration(song, language as any);
+    }
+
     res.json({
       songId: song.id,
       title: song.title,
@@ -150,15 +169,35 @@ wikiRouter.post("/narration/:id", async (req: Request, res: Response) => {
 wikiRouter.post("/narration/batch", async (req: Request, res: Response) => {
   try {
     const { songIds, style, language } = req.body as { songIds: string[]; style?: DJStyle; language?: string };
+    const settings = await getRuntimeSettings();
     const results: Array<{ songId: string; title: string; narration: string }> = [];
+
+    const aiEnabled = process.env.DISABLE_AI_NARRATION !== "true" && (settings.enableAiNarration ?? true);
 
     for (const id of songIds) {
       const song = await getSongWiki(id);
       if (song) {
+        let narration: string;
+
+        if (aiEnabled && style) {
+          try {
+            narration = await generateAINarration(song, style);
+          } catch (aiError) {
+            console.warn("AI generation failed for batch, falling back to template:", aiError);
+            narration = style
+              ? generateNarration(song, style, language as any)
+              : generateRandomNarration(song, language as any);
+          }
+        } else {
+          narration = style
+            ? generateNarration(song, style, language as any)
+            : generateRandomNarration(song, language as any);
+        }
+
         results.push({
           songId: song.id,
           title: song.title,
-          narration: style ? generateNarration(song, style, language as any) : generateRandomNarration(song, language as any)
+          narration
         });
       }
     }
