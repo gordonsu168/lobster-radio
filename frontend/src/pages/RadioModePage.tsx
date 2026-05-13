@@ -459,7 +459,7 @@ export function RadioModePage() {
     }
   };
 
-  // 播放暂停
+  // 播放暂停 - 同步作用于音乐和所有正在播放的旁白
   const handlePlayPause = () => {
     if (!audioRef.current || !currentTrack?.previewUrl) return;
 
@@ -468,9 +468,13 @@ export function RadioModePage() {
       if ("speechSynthesis" in window) {
         speechSynthesis.cancel();
       }
+      // Pause all active narrations
+      forEachNarration(audio => audio.pause());
       setIsPlaying(false);
     } else {
       audioRef.current.play().catch(e => console.warn("Play error:", e));
+      // Resume all active narrations
+      forEachNarration(audio => audio.play().catch(() => {}));
       setIsPlaying(true);
     }
   };
