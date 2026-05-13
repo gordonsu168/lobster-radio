@@ -328,23 +328,10 @@ export function RadioModePage() {
     });
   };
 
-  // 播放 outro 闲聊，然后播放下一首歌的旁白和音乐
+  // 播放 outro 闲聊，音乐立即切到下一首，outro 在后台继续播放
   const playOutroThenNext = async (outroText: string): Promise<void> => {
     return new Promise((resolve) => {
-      if (!audioRef.current) {
-        resolve();
-        return;
-      }
-
-      userInteractedRef.current = true;
-      audioRef.current.pause();
-
-      const afterOutroEnded = () => {
-        isNarrationPlayingRef.current = false;
-        playNextTrack();
-        resolve();
-      };
-
+      // Generate outro audio immediately
       synthesizeNarration(outroText, voice, { emotion: djEmotion, language: djLanguage })
         .then(response => {
           if (response.audioBase64 && audioRef.current) {
@@ -353,34 +340,35 @@ export function RadioModePage() {
             const blob = new Blob([bytes], { type: response.mimeType || "audio/mpeg" });
             const url = URL.createObjectURL(blob);
 
-            isNarrationPlayingRef.current = true;
-            audioRef.current.src = url;
-            audioRef.current.load();
-            setIsPlaying(true);
+            // Create independent audio instance for outro
+            const outroAudio = new Audio(url);
+            outroAudio.crossOrigin = "anonymous";
+            addNarration(outroAudio);
 
             const handleEnded = () => {
-              URL.revokeObjectURL(url);
-              afterOutroEnded();
+              cleanupNarration(outroAudio, url);
+              resolve();
             };
 
             const handleError = () => {
-              URL.revokeObjectURL(url);
-              afterOutroEnded();
+              cleanupNarration(outroAudio, url);
+              resolve();
             };
 
-            audioRef.current.addEventListener("ended", handleEnded, { once: true });
-            audioRef.current.play().catch(handleError);
+            outroAudio.addEventListener("ended", handleEnded, { once: true });
+            outroAudio.addEventListener("error", handleError, { once: true });
+            outroAudio.play().catch(handleError);
           } else {
-            // 没有音频，直接继续
-            playNextTrack();
             resolve();
           }
         })
         .catch(() => {
-          // 出错直接继续
-          playNextTrack();
+          // Even if outro fails, resolve immediately
           resolve();
         });
+
+      // KEY CHANGE: Immediately start next track without waiting for outro to finish
+      playNextTrack();
     });
   };
 
