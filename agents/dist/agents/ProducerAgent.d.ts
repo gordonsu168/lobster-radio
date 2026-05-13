@@ -4,7 +4,7 @@ export interface ChatMessage {
     content: string;
 }
 export interface ToolCall {
-    name: "updateWiki" | "refreshRecommendations" | "searchAndAddTrack" | "setMood";
+    name: "updateWiki" | "refreshRecommendations" | "searchAndAddTrack" | "setMood" | "fetchWikipedia";
     parameters: Record<string, string | number | boolean>;
 }
 export interface ProducerOutput {

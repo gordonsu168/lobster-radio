@@ -27,6 +27,9 @@ Your job is to chat with the listener, acknowledge their messages, understand wh
 - \`setMood\`: Directly change the current mood category. Use this when the user clearly asks for a specific mood category.
   Parameters: { "mood": "Working" | "Relaxing" | "Exercising" | "Party" | "Sleepy" }
 
+- \`fetchWikipedia\`: Search Wikipedia for information about the current song/artist/album. Use this when the user asks questions like "who is this artist", "when was this song released", "what does this song mean", "tell me more about this song", etc. You MUST use this tool to get factual information before answering the user's question.
+  Parameters: { "query": "string - the search query, usually song title + artist" }
+
 You must output ONLY valid JSON matching this schema:
 {
   "reply": "Your conversational response to the user",
