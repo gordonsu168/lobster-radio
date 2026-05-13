@@ -160,42 +160,40 @@ export function RadioModePage() {
 
     // 使用函数式更新确保拿到最新队列并取出第一首
     // 这避免了闭包陷阱问题
-    let nextTrack: Track | null = null;
+    let extractedTrack: Track | null = null;
     let remainingAfterPop: number = 0;
+
+    // 第一次尝试获取下一首歌曲
     setQueue(prev => {
-      remainingAfterPop = prev.length;
-      // 如果队列是空，直接返回
       if (prev.length === 0) {
-        nextTrack = null;
+        extractedTrack = null;
+        remainingAfterPop = 0;
         return prev;
       }
-      // 取出第一首播放，剩余队列保持
       const [first, ...rest] = prev;
-      nextTrack = first;
+      extractedTrack = first;
       remainingAfterPop = rest.length;
       return rest;
     });
 
-    // 这里必须等一轮状态更新吗？不 - 因为我们已经在同步闭包里拿到了 nextTrack
-    // 即使状态还没更新到组件，我们拿到的值是正确的
-
     // 如果队列是空，先加载更多推荐再试一次
-    if (!nextTrack) {
+    if (!extractedTrack) {
       setLoading(true);
       try {
         await loadMoreRecommendations("Working");
         // After loading, try again to get a track from the new queue
         setQueue(prev => {
           if (prev.length === 0) {
-            nextTrack = null;
+            extractedTrack = null;
+            remainingAfterPop = 0;
             return prev;
           }
           const [first, ...rest] = prev;
-          nextTrack = first;
+          extractedTrack = first;
           remainingAfterPop = rest.length;
           return rest;
         });
-        if (!nextTrack) {
+        if (!extractedTrack) {
           setError("No tracks available. Please try again later.");
           return;
         }
@@ -206,6 +204,9 @@ export function RadioModePage() {
         setLoading(false);
       }
     }
+
+    // 明确类型断言确保 TypeScript 知道这不是 null
+    const nextTrack = extractedTrack as Track;
 
     // 更新当前曲目的状态
     setCurrentTrack(nextTrack);
