@@ -44,10 +44,11 @@ ${song.genre ? `流派：${song.genre.join(", ")}` : ""}
 请直接生成开场白，不要多余内容：`;
 }
 
-const openai = new OpenAI({
-  apiKey: process.env.DEEPSEEK_API_KEY || process.env.OPENAI_API_KEY || "",
-  baseURL: process.env.DEEPSEEK_API_KEY ? "https://api.deepseek.com" : undefined,
-});
+function getClient(): OpenAI {
+  const apiKey = process.env.DEEPSEEK_API_KEY || process.env.OPENAI_API_KEY || "";
+  const baseURL = process.env.DEEPSEEK_API_KEY ? "https://api.deepseek.com" : undefined;
+  return new OpenAI({ apiKey, baseURL });
+}
 
 export async function generateAINarration(
   song: SongWiki,
@@ -59,6 +60,7 @@ export async function generateAINarration(
   };
 
   const userPrompt = buildUserPrompt(song, style, fullContext);
+  const openai = getClient();
 
   const result = await Promise.race([
     openai.chat.completions.create({
