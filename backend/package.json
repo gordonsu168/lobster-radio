@@ -9,14 +9,14 @@
     "lint": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
-    "@google/generative-ai": "^0.24.1",
     "better-sqlite3": "^12.9.0",
     "cors": "^2.8.5",
     "dotenv": "^16.5.0",
     "edge-tts": "^1.0.1",
     "elevenlabs": "^1.59.0",
     "express": "^4.21.2",
-    "lobster-radio-agents": "1.0.0"
+    "lobster-radio-agents": "1.0.0",
+    "openai": "^5.23.2"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",

@@ -1,7 +1,7 @@
 import type { SongWiki } from "./wikiService.js";
 import type { DJStyle } from "./narrationGenerator.js";
 import { getTimeSegment } from "./narrationGenerator.js";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import OpenAI from "openai";
 
 export interface NarrationContext {
   timeSegment: "morning" | "afternoon" | "night" | "weekend";
@@ -30,7 +30,9 @@ function buildUserPrompt(
   style: DJStyle,
   context: NarrationContext
 ): string {
-  return `请为以下歌曲生成开场白：
+  return `${buildSystemPrompt()}
+
+请为以下歌曲生成开场白：
 歌手：${song.artist}
 歌名：${song.title}
 专辑：${song.album || "Unknown"}
@@ -39,10 +41,13 @@ ${song.genre ? `流派：${song.genre.join(", ")}` : ""}
 风格：${style}
 当前时间：${context.timeSegment}
 
-请生成开场白：`;
+请直接生成开场白，不要多余内容：`;
 }
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
+const openai = new OpenAI({
+  apiKey: process.env.DEEPSEEK_API_KEY || process.env.OPENAI_API_KEY || "",
+  baseURL: process.env.DEEPSEEK_API_KEY ? "https://api.deepseek.com" : undefined,
+});
 
 export async function generateAINarration(
   song: SongWiki,
@@ -53,28 +58,23 @@ export async function generateAINarration(
     timeSegment: context?.timeSegment || getTimeSegment(),
   };
 
-  const systemPrompt = buildSystemPrompt();
   const userPrompt = buildUserPrompt(song, style, fullContext);
 
-  const model = genAI.getGenerativeModel({
-    model: "gemini-1.5-flash",
-    generationConfig: {
-      temperature: 0.8,
-      maxOutputTokens: 128,
-    },
-  });
-
-  const prompt = `${systemPrompt}\n\n${userPrompt}`;
-
   const result = await Promise.race([
-    model.generateContent(prompt),
+    openai.chat.completions.create({
+      model: process.env.DEEPSEEK_API_KEY ? "deepseek-chat" : "gpt-3.5-turbo",
+      messages: [
+        { role: "user", content: userPrompt }
+      ],
+      temperature: 0.8,
+      max_tokens: 128,
+    }),
     new Promise<never>((_, reject) =>
       setTimeout(() => reject(new Error("Timeout")), 8000)
     ),
   ]);
 
-  const response = await result.response;
-  let text = response.text().trim();
+  let text = result.choices[0]?.message?.content?.trim() || "";
 
   // Post-processing: validate and clean up
   text = cleanupOutput(text);
