@@ -1,0 +1,13 @@
+
+{
+  "name": "Lobster Radio LLM-Wiki",
+  "description": "LLM-maintained knowledge base for the Lobster Radio project",
+  "rules": [
+    "Keep pages focused - one concept per page",
+    "Always link to related pages using [[WikiLinks]]",
+    "Update incrementally - when code changes, patch the affected sections rather than rewriting everything",
+    "Include both 'what' (how it works) and 'why' (why we made this decision)",
+    "Keep content concise - prefer shorter explanations over verbose ones",
+    "Add citations to the git commit or PR when a change is significant"
+  ]
+}
