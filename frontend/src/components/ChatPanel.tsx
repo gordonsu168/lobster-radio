@@ -24,14 +24,13 @@ const ChatPanel = forwardRef<ChatPanelRef, ChatPanelProps>(({ currentTrack, onSk
     }
   }));
 
-  async function handleSendSkipRequest() {
-    const skipMessage = "我想要跳过这首歌";
-    const newHistory = [...messages, { role: "user" as const, content: skipMessage }];
+  async function handleSendMessage(content: string) {
+    const newHistory = [...messages, { role: "user" as const, content }];
     setMessages(newHistory);
     setLoading(true);
 
     try {
-      const response = await sendChatMessage(skipMessage, messages, currentTrack);
+      const response = await sendChatMessage(content, messages, currentTrack);
       setMessages([...newHistory, { role: "assistant", content: response.reply }]);
       if (response.skipRequested) {
         onSkipRequested();
@@ -46,6 +45,10 @@ const ChatPanel = forwardRef<ChatPanelRef, ChatPanelProps>(({ currentTrack, onSk
     }
   }
 
+  async function handleSendSkipRequest() {
+    await handleSendMessage("我想要跳过这首歌");
+  }
+
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -58,25 +61,7 @@ const ChatPanel = forwardRef<ChatPanelRef, ChatPanelProps>(({ currentTrack, onSk
 
     const userMsg = input.trim();
     setInput("");
-    const newHistory = [...messages, { role: "user" as const, content: userMsg }];
-    setMessages(newHistory);
-    setLoading(true);
-
-    try {
-      const response = await sendChatMessage(userMsg, messages, currentTrack);
-      setMessages([...newHistory, { role: "assistant", content: response.reply }]);
-      if (response.skipRequested) {
-        onSkipRequested();
-      }
-      // If refresh was requested by tool, trigger it
-      if (onRefreshRequested && response.toolResults?.some(t => t.name === "refreshRecommendations")) {
-        onRefreshRequested();
-      }
-    } catch (err) {
-      setMessages([...newHistory, { role: "assistant", content: "Error: Could not reach the producer." }]);
-    } finally {
-      setLoading(false);
-    }
+    await handleSendMessage(userMsg);
   }
 
   return (
