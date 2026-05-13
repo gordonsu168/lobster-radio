@@ -126,7 +126,7 @@ export async function buildRecommendations(mood: MoodOption, style: DJStyle = "c
     } catch (error) {
       console.warn("❌ RadioDJAgent failed, falling back to AINarrationService:", error);
       try {
-        narration = await generateAINarration(selectedTrack, style);
+        narration = await generateAINarration(selectedTrack, style, djLanguage);
         console.log(`🎙️ 使用 AINarrationService 生成的旁白: ${narration}`);
       } catch (aiError) {
         console.error("❌ AINarrationService also failed, falling back to template:", aiError);

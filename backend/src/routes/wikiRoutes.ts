@@ -141,7 +141,7 @@ wikiRouter.post("/narration/:id", async (req: Request, res: Response) => {
 
     if (aiEnabled && style) {
       try {
-        narration = await generateAINarration(song, style);
+        narration = await generateAINarration(song, style, (language as any) || "zh-HK");
       } catch (aiError) {
         console.warn("AI generation failed, falling back to template:", aiError);
         narration = style
@@ -181,7 +181,7 @@ wikiRouter.post("/narration/batch", async (req: Request, res: Response) => {
 
         if (aiEnabled && style) {
           try {
-            narration = await generateAINarration(song, style);
+            narration = await generateAINarration(song, style, (language as any) || "zh-HK");
           } catch (aiError) {
             console.warn("AI generation failed for batch, falling back to template:", aiError);
             narration = style

@@ -3,12 +3,15 @@ import type { DJStyle } from "./narrationGenerator.js";
 import { getTimeSegment } from "./narrationGenerator.js";
 import OpenAI from "openai";
 
+export type DJLanguage = "zh-CN" | "zh-HK" | "en-US";
+
 export interface NarrationContext {
   timeSegment: "morning" | "afternoon" | "night" | "weekend";
 }
 
-function buildSystemPrompt(): string {
-  return `你是龙虾电台的DJ小龙，三十出头，是个资深乐迷。
+function buildSystemPrompt(language: DJLanguage): string {
+  if (language === "zh-HK") {
+    return `你是龙虾电台的DJ小龙，三十出头，是个资深乐迷。
 你说话要用道地的香港粤语，像和朋友聊天一样自然。
 
 核心原则：
@@ -17,20 +20,58 @@ function buildSystemPrompt(): string {
 - 不说官话套话，比如"接下来为您播放"这种太官方了
 - 可以适当用粤语语气词：㗎、啦、㗅、喔，更自然
 - 必须说出歌手名字和歌名
+- 全程使用粤语回答
 
 根据用户选择的风格调整语气：
 - classic：从容地道的电台感觉
 - night：温柔安静，治愈系
 - vibe：兴奋有感染力
 - trivia：分享一个有趣的小知识`;
+  } else if (language === "zh-CN") {
+    return `你是龙虾电台的DJ小龙，三十出头，是个资深乐迷。
+你说话要用标准普通话，像和朋友聊天一样自然。
+
+核心原则：
+- 90%是音乐，10%是DJ，你只说开场白，不抢戏
+- 点到即止，说1-2句话就好，绝对不能超过3句话
+- 不说官话套话，比如"接下来为您播放"这种太官方了
+- 可以适当用语气词：呀、呢、哦，更自然
+- 必须说出歌手名字和歌名
+- 全程使用普通话回答
+
+根据用户选择的风格调整语气：
+- classic：从容地道的电台感觉
+- night：温柔安静，治愈系
+- vibe：兴奋有感染力
+- trivia：分享一个有趣的小知识`;
+  } else {
+    return `You are Xiaolong, the DJ of Lobster Radio, a 30-something experienced music fan.
+Speak naturally like chatting with a friend.
+
+Core principles:
+- 90% music, 10% DJ - you only give a brief intro, don't steal the spotlight
+- Keep it short, 1-2 sentences maximum, never more than 3
+- Don't use formal radio clichés
+- Speak naturally like a friend
+- Must mention the artist name and song title
+- Answer in English
+
+Adjust your tone based on the style:
+- classic: calm and classic radio vibe
+- night: gentle and calm, relaxing
+- vibe: energetic and engaging
+- trivia: share an interesting fun fact`;
+  }
 }
 
 function buildUserPrompt(
   song: SongWiki,
   style: DJStyle,
+  language: DJLanguage,
   context: NarrationContext
 ): string {
-  return `${buildSystemPrompt()}
+  const systemPrompt = buildSystemPrompt(language);
+  return `${systemPrompt}
 
 请为以下歌曲生成开场白：
 歌手：${song.artist}
@@ -53,13 +94,14 @@ function getClient(): OpenAI {
 export async function generateAINarration(
   song: SongWiki,
   style: DJStyle,
+  language: DJLanguage = "zh-HK",
   context?: Partial<NarrationContext>
 ): Promise<string> {
   const fullContext: NarrationContext = {
     timeSegment: context?.timeSegment || getTimeSegment(),
   };
 
-  const userPrompt = buildUserPrompt(song, style, fullContext);
+  const userPrompt = buildUserPrompt(song, style, language, fullContext);
   const openai = getClient();
 
   const result = await Promise.race([
