@@ -177,7 +177,7 @@ export function SettingsPage() {
               onChange={(event) =>
                 setSettings((current) => ({
                   ...current,
-                  djLanguage: event.target.value
+                  djLanguage: event.target.value as RuntimeSettings["djLanguage"]
                 }))
               }
               className="w-full rounded-2xl border border-white/15 bg-slate-950/80 px-4 py-3 text-white outline-none mb-4"
@@ -230,7 +230,7 @@ export function SettingsPage() {
               onChange={(event) =>
                 setSettings((current) => ({
                   ...current,
-                  djEmotion: event.target.value
+                  djEmotion: event.target.value as RuntimeSettings["djEmotion"]
                 }))
               }
               className="w-full rounded-2xl border border-white/15 bg-slate-950/80 px-4 py-3 text-white outline-none"
