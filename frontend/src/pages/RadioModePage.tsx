@@ -483,36 +483,30 @@ export function RadioModePage() {
     }
   };
 
-  // 跳过当前歌曲 - 立即执行 skip
-  const handleSkipNow = async () => {
+  // 用户点击跳过按钮 - 发送请求给 AI DJ，由 DJ 决定何时切歌
+  const handleSkip = () => {
+    // 只发送消息，不立即切歌。AI DJ 会在合适时机调用 onSkipRequested 切歌
+    chatPanelRef.current?.sendSkipRequest();
+  };
+
+  // AI DJ 请求切歌 - 实际执行切歌操作
+  const actuallySkipTrack = async () => {
     if (isLoadingNextRef.current) return;
 
     if (audioRef.current) {
       audioRef.current.pause();
-      // Remove any lingering ended event listeners from narration/outro
       audioRef.current.src = "";
       audioRef.current.load();
     }
 
-    // If narration was playing, mark it as ended immediately
-    // This fixes the bug where the next track wouldn't start because the flag was still true
-    isNarrationPlayingRef.current = false;
+    // Music stops immediately, active narrations continue playing
+    // Narrations are not interrupted - this is the whole point of the refactor!
 
     isLoadingNextRef.current = true;
     try {
       await playNextTrack();
     } finally {
       isLoadingNextRef.current = false;
-    }
-  };
-
-  // 跳过当前歌曲 - 通过 ChatPanel 发送 skip 请求给 AI DJ
-  const handleSkip = async () => {
-    if (isLoadingNextRef.current) return;
-
-    // Use the ChatPanel's sendSkipRequest method to send a skip message to the AI DJ
-    if (chatPanelRef.current) {
-      chatPanelRef.current.sendSkipRequest();
     }
   };
 
@@ -698,7 +692,7 @@ export function RadioModePage() {
           <ChatPanel
             ref={chatPanelRef}
             currentTrack={currentTrack}
-            onSkipRequested={handleSkipNow}
+            onSkipRequested={actuallySkipTrack}
             onRefreshRequested={handleRefresh}
           />
         </div>
