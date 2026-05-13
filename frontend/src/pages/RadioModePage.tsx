@@ -40,6 +40,32 @@ export function RadioModePage() {
   const userInteractedRef = useRef(false);
   const isLoadingNextRef = useRef(false);
 
+  interface NarrationInstance {
+    audio: HTMLAudioElement;
+  }
+
+  const activeNarrationsRef = useRef<NarrationInstance[]>([]);
+
+  function addNarration(audio: HTMLAudioElement): void {
+    activeNarrationsRef.current.push({ audio });
+  }
+
+  function removeNarration(audio: HTMLAudioElement): void {
+    activeNarrationsRef.current = activeNarrationsRef.current.filter(
+      instance => instance.audio !== audio
+    );
+  }
+
+  function forEachNarration(callback: (audio: HTMLAudioElement) => void): void {
+    activeNarrationsRef.current.forEach(instance => callback(instance.audio));
+  }
+
+  function cleanupNarration(audio: HTMLAudioElement, url: string): void {
+    audio.pause();
+    removeNarration(audio);
+    URL.revokeObjectURL(url);
+  }
+
   // 页面加载后加载用户设置
   useEffect(() => {
     getSettings().then(settings => {
@@ -108,21 +134,23 @@ export function RadioModePage() {
 
     isLoadingNextRef.current = true;
 
-    // 新增：如果有当前歌曲，先播放 outro
-    if (currentTrack) {
-      try {
-        const { outro } = await generateOutro(currentTrack.id, djStyle, djLanguage);
-        setCurrentOutro(outro);
-        await playOutroThenNext(outro);
-      } catch (err) {
-        console.warn("Outro generation failed, skipping:", err);
+    try {
+      // 新增：如果有当前歌曲，先播放 outro
+      if (currentTrack) {
+        try {
+          const { outro } = await generateOutro(currentTrack.id, djStyle, djLanguage);
+          setCurrentOutro(outro);
+          await playOutroThenNext(outro);
+        } catch (err) {
+          console.warn("Outro generation failed, skipping:", err);
+          await playNextTrack();
+        }
+      } else {
         await playNextTrack();
       }
-    } else {
-      await playNextTrack();
+    } finally {
+      isLoadingNextRef.current = false;
     }
-
-    isLoadingNextRef.current = false;
   };
 
   // 播放下一首
@@ -135,7 +163,9 @@ export function RadioModePage() {
     // 使用函数式更新确保拿到最新队列并取出第一首
     // 这避免了闭包陷阱问题
     let nextTrack: Track | null = null;
+    let remainingAfterPop: number = 0;
     setQueue(prev => {
+      remainingAfterPop = prev.length;
       // 如果队列是空，直接返回
       if (prev.length === 0) {
         nextTrack = null;
@@ -144,23 +174,52 @@ export function RadioModePage() {
       // 取出第一首播放，剩余队列保持
       const [first, ...rest] = prev;
       nextTrack = first;
+      remainingAfterPop = rest.length;
       return rest;
     });
 
     // 这里必须等一轮状态更新吗？不 - 因为我们已经在同步闭包里拿到了 nextTrack
     // 即使状态还没更新到组件，我们拿到的值是正确的
+
+    // 如果队列是空，先加载更多推荐再试一次
     if (!nextTrack) {
-      setError("No tracks available. Please try again later.");
-      return;
+      setLoading(true);
+      try {
+        await loadMoreRecommendations("Working");
+        // After loading, try again to get a track from the new queue
+        setQueue(prev => {
+          if (prev.length === 0) {
+            nextTrack = null;
+            return prev;
+          }
+          const [first, ...rest] = prev;
+          nextTrack = first;
+          remainingAfterPop = rest.length;
+          return rest;
+        });
+        if (!nextTrack) {
+          setError("No tracks available. Please try again later.");
+          return;
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to load recommendations");
+        return;
+      } finally {
+        setLoading(false);
+      }
     }
 
     // 更新当前曲目的状态
     setCurrentTrack(nextTrack);
 
-    // 如果取出第一首后剩余队列为空，预加载更多推荐
+    // Mark that we're already starting playback manually so the useEffect doesn't interfere
+    // This prevents track info mismatch because the useEffect won't play with old state
+    isNarrationPlayingRef.current = true;
+
+    // 如果取出第一首后剩余队列为空或很少，预加载更多推荐
     // 不等待，让加载在后台完成
-    if (queue.length <= 1) {
-      await loadMoreRecommendations("Working");
+    if (remainingAfterPop <= 1) {
+      loadMoreRecommendations("Working").catch(() => {});
     }
 
     // 生成旁白并播放 - 使用我们已经获取的 nextTrack 引用，保证匹配
@@ -175,7 +234,7 @@ export function RadioModePage() {
     }
 
     // 如果剩余队列长度少于3，预加载
-    if (queue.length < 3) {
+    if (remainingAfterPop < 3) {
       loadMoreRecommendations("Working").catch(() => {});
     }
   };
@@ -441,11 +500,21 @@ export function RadioModePage() {
 
     if (audioRef.current) {
       audioRef.current.pause();
+      // Remove any lingering ended event listeners from narration/outro
+      audioRef.current.src = "";
+      audioRef.current.load();
     }
 
+    // If narration was playing, mark it as ended immediately
+    // This fixes the bug where the next track wouldn't start because the flag was still true
+    isNarrationPlayingRef.current = false;
+
     isLoadingNextRef.current = true;
-    await playNextTrack();
-    isLoadingNextRef.current = false;
+    try {
+      await playNextTrack();
+    } finally {
+      isLoadingNextRef.current = false;
+    }
   };
 
   // 处理点赞
