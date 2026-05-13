@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useImperativeHandle, forwardRef } from "react";
 import { sendChatMessage, type ChatMessage, type ToolResult } from "../lib/api";
 import type { Track } from "../types";
 
@@ -8,11 +8,43 @@ interface ChatPanelProps {
   onRefreshRequested?: () => void;
 }
 
-export function ChatPanel({ currentTrack, onSkipRequested, onRefreshRequested }: ChatPanelProps) {
+export interface ChatPanelRef {
+  sendSkipRequest: () => void;
+}
+
+const ChatPanel = forwardRef<ChatPanelRef, ChatPanelProps>(({ currentTrack, onSkipRequested, onRefreshRequested }, ref) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  useImperativeHandle(ref, () => ({
+    sendSkipRequest: () => {
+      handleSendSkipRequest();
+    }
+  }));
+
+  async function handleSendSkipRequest() {
+    const skipMessage = "我想要跳过这首歌";
+    const newHistory = [...messages, { role: "user" as const, content: skipMessage }];
+    setMessages(newHistory);
+    setLoading(true);
+
+    try {
+      const response = await sendChatMessage(skipMessage, messages, currentTrack);
+      setMessages([...newHistory, { role: "assistant", content: response.reply }]);
+      if (response.skipRequested) {
+        onSkipRequested();
+      }
+      if (onRefreshRequested && response.toolResults?.some(t => t.name === "refreshRecommendations")) {
+        onRefreshRequested();
+      }
+    } catch (err) {
+      setMessages([...newHistory, { role: "assistant", content: "Error: Could not reach the producer." }]);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -81,4 +113,7 @@ export function ChatPanel({ currentTrack, onSkipRequested, onRefreshRequested }:
       </form>
     </div>
   );
-}
+});
+
+export { ChatPanel };
+export type { ChatPanelRef };

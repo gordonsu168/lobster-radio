@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ChatPanel } from "../components/ChatPanel";
+import { ChatPanel, type ChatPanelRef } from "../components/ChatPanel";
 import {
   getPreferences,
   getRecommendations,
@@ -39,6 +39,7 @@ export function RadioModePage() {
   const audioRef = useRef<HTMLAudioElement>(null);
   const userInteractedRef = useRef(false);
   const isLoadingNextRef = useRef(false);
+  const chatPanelRef = useRef<ChatPanelRef>(null);
 
   interface NarrationInstance {
     audio: HTMLAudioElement;
@@ -413,29 +414,32 @@ export function RadioModePage() {
               const url = URL.createObjectURL(blob);
 
               const tempAudio = new Audio(url);
+              tempAudio.crossOrigin = "anonymous";
+              addNarration(tempAudio); // Add to active narrations for syncing
+
               tempAudio.play().catch((error) => {
                 console.warn("Trivia audio play failed:", error);
+                cleanupNarration(tempAudio, url);
                 if (audioRef.current) {
                   audioRef.current.volume = originalVolume;
                 }
                 setCurrentTrivia("");
-                URL.revokeObjectURL(url);
                 resolve();
               });
               tempAudio.onended = () => {
+                cleanupNarration(tempAudio, url);
                 if (audioRef.current) {
                   audioRef.current.volume = originalVolume;
                 }
                 setCurrentTrivia("");
-                URL.revokeObjectURL(url);
                 resolve();
               };
               tempAudio.onerror = () => {
+                cleanupNarration(tempAudio, url);
                 if (audioRef.current) {
                   audioRef.current.volume = originalVolume;
                 }
                 setCurrentTrivia("");
-                URL.revokeObjectURL(url);
                 resolve();
               };
             } else {
@@ -479,8 +483,8 @@ export function RadioModePage() {
     }
   };
 
-  // 跳过当前歌曲
-  const handleSkip = async () => {
+  // 跳过当前歌曲 - 立即执行 skip
+  const handleSkipNow = async () => {
     if (isLoadingNextRef.current) return;
 
     if (audioRef.current) {
@@ -499,6 +503,16 @@ export function RadioModePage() {
       await playNextTrack();
     } finally {
       isLoadingNextRef.current = false;
+    }
+  };
+
+  // 跳过当前歌曲 - 通过 ChatPanel 发送 skip 请求给 AI DJ
+  const handleSkip = async () => {
+    if (isLoadingNextRef.current) return;
+
+    // Use the ChatPanel's sendSkipRequest method to send a skip message to the AI DJ
+    if (chatPanelRef.current) {
+      chatPanelRef.current.sendSkipRequest();
     }
   };
 
@@ -682,8 +696,9 @@ export function RadioModePage() {
       <div className="fixed bottom-0 left-0 right-0 bg-gradient-to-t from-slate-900 via-slate-900 to-transparent pt-8 pb-4 px-4 z-50">
         <div className="max-w-4xl mx-auto">
           <ChatPanel
+            ref={chatPanelRef}
             currentTrack={currentTrack}
-            onSkipRequested={handleSkip}
+            onSkipRequested={handleSkipNow}
             onRefreshRequested={handleRefresh}
           />
         </div>
