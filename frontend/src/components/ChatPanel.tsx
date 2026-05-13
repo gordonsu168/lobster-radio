@@ -8,6 +8,7 @@ interface ChatPanelProps {
   currentTrack: Track | null;
   onSkipRequested: () => void;
   onRefreshRequested?: () => void;
+  onWikiReply?: (reply: string) => void;
 }
 
 export interface ChatPanelRef {
@@ -15,7 +16,7 @@ export interface ChatPanelRef {
   addAssistantMessage: (content: string) => void;
 }
 
-const ChatPanel = forwardRef<ChatPanelRef, ChatPanelProps>(({ currentTrack, onSkipRequested, onRefreshRequested }, ref) => {
+const ChatPanel = forwardRef<ChatPanelRef, ChatPanelProps>(({ currentTrack, onSkipRequested, onRefreshRequested, onWikiReply }, ref) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -39,6 +40,9 @@ const ChatPanel = forwardRef<ChatPanelRef, ChatPanelProps>(({ currentTrack, onSk
       }
       if (onRefreshRequested && response.toolResults?.some(t => t.name === "refreshRecommendations")) {
         onRefreshRequested();
+      }
+      if (onWikiReply && response.toolResults?.some(t => t.name === "fetchWikipedia") && response.reply) {
+        onWikiReply(response.reply);
       }
     } catch (err) {
       setMessages(prev => [...prev, { role: "assistant", content: "Error: Could not reach the producer." }]);

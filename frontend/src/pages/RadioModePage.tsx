@@ -440,6 +440,48 @@ export function RadioModePage() {
     }
   };
 
+  // 播放 Producer 通过 fetchWikipedia 查到资料后的回复（降低主音量 → 播旁白 → 恢复音量）
+  const playWikiReply = (reply: string) => {
+    if (!audioRef.current || !reply.trim()) return;
+
+    const originalVolume = audioRef.current.volume;
+    audioRef.current.volume = TRIVIA_VOLUME_DUCK;
+
+    synthesizeNarration(reply, voice, { emotion: djEmotion, language: djLanguage })
+      .then(response => {
+        if (response.audioBase64 && audioRef.current) {
+          const { audio: tempAudio, url } = createNarrationAudio(
+            response.audioBase64,
+            response.mimeType,
+            () => {
+              cleanupNarration(tempAudio, url);
+              if (audioRef.current) {
+                audioRef.current.volume = originalVolume;
+              }
+            },
+            () => {
+              cleanupNarration(tempAudio, url);
+              if (audioRef.current) {
+                audioRef.current.volume = originalVolume;
+              }
+            }
+          );
+          tempAudio.volume = audioRef.current.volume;
+          addNarration(tempAudio);
+          tempAudio.play().catch((error) => {
+            console.warn("Wiki reply audio play failed:", error);
+          });
+        } else if (audioRef.current) {
+          audioRef.current.volume = originalVolume;
+        }
+      })
+      .catch(() => {
+        if (audioRef.current) {
+          audioRef.current.volume = originalVolume;
+        }
+      });
+  };
+
   // 播放暂停 - 同步作用于音乐和所有正在播放的旁白
   const handlePlayPause = () => {
     if (!audioRef.current || !currentTrack?.previewUrl) return;
@@ -671,6 +713,7 @@ export function RadioModePage() {
             currentTrack={currentTrack}
             onSkipRequested={onSkipRequested}
             onRefreshRequested={handleRefresh}
+            onWikiReply={playWikiReply}
           />
         </div>
       </div>
