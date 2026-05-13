@@ -10,6 +10,7 @@ interface ChatPanelProps {
 
 export interface ChatPanelRef {
   sendSkipRequest: () => void;
+  addAssistantMessage: (content: string) => void;
 }
 
 const ChatPanel = forwardRef<ChatPanelRef, ChatPanelProps>(({ currentTrack, onSkipRequested, onRefreshRequested }, ref) => {
@@ -21,6 +22,9 @@ const ChatPanel = forwardRef<ChatPanelRef, ChatPanelProps>(({ currentTrack, onSk
   useImperativeHandle(ref, () => ({
     sendSkipRequest: () => {
       handleSendSkipRequest();
+    },
+    addAssistantMessage: (content: string) => {
+      setMessages(prev => [...prev, { role: "assistant", content }]);
     }
   }));
 

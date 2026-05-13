@@ -37,7 +37,6 @@ export function RadioModePage() {
   const audioRef = useRef<HTMLAudioElement>(null);
   const userInteractedRef = useRef(false);
   const isLoadingNextRef = useRef(false);
-  const isStartingPlaybackRef = useRef(false); // 防止 useEffect 重复调用playNarrationThenMusic
   const chatPanelRef = useRef<ChatPanelRef>(null);
 
   interface NarrationInstance {
@@ -115,14 +114,8 @@ export function RadioModePage() {
     }
   }, []);
 
-  // 当 currentTrack 被设置且还没有开始播放时，自动开始播放
-  // 使用函数式更新确保拿到最新的状态
-  useEffect(() => {
-    if (!currentTrack || !currentNarration || isPlaying || isStartingPlaybackRef.current) {
-      return;
-    }
-    playNarrationThenMusic(currentNarration, currentTrack);
-  }, [currentTrack, currentNarration, isPlaying]);
+  // 注意：播放现在完全由 playNextTrack 手动启动，不需要 useEffect 自动触发
+  // 这避免了因为多次状态更新导致的重复调用问题
 
   // 当当前歌曲播放完毕，先播 outro，再加载下一首
   const handleTrackEnd = async () => {
@@ -153,6 +146,7 @@ export function RadioModePage() {
 
   // 播放下一首
   const playNextTrack = async () => {
+    console.log(`[radio] playNextTrack: starting...`);
     // 重置 trivia 状态
     triviaTriggeredRef.current = false;
     setCurrentTrivia("");
@@ -222,15 +216,12 @@ export function RadioModePage() {
 
     // 生成旁白并播放 - 使用我们已经获取的 nextTrack 引用，保证匹配
     try {
-      isStartingPlaybackRef.current = true;
       const narrationResult = await generateNarration(nextTrack.id, djStyle, djLanguage);
       setCurrentNarration(narrationResult.narration);
       await playNarrationThenMusic(narrationResult.narration, nextTrack);
-      isStartingPlaybackRef.current = false;
     } catch (err) {
       const fallback = `接下来为您播放${nextTrack.artist}的《${nextTrack.title}》。`;
       setCurrentNarration(fallback);
-      isStartingPlaybackRef.current = false;
       await playNarrationThenMusic(fallback, nextTrack);
     }
 
@@ -273,15 +264,21 @@ export function RadioModePage() {
         return;
       }
 
+      // Add DJ narration to chat panel
+      chatPanelRef.current?.addAssistantMessage(narrationText);
+
       userInteractedRef.current = true;
       audioRef.current.pause();
 
       const playMusicAfterNarration = () => {
         if (audioRef.current && track.previewUrl) {
+          console.log(`[radio] 旁白播放完毕，开始播放音乐: ${track.artist} - ${track.title}, url: ${track.previewUrl.substring(0, 60)}...`);
           audioRef.current.src = track.previewUrl;
           audioRef.current.load();
           audioRef.current.play().catch(() => {});
           setIsPlaying(true);
+        } else {
+          console.log(`[radio] 旁白播放完毕，但无法播放音乐: track.previewUrl = ${track.previewUrl}`);
         }
         resolve();
       };
@@ -333,6 +330,9 @@ export function RadioModePage() {
   // 播放 outro 闲聊，音乐立即切到下一首，outro 在后台继续播放
   const playOutroThenNext = async (outroText: string): Promise<void> => {
     return new Promise((resolve) => {
+      // Add DJ outro to chat panel
+      chatPanelRef.current?.addAssistantMessage(outroText);
+
       // Generate outro audio immediately
       synthesizeNarration(outroText, voice, { emotion: djEmotion, language: djLanguage })
         .then(response => {
@@ -399,6 +399,8 @@ export function RadioModePage() {
       if (!hasTrivia || !trivia) return;
 
       setCurrentTrivia(trivia);
+      // Add trivia to chat panel
+      chatPanelRef.current?.addAssistantMessage(`💡 冷知识：${trivia}`);
       const originalVolume = audioRef.current.volume;
 
       // 降低主音乐音量
@@ -492,6 +494,7 @@ export function RadioModePage() {
 
   // AI DJ 请求切歌 - 实际执行切歌操作
   const actuallySkipTrack = async () => {
+    console.log(`[radio] actuallySkipTrack: AI requested skip, starting...`);
     if (isLoadingNextRef.current) return;
 
     if (audioRef.current) {
