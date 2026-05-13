@@ -37,6 +37,7 @@ export function RadioModePage() {
   const audioRef = useRef<HTMLAudioElement>(null);
   const userInteractedRef = useRef(false);
   const isLoadingNextRef = useRef(false);
+  const isStartingPlaybackRef = useRef(false); // 防止 useEffect 重复调用playNarrationThenMusic
   const chatPanelRef = useRef<ChatPanelRef>(null);
 
   interface NarrationInstance {
@@ -117,7 +118,7 @@ export function RadioModePage() {
   // 当 currentTrack 被设置且还没有开始播放时，自动开始播放
   // 使用函数式更新确保拿到最新的状态
   useEffect(() => {
-    if (!currentTrack || !currentNarration || isPlaying) {
+    if (!currentTrack || !currentNarration || isPlaying || isStartingPlaybackRef.current) {
       return;
     }
     playNarrationThenMusic(currentNarration, currentTrack);
@@ -221,12 +222,15 @@ export function RadioModePage() {
 
     // 生成旁白并播放 - 使用我们已经获取的 nextTrack 引用，保证匹配
     try {
+      isStartingPlaybackRef.current = true;
       const narrationResult = await generateNarration(nextTrack.id, djStyle, djLanguage);
       setCurrentNarration(narrationResult.narration);
       await playNarrationThenMusic(narrationResult.narration, nextTrack);
+      isStartingPlaybackRef.current = false;
     } catch (err) {
       const fallback = `接下来为您播放${nextTrack.artist}的《${nextTrack.title}》。`;
       setCurrentNarration(fallback);
+      isStartingPlaybackRef.current = false;
       await playNarrationThenMusic(fallback, nextTrack);
     }
 
