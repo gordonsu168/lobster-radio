@@ -207,7 +207,7 @@ function format(str: string, ...args: string[]): string {
 }
 
 // 获取时间段
-function getTimeSegment(): "morning" | "afternoon" | "night" | "weekend" {
+export function getTimeSegment(): "morning" | "afternoon" | "night" | "weekend" {
   const hour = new Date().getHours();
   const day = new Date().getDay();
   

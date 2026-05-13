@@ -34,8 +34,8 @@ function buildUserPrompt(
 歌手：${song.artist}
 歌名：${song.title}
 专辑：${song.album || "Unknown"}
-${song.year ? `年份：${song.year}` : ""}
-${song.genre ? `流派：${song.genre}` : ""}
+${song.releaseYear ? `年份：${song.releaseYear}` : ""}
+${song.genre ? `流派：${song.genre.join(", ")}` : ""}
 风格：${style}
 当前时间：${context.timeSegment}
 
