@@ -216,6 +216,12 @@ const GEMINI_VOICES: Record<string, string> = {
   "pulcherrima": "Pulcherrima",
 };
 
+// ========== MOSS-TTS-Nano Local TTS ==========
+// MOSS-TTS-Nano - 0.1B parameters, CPU-friendly multilingual TTS
+const MOSS_VOICES: Record<string, string> = {
+  "default": "default",
+};
+
 // ========== Edge TTS (微软) ==========
 // 完全免费，多语言支持，质量超好，不需要 API Key！
 // 语音列表: https://speech.microsoft.com/portal/voicegallery
@@ -392,6 +398,61 @@ async function synthesizeWithCosyVoice(text: string, voice: string) {
 
   // 写入缓存
   setCache(text, voice, "cosyvoice", result);
+  return result;
+}
+
+// MOSS-TTS-Nano 本地 TTS
+// 0.1B parameters, runs on CPU, multilingual support
+async function synthesizeWithMOSS(text: string, voice: string) {
+  const apiUrl = process.env.MOSS_TTS_API_URL;
+
+  // 先查缓存
+  const cached = getCache(text, voice, "moss");
+  if (cached) {
+    console.log(`📦 MOSS TTS 命中缓存: ${text.substring(0, 20)}...`);
+    return {
+      ...cached,
+      text,
+      fallback: false,
+    };
+  }
+
+  if (!apiUrl) {
+    throw new Error("MOSS_TTS_API_URL not configured");
+  }
+
+  console.log(`🎙️ MOSS TTS: 语音=${voice}, 文本: ${text.substring(0, 40)}...`);
+
+  const response = await fetch(`${apiUrl.replace(/\/$/, '')}/tts`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      text,
+      voice: MOSS_VOICES[voice] || MOSS_VOICES["default"],
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`MOSS API error: ${response.status}`);
+  }
+
+  // Read audio binary from response
+  const audioBuffer = Buffer.from(await response.arrayBuffer());
+  const audioBase64 = audioBuffer.toString("base64");
+
+  console.log(`✅ MOSS TTS 成功: ${(audioBase64.length / 1024).toFixed(1)} KB`);
+
+  const result = {
+    provider: "moss",
+    voice: MOSS_VOICES[voice] || MOSS_VOICES["default"],
+    audioBase64,
+    mimeType: "audio/mpeg",
+    text,
+    fallback: false,
+  };
+
+  // 写入缓存
+  setCache(text, voice, "moss", result);
   return result;
 }
 
@@ -610,9 +671,20 @@ export async function synthesizeSpeech(text: string, voice?: string, options?: {
   const selectedVoice = voice || "alloy";
   const emotion = options?.emotion || "normal";
   const language = options?.language;
-  
+
   // ========== 第一步：先检查所有 provider 的缓存 ==========
-  const providersToCheck = [defaultProvider, "elevenlabs", "edge", "cosyvoice", "gemini", "mac-say"];
+  // 优先级: ElevenLabs → Edge → MOSS → CosyVoice → Gemini → Mac Say
+  const providersToCheck = ["elevenlabs", "edge", "moss", "cosyvoice", "gemini", "mac-say"];
+  // 如果指定了 defaultProvider，把它放到最前面
+  if (defaultProvider && !providersToCheck.includes(defaultProvider)) {
+    providersToCheck.unshift(defaultProvider);
+  } else if (defaultProvider && providersToCheck.includes(defaultProvider)) {
+    // 把 defaultProvider 移到最前面
+    const idx = providersToCheck.indexOf(defaultProvider);
+    providersToCheck.splice(idx, 1);
+    providersToCheck.unshift(defaultProvider);
+  }
+
   for (const p of providersToCheck) {
     let cacheKey = selectedVoice;
     if (p === "elevenlabs") {
@@ -620,6 +692,7 @@ export async function synthesizeSpeech(text: string, voice?: string, options?: {
     } else if (p === "edge" && language) {
       cacheKey = `${selectedVoice}-${language}`;
     }
+    // moss doesn't need special cache key handling
     const cached = getCache(text, cacheKey, p);
     if (cached) {
       console.log(`📦 ${p} TTS 命中缓存: ${text.substring(0, 20)}...`);
@@ -630,32 +703,43 @@ export async function synthesizeSpeech(text: string, voice?: string, options?: {
       };
     }
   }
-  
-  // ========== 第二步：尝试配置的 provider ==========
-  // 优先级: ElevenLabs (顶级质量，支持情绪) > 
-  //           Edge TTS (推荐！免费，粤语质量天花板) > 
-  //           CosyVoice > Gemini > Mac Say
-  
+
+  // ========== 第二步：按顺序尝试 provider ==========
+  // 优先级: ElevenLabs (顶级质量，支持情绪) >
+  //           Edge TTS (推荐！免费，粤语质量天花板) >
+  //           MOSS > CosyVoice > Gemini > Mac Say
+
   // ElevenLabs: 顶级质量，支持情绪调整！
-  if (defaultProvider === "elevenlabs" || (options?.apiKey && options.apiKey.length > 0)) {
-    try {
+  try {
+    // 如果有提供 apiKey，或者 defaultProvider 是 elevenlabs，或者环境变量有配置
+    if (options?.apiKey || process.env.ELEVENLABS_API_KEY) {
       return await synthesizeWithElevenLabs(text, selectedVoice, emotion, options?.apiKey);
-    } catch (error) {
-      console.warn(`⚠️ ElevenLabs TTS 失败，自动降级:`, (error as Error).message);
-      // fall through to next provider
     }
+  } catch (error) {
+    console.warn(`⚠️ ElevenLabs TTS 失败，自动降级:`, (error as Error).message);
+    // fall through to next provider
   }
-  
-  if (defaultProvider === "edge" || defaultProvider === "edge-tts") {
+
+  // Edge TTS: 推荐！免费，粤语质量天花板
+  try {
+    return await synthesizeWithEdgeTTS(text, selectedVoice, language);
+  } catch (error) {
+    console.warn(`⚠️ Edge TTS 失败，自动降级:`, (error as Error).message);
+    // fall through to next provider
+  }
+
+  // MOSS: 本地 TTS
+  if (process.env.MOSS_TTS_API_URL) {
     try {
-      return await synthesizeWithEdgeTTS(text, selectedVoice, language);
+      return await synthesizeWithMOSS(text, selectedVoice);
     } catch (error) {
-      console.warn(`⚠️ Edge TTS 失败，自动降级:`, (error as Error).message);
+      console.warn(`⚠️ MOSS TTS 失败，自动降级:`, (error as Error).message);
       // fall through to next provider
     }
   }
-  
-  if (defaultProvider === "cosyvoice" || defaultProvider === "cosy") {
+
+  // CosyVoice: 本地 TTS
+  if (process.env.COSYVOICE_API_URL) {
     try {
       return await synthesizeWithCosyVoice(text, selectedVoice);
     } catch (error) {
@@ -663,8 +747,9 @@ export async function synthesizeSpeech(text: string, voice?: string, options?: {
       // fall through to next provider
     }
   }
-  
-  if (defaultProvider === "gemini" && process.env.GEMINI_API_KEY) {
+
+  // Gemini TTS
+  if (process.env.GEMINI_API_KEY) {
     try {
       return await synthesizeWithGemini(text, selectedVoice);
     } catch (error) {
@@ -672,13 +757,13 @@ export async function synthesizeSpeech(text: string, voice?: string, options?: {
       // fall through to mac-say
     }
   }
-  
+
   // ========== 第三步：尝试 mac-say（兜底）==========
   try {
     return await synthesizeWithMacSay(text, selectedVoice);
   } catch (error) {
     console.error(`❌ Mac-say TTS 也失败了:`, (error as Error).message);
-    
+
     return {
       provider: "fallback",
       voice: selectedVoice,
