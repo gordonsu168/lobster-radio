@@ -8,6 +8,7 @@ import { libraryRouter } from "./routes/libraryRoutes.js";
 import { wikiRouter } from "./routes/wikiRoutes.js";
 import { wikipediaRouter } from "./routes/wikipediaRoutes.js";
 import { chatRouter } from "./routes/chatRoutes.js";
+import { streamRouter } from "./routes/streamRoutes.js";
 import { resolveRuntimeSecrets } from "./services/settingsResolver.js";
 import { scanMusicLibrary } from "./services/musicLibraryService.js";
 import { importSongsFromTracks } from "./services/wikiService.js";
@@ -29,6 +30,7 @@ async function start() {
     app.use("/api/wiki", wikiRouter);
     app.use("/api/wikipedia", wikipediaRouter);
     app.use("/api/chat", chatRouter);
+    app.use("/api/stream", streamRouter);
     // 启动时自动导入歌曲到 Wiki
     (async () => {
         try {

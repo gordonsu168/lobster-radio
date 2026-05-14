@@ -1,9 +1,10 @@
-import { RadioIcon, Cog6ToothIcon, BookOpenIcon, SignalIcon } from "@heroicons/react/24/solid";
+import { RadioIcon, Cog6ToothIcon, BookOpenIcon, SignalIcon, PlayCircleIcon } from "@heroicons/react/24/solid";
 import { NavLink, Route, Routes, useLocation } from "react-router-dom";
 import { HomePage } from "./pages/HomePage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { WikiPage } from "./pages/WikiPage";
 import { RadioModePage } from "./pages/RadioModePage";
+import { StreamModePage } from "./pages/StreamModePage";
 import DesktopApp from "./DesktopApp";
 
 export default function App() {
@@ -48,6 +49,17 @@ export default function App() {
               Infinite
             </NavLink>
             <NavLink
+              to="/stream"
+              className={({ isActive }) =>
+                `inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${
+                  isActive ? "bg-white text-slate-950" : "border border-white/10 text-white hover:bg-white/10"
+                }`
+              }
+            >
+              <PlayCircleIcon className="h-4 w-4" />
+              Stream
+            </NavLink>
+            <NavLink
               to="/wiki"
               className={({ isActive }) =>
                 `inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${
@@ -75,6 +87,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/radio" element={<RadioModePage />} />
+          <Route path="/stream" element={<StreamModePage />} />
           <Route path="/wiki" element={<WikiPage />} />
           <Route path="/settings" element={<SettingsPage />} />
         </Routes>

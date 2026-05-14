@@ -361,10 +361,21 @@ async function synthesizeWithMOSS(text, voice) {
         throw new Error("MOSS_TTS_API_URL not configured");
     }
     console.log(`🎙️ MOSS TTS: 语音=${voice}, 文本: ${text.substring(0, 40)}...`);
+    const MOSS_VOICE_MAP = {
+        "nova": "demo-8", // zh_1
+        "shimmer": "demo-9", // zh_10
+        "alloy": "demo-12", // zh_3
+        "echo": "demo-13", // zh_4
+        "fable": "demo-3", // en_4
+        "onyx": "demo-8" // fallback
+    };
+    const selectedDemoId = MOSS_VOICE_MAP[voice] || "demo-8";
     const formData = new FormData();
     formData.append("text", text);
-    formData.append("demo_id", "demo-2");
-    formData.append("enable_text_normalization", "1");
+    formData.append("demo_id", selectedDemoId);
+    formData.append("speed", "1.2");
+    formData.append("volume", "1.5");
+    formData.append("enable_text_normalization", "0");
     formData.append("enable_normalize_tts_text", "1");
     // you can append more parameters if needed
     const response = await fetch(`${apiUrl.replace(/\/$/, '')}/api/generate`, {

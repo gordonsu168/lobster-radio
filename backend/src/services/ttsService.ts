@@ -423,12 +423,23 @@ async function synthesizeWithMOSS(text: string, voice: string) {
 
   console.log(`🎙️ MOSS TTS: 语音=${voice}, 文本: ${text.substring(0, 40)}...`);
 
+  const MOSS_VOICE_MAP: Record<string, string> = {
+    "nova": "demo-8",      // zh_1
+    "shimmer": "demo-9",   // zh_10
+    "alloy": "demo-12",     // zh_3
+    "echo": "demo-13",      // zh_4
+    "fable": "demo-3",     // en_4
+    "onyx": "demo-8"       // fallback
+  };
+
+  const selectedDemoId = MOSS_VOICE_MAP[voice] || "demo-8";
+
   const formData = new FormData();
   formData.append("text", text);
-  formData.append("demo_id", "demo-1"); // Change to demo-1 for a potentially different/more lively voice
-  formData.append("speed", "1.2");      // Increase speed
-  formData.append("volume", "1.5");     // Attempt to increase volume if API supports it
-  formData.append("enable_text_normalization", "1");
+  formData.append("demo_id", selectedDemoId); 
+  formData.append("speed", "1.2");      
+  formData.append("volume", "1.5");     
+  formData.append("enable_text_normalization", "0");
   formData.append("enable_normalize_tts_text", "1");
   // you can append more parameters if needed
 
@@ -441,11 +452,12 @@ async function synthesizeWithMOSS(text: string, voice: string) {
     throw new Error(`MOSS API error: ${response.status}`);
   }
 
-  const jsonResponse = await response.json();
+  const jsonResponse = await response.json() as any;
+
   if (jsonResponse.error) {
     throw new Error(`MOSS API error: ${jsonResponse.error}`);
   }
-  
+
   const audioBase64 = jsonResponse.audio_base64;
 
   console.log(`✅ MOSS TTS 成功: ${(audioBase64.length / 1024).toFixed(1)} KB`);
