@@ -60,8 +60,8 @@ export function StreamModePage() {
     isFetchingRef.current = true;
     try {
       console.log("📡 Fetching next DJ segment from server...");
-      const userHistory = messages.filter(m => m.sender === 'user').slice(-3).map(m => m.text).join(" ");
-      
+      const historyContext = messages.slice(-10).map(m => `${m.sender === 'user' ? '听众' : 'DJ小龙'}: ${m.text}`).join("\n");
+
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 180000);
 
@@ -70,9 +70,8 @@ export function StreamModePage() {
         headers: { 'Content-Type': 'application/json' },
         signal: controller.signal,
         body: JSON.stringify({
-          historyContext: userHistory,
-          lastTrackId: currentTrack?.id,
-          style: djStyle,
+          historyContext: historyContext,
+          lastTrackId: currentTrack?.id,          style: djStyle,
           language: djLanguage
         })
       });
