@@ -14,7 +14,7 @@ import { createNarrationAudio, cleanupNarrationAudio } from "../lib/audioUtils";
 import type { MoodOption, PreferencesSnapshot, Track, VoiceOption, DJStyle } from "../types";
 
 // Constants for audio behavior
-const TRIVIA_VOLUME_DUCK = 0.25;
+const TRIVIA_VOLUME_DUCK = 0.15;
 const TRIGGER_MIN_PROGRESS = 0.3;
 const TRIGGER_MAX_PROGRESS = 0.6;
 
@@ -106,7 +106,8 @@ export function RadioModePage() {
                 finish();
               }
             );
-            tempAudio.volume = audioRef.current.volume;
+            // Use original volume for narration, not the ducked volume
+            tempAudio.volume = Math.min(1.0, originalVolume * 2.5);
             addNarration(tempAudio);
             tempAudio.play().catch((error) => {
               console.warn("Queued narration play failed:", error);
@@ -366,9 +367,9 @@ export function RadioModePage() {
               }
             );
 
-            // Sync volume with main audio
+            // Sync volume with main audio and boost slightly
             if (audioRef.current) {
-              narrationAudio.volume = audioRef.current.volume;
+              narrationAudio.volume = Math.min(1.0, audioRef.current.volume * 2.5);
             }
             addNarration(narrationAudio);
             narrationAudio.play().catch(() => {
@@ -415,8 +416,8 @@ export function RadioModePage() {
               }
             );
 
-            // Sync volume with main audio
-            outroAudio.volume = audioRef.current.volume;
+            // Sync volume with main audio and boost slightly
+            outroAudio.volume = Math.min(1.0, audioRef.current.volume * 2.5);
             addNarration(outroAudio);
             outroAudio.play().catch(() => {
               // Error already handled in the callback

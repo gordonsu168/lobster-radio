@@ -193,7 +193,7 @@ function format(str, ...args) {
     return result;
 }
 // 获取时间段
-function getTimeSegment() {
+export function getTimeSegment() {
     const hour = new Date().getHours();
     const day = new Date().getDay();
     // 周末

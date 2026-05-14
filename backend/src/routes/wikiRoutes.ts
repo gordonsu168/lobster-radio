@@ -266,14 +266,47 @@ wikiRouter.get("/trivia/:id", async (req: Request, res: Response) => {
       return;
     }
 
-    // 获取预存素材作为事实依据
+    // 获取预存素材作为事实依据，过滤掉模板
     let preStoredFact: string | null = null;
     if (song.djMaterial?.funFact && song.djMaterial.funFact.length > 0) {
-      const facts = song.djMaterial.funFact;
-      preStoredFact = facts[Math.floor(Math.random() * facts.length)];
-    } else if (song.trivia && song.trivia.length > 0) {
+      const facts = song.djMaterial.funFact.filter(f => !f.includes("白金唱片"));
+      if (facts.length > 0) {
+        preStoredFact = facts[Math.floor(Math.random() * facts.length)];
+      }
+    } 
+    
+    if (!preStoredFact && song.trivia && song.trivia.length > 0) {
       // fallback 到旧 trivia 字段
-      preStoredFact = song.trivia[Math.floor(Math.random() * song.trivia.length)];
+      const facts = song.trivia.filter(f => !f.includes("白金唱片"));
+      if (facts.length > 0) {
+        preStoredFact = facts[Math.floor(Math.random() * facts.length)];
+      }
+    }
+
+    // 如果本地没有真实的冷知识，则尝试联网获取（维基百科）
+    if (!preStoredFact) {
+      try {
+        console.log(`[Wiki] 联网获取冷知识: ${song.artist} - ${song.title}`);
+        const query = encodeURIComponent(`${song.artist} ${song.title}`);
+        const res = await fetch(`https://zh.wikipedia.org/w/api.php?action=query&list=search&srsearch=${query}&utf8=&format=json`);
+        const data = await res.json();
+        
+        if (data.query?.search?.length > 0) {
+          const snippet = data.query.search[0].snippet.replace(/<[^>]*>?/gm, ''); // 移除HTML标签
+          if (snippet && snippet.length > 10) {
+            preStoredFact = snippet;
+            console.log(`[Wiki] 成功获取维基冷知识: ${preStoredFact}`);
+            
+            // 更新本地缓存，替换掉原有的模板
+            const newTriviaList = song.trivia ? song.trivia.filter(t => !t.includes("白金唱片")) : [];
+            newTriviaList.push(preStoredFact as string);
+            await updateSongWiki(song.id, { trivia: newTriviaList });
+            song.trivia = newTriviaList; // 更新当前对象
+          }
+        }
+      } catch (e) {
+        console.error("[Wiki] 联网获取冷知识失败:", e);
+      }
     }
 
     let trivia: string | null = null;

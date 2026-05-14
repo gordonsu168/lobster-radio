@@ -163,13 +163,13 @@ export function SettingsPage() {
               }
               className="w-full rounded-2xl border border-white/15 bg-slate-950/80 px-4 py-3 text-white outline-none"
             >
+              <option value="moss">🤖 MOSS-TTS-Nano (本地0.1B引擎)</option>
               <option value="edge">🔥 Edge TTS (推荐！粤语超棒)</option>
               <option value="gemini">Gemini TTS</option>
               <option value="macsay">Mac Say (系统语音)</option>
               <option value="openai">OpenAI</option>
               <option value="elevenlabs">ElevenLabs</option>
-            </select>
-          </div>
+            </select>          </div>
           <div>
             <label className="mb-2 block text-sm font-semibold text-white">DJ 语言</label>
             <select

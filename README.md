@@ -112,6 +112,32 @@ npm install
 npm start
 ```
 
+### 🧮 本地部署 MOSS-TTS-Nano（可选）
+
+MOSS-TTS-Nano 是一个开源的 0.1B 参数多语言 TTS 模型，可以直接在 CPU 上运行，不需要 GPU。适合想要本地完全离线 TTS 的用户。
+
+**部署步骤：**
+
+```bash
+# 克隆 MOSS-TTS-Nano 仓库
+git clone https://github.com/OpenMOSS/MOSS-TTS-Nano.git
+cd MOSS-TTS-Nano
+
+# 按照官方说明安装依赖
+pip install -r requirements.txt
+
+# 下载模型（按照官方说明）
+# 启动 HTTP 推理服务（默认端口 50001）
+python -m uvicorn server:app --host 0.0.0.0 --port 50001
+```
+
+然后在 Lobster Radio `.env` 文件中配置：
+```env
+MOSS_TTS_API_URL=http://localhost:50001
+```
+
+Lobster Radio 会自动在 Edge TTS 失败后回落到 MOSS-TTS-Nano。
+
 ## 🎛️ 环境变量说明
 
 | 变量 | 说明 | 默认值 |
@@ -121,7 +147,9 @@ npm start
 | `GEMINI_API_KEY` | Google Gemini API Key | - |
 | `OPENAI_API_KEY` | OpenAI API Key（可选） | - |
 | `ELEVENLABS_API_KEY` | ElevenLabs API Key（可选） | - |
-| `DEFAULT_TTS_PROVIDER` | 默认 TTS：`gemini` / `mac-say` / `openai` | `gemini` |
+| `COSYVOICE_API_URL` | CosyVoice 本地服务地址 | `http://localhost:50000` |
+| `MOSS_TTS_API_URL` | MOSS-TTS-Nano 本地服务地址 | `http://localhost:50001` |
+| `DEFAULT_TTS_PROVIDER` | 默认 TTS：`gemini` / `edge` / `moss` / `cosyvoice` / `mac-say` | `edge` |
 | `DEFAULT_TTS_VOICE` | 默认语音 | `alloy` |
 | `LOCAL_MUSIC_PATH` | 本地音乐文件夹 | - |
 | `PREFERRED_MUSIC_SOURCE` | 音乐源：`local` / `spotify` | `local` |
@@ -132,6 +160,9 @@ npm start
 | Provider | 粤语质量 | 速度 | 免费额度 | 备注 |
 |----------|---------|------|---------|------|
 | **Gemini** | ⭐⭐⭐⭐⭐ 优秀 | 快 | 1500 次/天 | **推荐**，支持 30 种语音 |
+| **Edge TTS** | ⭐⭐⭐⭐⭐ 优秀 | 快 | 无限 | 完全免费，无需部署 |
+| **MOSS-TTS-Nano** | ⭐⭐⭐⭐ 良好 | 中等 | 无限 | 本地 CPU 可运行，0.1B 参数开源模型 |
+| **CosyVoice** | ⭐⭐⭐⭐⭐ 天花板 | 中等 | 无限 | 需要 GPU 部署，支持方言音色克隆 |
 | **Mac Say** | ⭐⭐⭐⭐ 良好 | 最快 | 无限 | 系统内置，无需 API Key |
 | **OpenAI** | ⭐⭐⭐ 一般 | 快 | 付费 | - |
 | **ElevenLabs** | ⭐⭐⭐⭐⭐ 优秀 | 快 | 付费 | - |

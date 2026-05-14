@@ -55,6 +55,8 @@ const defaultSettings = {
     elevenLabsApiKey: "",
     defaultVoice: "alloy",
     defaultTtsProvider: "openai",
+    djStyle: "classic",
+    enableAiNarration: true,
     preferredMusicSource: "auto",
     localMusicPath: ""
 };

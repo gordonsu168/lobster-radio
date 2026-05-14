@@ -2,6 +2,7 @@ import { Router } from "express";
 import { ProducerAgent, MemoryAgent } from "lobster-radio-agents";
 import { getPreferences, savePreferences, addChatHistory } from "../services/storageService.js";
 import { getSongWiki, updateSongWiki } from "../services/wikiService.js";
+import { fetchWikipediaContent } from "../services/wikipediaService.js";
 export const chatRouter = Router();
 const producer = new ProducerAgent();
 const memoryAgent = new MemoryAgent();
@@ -35,13 +36,11 @@ chatRouter.post("/", async (req, res) => {
         const currentTrack = req.body.currentTrack === null || req.body.currentTrack === undefined ? null : req.body.currentTrack;
         const message = req.body.message;
         const prefs = await getPreferences();
-        const output = await producer.generateResponse(message, history, currentTrack, prefs);
+        let output = await producer.generateResponse(message, history, currentTrack, prefs);
         // Save chat to persistent history
         addChatHistory("user", message);
-        if (output.reply) {
-            addChatHistory("assistant", output.reply);
-        }
         let updated = false;
+        const toolResults = [];
         // Apply directives implicitly
         if (output.directives) {
             if (output.directives.memoryInsight) {
@@ -66,7 +65,6 @@ chatRouter.post("/", async (req, res) => {
             }
         }
         // Execute tool calls if any
-        const toolResults = [];
         if (output.toolCalls && output.toolCalls.length > 0) {
             for (const toolCall of output.toolCalls) {
                 try {
@@ -118,6 +116,19 @@ chatRouter.post("/", async (req, res) => {
                             }
                             break;
                         }
+                        case "fetchWikipedia": {
+                            const { query } = toolCall.parameters;
+                            try {
+                                const content = await fetchWikipediaContent(query);
+                                toolResults.push({ name: "fetchWikipedia", result: content });
+                                console.log(`[Producer Tool] Fetched Wikipedia for "${query}": ${content.length} characters`);
+                            }
+                            catch (e) {
+                                toolResults.push({ name: "fetchWikipedia", result: `Error: ${e}` });
+                                console.error(`[Producer Tool] Wikipedia fetch failed for "${query}":`, e);
+                            }
+                            break;
+                        }
                     }
                 }
                 catch (e) {
@@ -128,9 +139,31 @@ chatRouter.post("/", async (req, res) => {
             if (updated) {
                 await savePreferences(prefs);
             }
+            // If we executed any fetchWikipedia tool calls, we need to get the final reply from Producer with the search results
+            const hasWikiFetch = output.toolCalls.some(tc => tc.name === "fetchWikipedia");
+            if (hasWikiFetch && toolResults.length > 0) {
+                // Append the search results to the conversation history and get final reply
+                const toolResultText = toolResults.map(tr => `\n[Tool result: ${tr.name}]\n${tr.result}\n`).join("\n");
+                const augmentedMessage = `${message}\n\n${toolResultText}\n\nBased on the search results above, please give your final answer to the user. Keep it concise (1-3 sentences).`;
+                const secondOutput = await producer.generateResponse(augmentedMessage, history, currentTrack, prefs);
+                output = secondOutput;
+                // Re-apply any directives from second output
+                if (secondOutput.directives) {
+                    if (secondOutput.directives.memoryInsight && !output.directives?.memoryInsight) {
+                        prefs.memoryInsight = secondOutput.directives.memoryInsight;
+                        updated = true;
+                    }
+                }
+            }
+        }
+        if (output.reply) {
+            addChatHistory("assistant", output.reply);
+        }
+        if (updated) {
+            await savePreferences(prefs);
         }
         console.log(`[Producer Chat] User message: "${message}" → reply: "${output.reply}", ${toolResults.length} tool calls executed`);
-        toolResults.forEach(t => console.log(`  - ${t.name}: ${t.result}`));
+        toolResults.forEach(t => console.log(`  - ${t.name}: ${t.result.length > 100 ? t.result.slice(0, 100) + '...' : t.result}`));
         res.status(200).json({
             reply: output.reply,
             skipRequested: !!output.directives?.skipRequested,

@@ -1,6 +1,8 @@
 import { Router } from "express";
 import { getAllSongs, getSongWiki, updateSongWiki, searchWiki } from "../services/wikiService.js";
 import { generateNarration, generateRandomNarration } from "../services/narrationGenerator.js";
+import { generateAINarration } from "../services/AINarrationService.js";
+import { getRuntimeSettings } from "../services/storageService.js";
 import { RadioDJAgent } from "lobster-radio-agents";
 export const wikiRouter = Router();
 // 获取所有歌曲 Wiki
@@ -111,13 +113,30 @@ wikiRouter.post("/narration/:id", async (req, res) => {
     try {
         const { style, language } = req.body;
         const song = await getSongWiki(req.params.id);
+        const settings = await getRuntimeSettings();
         if (!song) {
             res.status(404).json({ error: "Song not found" });
             return;
         }
-        const narration = style
-            ? generateNarration(song, style, language)
-            : generateRandomNarration(song, language);
+        let narration;
+        // Check if AI narration is enabled via env var and user settings
+        const aiEnabled = process.env.DISABLE_AI_NARRATION !== "true" && (settings.enableAiNarration ?? true);
+        if (aiEnabled && style) {
+            try {
+                narration = await generateAINarration(song, style, language || "zh-HK");
+            }
+            catch (aiError) {
+                console.warn("AI generation failed, falling back to template:", aiError);
+                narration = style
+                    ? generateNarration(song, style, language)
+                    : generateRandomNarration(song, language);
+            }
+        }
+        else {
+            narration = style
+                ? generateNarration(song, style, language)
+                : generateRandomNarration(song, language);
+        }
         res.json({
             songId: song.id,
             title: song.title,
@@ -133,14 +152,33 @@ wikiRouter.post("/narration/:id", async (req, res) => {
 wikiRouter.post("/narration/batch", async (req, res) => {
     try {
         const { songIds, style, language } = req.body;
+        const settings = await getRuntimeSettings();
         const results = [];
+        const aiEnabled = process.env.DISABLE_AI_NARRATION !== "true" && (settings.enableAiNarration ?? true);
         for (const id of songIds) {
             const song = await getSongWiki(id);
             if (song) {
+                let narration;
+                if (aiEnabled && style) {
+                    try {
+                        narration = await generateAINarration(song, style, language || "zh-HK");
+                    }
+                    catch (aiError) {
+                        console.warn("AI generation failed for batch, falling back to template:", aiError);
+                        narration = style
+                            ? generateNarration(song, style, language)
+                            : generateRandomNarration(song, language);
+                    }
+                }
+                else {
+                    narration = style
+                        ? generateNarration(song, style, language)
+                        : generateRandomNarration(song, language);
+                }
                 results.push({
                     songId: song.id,
                     title: song.title,
-                    narration: style ? generateNarration(song, style, language) : generateRandomNarration(song, language)
+                    narration
                 });
             }
         }
@@ -205,15 +243,44 @@ wikiRouter.get("/trivia/:id", async (req, res) => {
             res.status(404).json({ error: "Song not found" });
             return;
         }
-        // 获取预存素材作为事实依据
+        // 获取预存素材作为事实依据，过滤掉模板
         let preStoredFact = null;
         if (song.djMaterial?.funFact && song.djMaterial.funFact.length > 0) {
-            const facts = song.djMaterial.funFact;
-            preStoredFact = facts[Math.floor(Math.random() * facts.length)];
+            const facts = song.djMaterial.funFact.filter(f => !f.includes("白金唱片"));
+            if (facts.length > 0) {
+                preStoredFact = facts[Math.floor(Math.random() * facts.length)];
+            }
         }
-        else if (song.trivia && song.trivia.length > 0) {
+        if (!preStoredFact && song.trivia && song.trivia.length > 0) {
             // fallback 到旧 trivia 字段
-            preStoredFact = song.trivia[Math.floor(Math.random() * song.trivia.length)];
+            const facts = song.trivia.filter(f => !f.includes("白金唱片"));
+            if (facts.length > 0) {
+                preStoredFact = facts[Math.floor(Math.random() * facts.length)];
+            }
+        }
+        // 如果本地没有真实的冷知识，则尝试联网获取（维基百科）
+        if (!preStoredFact) {
+            try {
+                console.log(`[Wiki] 联网获取冷知识: ${song.artist} - ${song.title}`);
+                const query = encodeURIComponent(`${song.artist} ${song.title}`);
+                const res = await fetch(`https://zh.wikipedia.org/w/api.php?action=query&list=search&srsearch=${query}&utf8=&format=json`);
+                const data = await res.json();
+                if (data.query?.search?.length > 0) {
+                    const snippet = data.query.search[0].snippet.replace(/<[^>]*>?/gm, ''); // 移除HTML标签
+                    if (snippet && snippet.length > 10) {
+                        preStoredFact = snippet;
+                        console.log(`[Wiki] 成功获取维基冷知识: ${preStoredFact}`);
+                        // 更新本地缓存，替换掉原有的模板
+                        const newTriviaList = song.trivia ? song.trivia.filter(t => !t.includes("白金唱片")) : [];
+                        newTriviaList.push(preStoredFact);
+                        await updateSongWiki(song.id, { trivia: newTriviaList });
+                        song.trivia = newTriviaList; // 更新当前对象
+                    }
+                }
+            }
+            catch (e) {
+                console.error("[Wiki] 联网获取冷知识失败:", e);
+            }
         }
         let trivia = null;
         // 只有在确实有冷知识时才插入（确实有趣的才加）

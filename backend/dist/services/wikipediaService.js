@@ -62,6 +62,20 @@ export async function searchSongInfo(songTitle, artist) {
     }
     return null;
 }
+// 获取维基百科搜索结果的摘要内容（用于 Producer Agent 查询资料）
+export async function fetchWikipediaContent(query) {
+    const results = await searchWikipedia(query);
+    if (results.length === 0) {
+        return `No Wikipedia results found for "${query}".`;
+    }
+    // Take the first result and get its extract
+    const extract = await getWikipediaExtract(results[0].pageid);
+    if (!extract) {
+        return `Found Wikipedia page for "${results[0].title}" but failed to get content.`;
+    }
+    // Truncate to keep it concise
+    return extract.slice(0, 500) + (extract.length > 500 ? "..." : "");
+}
 // 从维基百科摘要中解析歌曲信息
 function parseSongInfo(extract, songTitle, artist) {
     const trivia = [];
@@ -138,9 +152,3 @@ export async function enrichSongsWithWikipedia(songs) {
     }
     return successCount;
 }
-export default {
-    searchWikipedia,
-    getWikipediaExtract,
-    searchSongInfo,
-    enrichSongsWithWikipedia
-};

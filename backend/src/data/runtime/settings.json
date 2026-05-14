@@ -6,7 +6,7 @@
   "openAiApiKey": "",
   "elevenLabsApiKey": "",
   "defaultVoice": "nova",
-  "defaultTtsProvider": "edge",
+  "defaultTtsProvider": "moss",
   "preferredMusicSource": "auto",
   "localMusicPath": "/Users/gordon/Downloads/Music",
   "djLanguage": "zh-CN",

@@ -426,12 +426,12 @@ export function HomePage() {
       
       // 降低音乐音量作为背景
       const originalVolume = audioRef.current.volume;
-      audioRef.current.volume = 0.25;
+      audioRef.current.volume = 0.15;
       
       // 播放闲聊
       const chatAudio = new Audio();
       chatAudio.src = url;
-      chatAudio.volume = 1.0;
+      chatAudio.volume = Math.min(1.0, originalVolume * 2.5);
       
       // 闲聊结束后恢复音量
       chatAudio.addEventListener("ended", () => {

@@ -15,7 +15,8 @@
     "stop": "./stop.sh"
   },
   "devDependencies": {
-    "concurrently": "^9.1.2"
+    "concurrently": "^9.1.2",
+    "tsx": "^4.21.0"
   },
   "dependencies": {
     "node-fetch": "^3.3.2"
