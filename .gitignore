@@ -3,3 +3,6 @@ node_modules
 .env.local
 cosyvoice-service/
 backend/data/tts-cache.json
+.vscode/
+.claude/
+.superpowers/
