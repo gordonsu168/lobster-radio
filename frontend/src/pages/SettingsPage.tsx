@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { getSettings, saveSettings } from "../lib/api";
+import { getSettings, saveSettings, getVoices, API_BASE } from "../lib/api";
 import type { RuntimeSettings } from "../types";
+import type { VoiceInfo } from "../lib/api";
 
 const initialState: RuntimeSettings = {
   spotifyClientId: "",
@@ -20,12 +21,58 @@ const initialState: RuntimeSettings = {
 export function SettingsPage() {
   const [settings, setSettings] = useState<RuntimeSettings>(initialState);
   const [status, setStatus] = useState<string>("");
+  const [availableVoices, setAvailableVoices] = useState<VoiceInfo[]>([]);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewAudio, setPreviewAudio] = useState<HTMLAudioElement | null>(null);
 
   useEffect(() => {
     void getSettings()
       .then(setSettings)
       .catch(() => setStatus("Unable to load saved settings."));
   }, []);
+
+  useEffect(() => {
+    getVoices(settings.defaultTtsProvider)
+      .then((res) => {
+        setAvailableVoices(res.voices);
+        // If current voice isn't in the new provider's list, default to first
+        const voices = res.voices;
+        if (voices.length > 0 && !voices.find((v) => v.id === settings.defaultVoice)) {
+          setSettings((current) => ({ ...current, defaultVoice: voices[0].id }));
+        }
+      })
+      .catch(() => setAvailableVoices([]));
+  }, [settings.defaultTtsProvider]);
+
+  function handlePreview() {
+    const voice = availableVoices.find((v) => v.id === settings.defaultVoice);
+    if (!voice) return;
+
+    // Stop any currently playing preview
+    if (previewAudio) {
+      previewAudio.pause();
+      previewAudio.src = "";
+    }
+
+    const url = `${API_BASE}/api/tts/preview?provider=${encodeURIComponent(settings.defaultTtsProvider)}&voice=${encodeURIComponent(voice.id)}`;
+    const audio = new Audio(url);
+    setPreviewAudio(audio);
+
+    audio.oncanplaythrough = () => setPreviewLoading(false);
+    audio.onerror = () => setPreviewLoading(false);
+    setPreviewLoading(true);
+    audio.play().catch(() => setPreviewLoading(false));
+  }
+
+  // Stop preview audio on unmount
+  useEffect(() => {
+    return () => {
+      if (previewAudio) {
+        previewAudio.pause();
+        previewAudio.src = "";
+      }
+    };
+  }, [previewAudio]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -189,39 +236,52 @@ export function SettingsPage() {
           </div>
           <div>
             <label className="mb-2 block text-sm font-semibold text-white">DJ 语音</label>
-            <select
-              value={settings.defaultVoice}
-              onChange={(event) =>
-                setSettings((current) => ({
-                  ...current,
-                  defaultVoice: event.target.value
-                }))
-              }
-              className="w-full rounded-2xl border border-white/15 bg-slate-950/80 px-4 py-3 text-white outline-none"
+            {availableVoices.length > 0 ? (
+              <select
+                value={settings.defaultVoice}
+                onChange={(event) =>
+                  setSettings((current) => ({
+                    ...current,
+                    defaultVoice: event.target.value
+                  }))
+                }
+                className="w-full rounded-2xl border border-white/15 bg-slate-950/80 px-4 py-3 text-white outline-none"
+              >
+                {["zh-CN", "zh-HK", "en-US", "ja", "ko", "other"].map((lang) => {
+                  const group = availableVoices.filter((v) => v.lang === lang);
+                  if (group.length === 0) return null;
+                  const labels: Record<string, string> = {
+                    "zh-CN": "普通话", "zh-HK": "粤语", "en-US": "英语",
+                    "ja": "日本語", "ko": "한국어", "other": "其他语言"
+                  };
+                  return (
+                    <optgroup key={lang} label={labels[lang] || lang}>
+                      {group.map((v) => (
+                        <option key={v.id} value={v.id}>{v.name}</option>
+                      ))}
+                    </optgroup>
+                  );
+                })}
+              </select>
+            ) : (
+              <input
+                type="text"
+                value={settings.defaultVoice}
+                onChange={(event) =>
+                  setSettings((current) => ({ ...current, defaultVoice: event.target.value }))
+                }
+                className="w-full rounded-2xl border border-white/15 bg-slate-950/80 px-4 py-3 text-white outline-none"
+                placeholder="输入语音 ID"
+              />
+            )}
+            <button
+              type="button"
+              onClick={handlePreview}
+              disabled={previewLoading || availableVoices.length === 0}
+              className="mt-2 rounded-full bg-pulse px-4 py-1.5 text-sm font-semibold text-white transition hover:scale-[1.02] disabled:opacity-50"
             >
-              <optgroup label="🇨🇳 普通话">
-                <option value="alloy">👩 晓晓 - 亲切女声 (推荐)</option>
-                <option value="nova">👩 晓伊 - 温柔女声</option>
-                <option value="fable">👨 云希 - 磁性男声</option>
-                <option value="echo">👨 云健 - 活力男声</option>
-              </optgroup>
-              <optgroup label="🇭🇰 粤语">
-                <option value="hk-male">👨 云龙 - 成熟男声</option>
-                <option value="hk-female-1">👩 晓佳 - 温柔女声</option>
-                <option value="hk-female-2">👩 晓曼 - 亲切女声</option>
-              </optgroup>
-              <optgroup label="🇺🇸 英语 (ElevenLabs)">
-                <option value="rachel">👩 Rachel - 温暖女声</option>
-                <option value="drew">👩 Drew - 成熟女声</option>
-                <option value="clara">👩 Clara - 柔和女声</option>
-                <option value="sarah">👩 Sarah - 自然女声</option>
-                <option value="paul">👨 Paul - 磁性男声</option>
-                <option value="josh">👨 Josh - 活力男声</option>
-                <option value="antoni">👨 Antoni - 温柔男声</option>
-                <option value="elliot">👨 Elliot - 年轻男声</option>
-                <option value="lily">👩 Lily - 中文女声</option>
-              </optgroup>
-            </select>
+              {previewLoading ? "⏳ 合成中..." : "🔊 试听"}
+            </button>
           </div>
           <div>
             <label className="mb-2 block text-sm font-semibold text-white">🎭 DJ 情绪风格</label>

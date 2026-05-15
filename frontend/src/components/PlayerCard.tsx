@@ -5,9 +5,9 @@ import {
   PlayIcon,
   SpeakerWaveIcon
 } from "@heroicons/react/24/solid";
-import type { Track, VoiceOption, DJStyle } from "../types";
+import type { Track, DJStyle } from "../types";
 
-const voices: VoiceOption[] = [
+const voices: string[] = [
   "alloy",
   "echo",
   "fable",
@@ -21,14 +21,14 @@ const voices: VoiceOption[] = [
 interface PlayerCardProps {
   track: Track | null;
   narration: string;
-  voice: VoiceOption;
+  voice: string;
   djStyle: DJStyle;
   isPlaying: boolean;
   autoChatEnabled: boolean;
   onPlayTrack: () => void;
   onPlayNarration: () => void;
   onDJChat: () => void;
-  onVoiceChange: (voice: VoiceOption) => void;
+  onVoiceChange: (voice: string) => void;
   onDjStyleChange: (style: DJStyle) => void;
   onFeedback: (feedback: "like" | "dislike") => void;
   onNextTrack: () => void;
@@ -134,7 +134,7 @@ export function PlayerCard({
               <div className="flex flex-wrap gap-2">
                 <select
                   value={voice}
-                  onChange={(event) => onVoiceChange(event.target.value as VoiceOption)}
+                  onChange={(event) => onVoiceChange(event.target.value)}
                   className="rounded-full border border-white/15 bg-slate-950/80 px-4 py-2 text-sm text-white outline-none"
                 >
                   {voices.map((item) => (

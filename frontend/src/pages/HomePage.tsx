@@ -7,13 +7,14 @@ import { StatsStrip } from "../components/StatsStrip";
 import { TrackQueue } from "../components/TrackQueue";
 import { Waveform } from "../components/Waveform";
 import { getPreferences, getRecommendations, submitFeedback, synthesizeNarration, generateNarration, generateChat, getSettings } from "../lib/api";
-import type { MoodOption, PreferencesSnapshot, RecommendationPayload, Track, VoiceOption, DJStyle } from "../types";
+import type { MoodOption, PreferencesSnapshot, RecommendationPayload, Track, DJStyle } from "../types";
 
 export function HomePage() {
   const [mood, setMood] = useState<MoodOption>("Working");
   const [payload, setPayload] = useState<RecommendationPayload | null>(null);
   const [preferences, setPreferences] = useState<PreferencesSnapshot | null>(null);
-  const [voice, setVoice] = useState<VoiceOption>("alloy");
+  const [voice, setVoice] = useState<string>("alloy");
+  const [ttsProvider, setTtsProvider] = useState<string>("edge");
   const [djEmotion, setDjEmotion] = useState<string>("normal");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -49,8 +50,11 @@ export function HomePage() {
     // 加载用户设置的 DJ 语音和情绪
     getSettings().then(settings => {
       if (settings.defaultVoice) {
-        setVoice(settings.defaultVoice as VoiceOption);
+        setVoice(settings.defaultVoice);
         console.log("🎤 使用用户设置的语音:", settings.defaultVoice);
+      }
+      if (settings.defaultTtsProvider) {
+        setTtsProvider(settings.defaultTtsProvider);
       }
       if (settings.djEmotion) {
         setDjEmotion(settings.djEmotion);
@@ -254,8 +258,8 @@ export function HomePage() {
     
     try {
       // 从后端获取 TTS 音频
-      const response = await synthesizeNarration(narrationText, voice, { emotion: djEmotion, language: djLanguage });
-      
+      const response = await synthesizeNarration(narrationText, voice, { provider: ttsProvider, emotion: djEmotion, language: djLanguage });
+
       if (response.audioBase64 && audioRef.current) {
         // 解码 base64
         const binary = atob(response.audioBase64);
@@ -361,7 +365,7 @@ export function HomePage() {
     
     try {
       // 从后端获取 TTS 音频
-      const response = await synthesizeNarration(narrationToPlay, voice, { emotion: djEmotion, language: djLanguage });
+      const response = await synthesizeNarration(narrationToPlay, voice, { provider: ttsProvider, emotion: djEmotion, language: djLanguage });
       console.log("📡 后端返回:", response.provider, response.fallback);
       
       if (!response.audioBase64) {
@@ -408,8 +412,8 @@ export function HomePage() {
       setCurrentNarration(chatResult.chat);
       
       // 2. 生成语音
-      const response = await synthesizeNarration(chatResult.chat, voice, { emotion: djEmotion, language: djLanguage });
-      
+      const response = await synthesizeNarration(chatResult.chat, voice, { provider: ttsProvider, emotion: djEmotion, language: djLanguage });
+
       if (!response.audioBase64 || !audioRef.current) {
         console.error("❌ 没有音频数据");
         return;

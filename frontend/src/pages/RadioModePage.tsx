@@ -11,7 +11,7 @@ import {
   submitFeedback,
 } from "../lib/api";
 import { createNarrationAudio, cleanupNarrationAudio } from "../lib/audioUtils";
-import type { MoodOption, PreferencesSnapshot, Track, VoiceOption, DJStyle } from "../types";
+import type { MoodOption, PreferencesSnapshot, Track, DJStyle } from "../types";
 
 // Constants for audio behavior
 const TRIVIA_VOLUME_DUCK = 0.15;
@@ -22,7 +22,8 @@ export function RadioModePage() {
   const [queue, setQueue] = useState<Track[]>([]);
   const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
   const [preferences, setPreferences] = useState<PreferencesSnapshot | null>(null);
-  const [voice, setVoice] = useState<VoiceOption>("alloy");
+  const [voice, setVoice] = useState<string>("alloy");
+  const [ttsProvider, setTtsProvider] = useState<string>("edge");
   const [djEmotion, setDjEmotion] = useState<string>("normal");
   const [djStyle, setDjStyle] = useState<DJStyle>("classic");
   const [djLanguage, setDjLanguage] = useState<"zh-CN" | "zh-HK" | "en-US">("zh-CN");
@@ -91,7 +92,7 @@ export function RadioModePage() {
         resolve();
       };
 
-      synthesizeNarration(job.text, voice, { emotion: job.emotion, language: djLanguage })
+      synthesizeNarration(job.text, voice, { provider: ttsProvider, emotion: job.emotion, language: djLanguage })
         .then(response => {
           if (response.audioBase64 && audioRef.current) {
             const { audio: tempAudio, url } = createNarrationAudio(
@@ -146,7 +147,10 @@ export function RadioModePage() {
   useEffect(() => {
     getSettings().then(settings => {
       if (settings.defaultVoice) {
-        setVoice(settings.defaultVoice as VoiceOption);
+        setVoice(settings.defaultVoice);
+      }
+      if (settings.defaultTtsProvider) {
+        setTtsProvider(settings.defaultTtsProvider);
       }
       if (settings.djEmotion) {
         setDjEmotion(settings.djEmotion);
@@ -351,7 +355,7 @@ export function RadioModePage() {
         resolve();
       };
 
-      synthesizeNarration(narrationText, voice, { emotion: djEmotion, language: djLanguage })
+      synthesizeNarration(narrationText, voice, { provider: ttsProvider, emotion: djEmotion, language: djLanguage })
         .then(response => {
           if (response.audioBase64) {
             const { audio: narrationAudio, url } = createNarrationAudio(
@@ -400,7 +404,7 @@ export function RadioModePage() {
       chatPanelRef.current?.addAssistantMessage(outroText);
 
       // Generate outro audio immediately
-      synthesizeNarration(outroText, voice, { emotion: djEmotion, language: djLanguage })
+      synthesizeNarration(outroText, voice, { provider: ttsProvider, emotion: djEmotion, language: djLanguage })
         .then(response => {
           if (response.audioBase64 && audioRef.current) {
             const { audio: outroAudio, url } = createNarrationAudio(

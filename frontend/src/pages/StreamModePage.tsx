@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { SignalIcon, PlayIcon, PauseIcon } from "@heroicons/react/24/solid";
 import { getSettings } from "../lib/api";
-import type { Track, VoiceOption, DJStyle } from "../types";
+import type { Track, DJStyle } from "../types";
 
 type AudioQueueItem = {
   type: 'dj' | 'music';
@@ -13,7 +13,7 @@ type AudioQueueItem = {
 export function StreamModePage() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
-  const [voice, setVoice] = useState<VoiceOption>("alloy");
+  const [voice, setVoice] = useState<string>("alloy");
   const [djStyle, setDjStyle] = useState<DJStyle>("classic");
   const [djLanguage, setDjLanguage] = useState<string>("zh-CN");
   
@@ -27,7 +27,7 @@ export function StreamModePage() {
 
   useEffect(() => {
     getSettings().then(settings => {
-      if (settings.voice) setVoice(settings.voice);
+      if (settings.defaultVoice) setVoice(settings.defaultVoice);
       if (settings.djStyle) setDjStyle(settings.djStyle);
       if (settings.djLanguage) setDjLanguage(settings.djLanguage);
     });

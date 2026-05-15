@@ -1,11 +1,19 @@
 import { Router } from "express";
+import fs from "fs";
+import path from "path";
 import { synthesizeSpeech } from "../services/ttsService.js";
+import { getVoicesForProvider, getAllVoices } from "../services/voiceCatalog.js";
 
 export const ttsRouter = Router();
 
+const PREVIEW_DIR = path.join(
+  path.dirname(new URL(import.meta.url).pathname),
+  "../../data/runtime/voice-previews"
+);
+
 ttsRouter.post("/", async (req, res) => {
-  const { text, voice, provider, emotion, apiKey, language } = req.body as { 
-    text: string; 
+  const { text, voice, provider, emotion, apiKey, language } = req.body as {
+    text: string;
     voice?: string;
     provider?: string;
     emotion?: string;
@@ -14,6 +22,68 @@ ttsRouter.post("/", async (req, res) => {
   };
   const payload = await synthesizeSpeech(text, voice, { provider, emotion, apiKey, language });
   res.json(payload);
+});
+
+// 获取可用的 TTS 语音列表
+ttsRouter.get("/voices", (req, res) => {
+  const provider = req.query.provider as string | undefined;
+  if (provider) {
+    res.json({ voices: getVoicesForProvider(provider) });
+  } else {
+    res.json({ voices: getAllVoices() });
+  }
+});
+
+// 语音试听预览（带磁盘缓存）
+ttsRouter.get("/preview", async (req, res) => {
+  const provider = req.query.provider as string;
+  const voice = req.query.voice as string;
+  if (!provider || !voice) {
+    res.status(400).json({ error: "provider and voice are required" });
+    return;
+  }
+
+  const voices = getVoicesForProvider(provider);
+  const info = voices.find((v) => v.id === voice);
+  if (!info) {
+    res.status(404).json({ error: "voice not found" });
+    return;
+  }
+
+  const safeVoice = voice.replace(/[^a-zA-Z0-9_-]/g, "_");
+  fs.mkdirSync(PREVIEW_DIR, { recursive: true });
+
+  // Check if cached file already exists
+  const existing = fs.readdirSync(PREVIEW_DIR).find((f) => f.startsWith(`${provider}__${safeVoice}.`));
+  if (existing) {
+    const ext = path.extname(existing);
+    const mime = ext === ".wav" ? "audio/wav" : "audio/mpeg";
+    res.setHeader("Content-Type", mime);
+    res.setHeader("Cache-Control", "public, max-age=86400");
+    fs.createReadStream(path.join(PREVIEW_DIR, existing)).pipe(res);
+    return;
+  }
+
+  // Generate and cache
+  try {
+    const result = await synthesizeSpeech(info.previewText, voice, { provider });
+    if (!result.audioBase64) {
+      res.status(500).json({ error: "TTS synthesis failed" });
+      return;
+    }
+
+    const mimeType = result.mimeType || "audio/mpeg";
+    const ext = mimeType.includes("wav") ? ".wav" : ".mp3";
+    const filename = `${provider}__${safeVoice}${ext}`;
+    fs.writeFileSync(path.join(PREVIEW_DIR, filename), Buffer.from(result.audioBase64, "base64"));
+
+    res.setHeader("Content-Type", mimeType);
+    res.setHeader("Cache-Control", "public, max-age=86400");
+    res.send(Buffer.from(result.audioBase64, "base64"));
+  } catch (err) {
+    console.error("Preview generation failed:", err);
+    res.status(500).json({ error: "preview generation failed" });
+  }
 });
 
 // 获取支持的情绪列表

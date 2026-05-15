@@ -4,11 +4,10 @@ import type {
   RecommendationPayload,
   RuntimeSettings,
   Track,
-  VoiceOption,
   DJStyle
 } from "../types";
 
-const API_BASE = (window as Window & { __LOBSTER_API__?: string }).__LOBSTER_API__ ?? "http://localhost:4000";
+export const API_BASE = (window as Window & { __LOBSTER_API__?: string }).__LOBSTER_API__ ?? "http://localhost:4000";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, {
@@ -57,7 +56,7 @@ export function saveSettings(settings: RuntimeSettings) {
   });
 }
 
-export function synthesizeNarration(text: string, voice: VoiceOption, options?: { provider?: string; emotion?: string; language?: string }) {
+export function synthesizeNarration(text: string, voice: string, options?: { provider?: string; emotion?: string; language?: string }) {
   return request<{
     provider: string;
     voice: string;
@@ -70,6 +69,18 @@ export function synthesizeNarration(text: string, voice: VoiceOption, options?: 
     method: "POST",
     body: JSON.stringify({ text, voice, ...options })
   });
+}
+
+export interface VoiceInfo {
+  id: string;
+  name: string;
+  lang: string;
+  previewText: string;
+}
+
+export function getVoices(provider?: string) {
+  const params = provider ? `?provider=${encodeURIComponent(provider)}` : "";
+  return request<{ voices: VoiceInfo[] }>(`/api/tts/voices${params}`);
 }
 
 export function getLibraryStats() {
