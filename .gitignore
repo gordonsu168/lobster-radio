@@ -3,6 +3,7 @@ node_modules
 .env.local
 cosyvoice-service/
 backend/data/tts-cache.json
+backend/data/runtime/
 backend/src/data/runtime/
 backend/src/data/songs-wiki.json
 .vscode/
