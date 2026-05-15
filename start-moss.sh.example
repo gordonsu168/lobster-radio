@@ -1,0 +1,31 @@
+#!/bin/bash
+
+# 启动 MOSS-TTS-Nano 服务
+# 用法: cp start-moss.sh.example start-moss.sh 并修改 MOSS_DIR 为你的路径
+
+set -e
+
+MOSS_DIR="/path/to/your/MOSS-TTS-Nano"
+VENV="$MOSS_DIR/venv310/bin/python"
+PORT=18083
+
+echo "🎤 启动 MOSS-TTS-Nano..."
+
+# 检查目录
+if [ ! -d "$MOSS_DIR" ]; then
+  echo "❌ MOSS-TTS-Nano 目录不存在: $MOSS_DIR"
+  exit 1
+fi
+
+# 关闭已有进程
+EXISTING=$(lsof -ti:$PORT 2>/dev/null || true)
+if [ -n "$EXISTING" ]; then
+  echo "   关闭已有进程 (端口 $PORT): $EXISTING"
+  kill -9 $EXISTING 2>/dev/null || true
+  sleep 1
+fi
+
+# 启动服务
+echo "   启动服务..."
+cd "$MOSS_DIR"
+exec "$VENV" app.py --host localhost --port "$PORT"

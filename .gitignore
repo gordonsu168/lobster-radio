@@ -7,3 +7,4 @@ backend/src/data/runtime/
 .vscode/
 .claude/
 .superpowers/
+start-moss.sh
