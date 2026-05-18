@@ -1,6 +1,14 @@
 export type MoodOption = "Working" | "Relaxing" | "Exercising" | "Party" | "Sleepy";
 export type DJStyle = "classic" | "night" | "vibe" | "trivia";
 export type DJLanguage = "zh-CN" | "zh-HK" | "en-US";
+export type ThemePhase = "intro" | "deep_dive" | "reflection" | "twist" | "outro";
+
+export interface ThemeContext {
+  theme: string;
+  phase: ThemePhase;
+  segmentIndex: number;       // how many segments into this theme
+  coveredTopics: string[];    // sub-topics already discussed
+}
 
 export interface Track {
   id: string;
