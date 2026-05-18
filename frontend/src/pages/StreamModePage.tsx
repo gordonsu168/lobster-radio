@@ -37,6 +37,7 @@ export function StreamModePage() {
   const [messages, setMessages] = useState<{sender: 'user' | 'dj', text: string}[]>([]);
   const [inputText, setInputText] = useState("");
   const [themeContext, setThemeContext] = useState<ThemeContext | null>(null);
+  const [playlist, setPlaylist] = useState<Array<{id: string; title: string; artist: string; album?: string; artwork?: string; moodTags?: string[]}>>([]);
 
   const audioRef = useRef<HTMLAudioElement>(null);
   const isFetchingRef = useRef(false);
@@ -136,7 +137,9 @@ export function StreamModePage() {
 
     const startMusic = () => {
       if (!audioRef.current || !pendingTrackRef.current?.previewUrl) return;
-      audioRef.current.src = pendingTrackRef.current.previewUrl;
+      const t = pendingTrackRef.current;
+      console.log("[stream] startMusic playing:", t.title, "by", t.artist, "| previewUrl:", t.previewUrl);
+      audioRef.current.src = t.previewUrl!;
       audioRef.current.load();
       audioRef.current.play().catch(console.error);
       setIsPlaying(true);
@@ -169,6 +172,54 @@ export function StreamModePage() {
   };
 
   // --- Core flow ---
+
+  const fetchInitData = async () => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 180000);
+    const res = await fetch('http://localhost:4000/api/stream/init', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal: controller.signal,
+      body: JSON.stringify({ style: djStyle, language: djLanguage })
+    });
+    clearTimeout(timeoutId);
+    return res.json();
+  };
+
+  const applyInitData = (data: any) => {
+    console.log("[stream] init: theme =", data.theme_update?.theme);
+    console.log("[stream] init: playlist =", data.playlist?.map((t: any) => `${t.title} by ${t.artist}`));
+
+    if (data.theme_update) {
+      setThemeContext({
+        theme: data.theme_update.theme,
+        phase: data.theme_update.phase,
+        segmentIndex: 0,
+        coveredTopics: data.theme_update.coveredTopics || []
+      });
+    }
+
+    if (data.playlist) {
+      setPlaylist(data.playlist);
+    }
+
+    // Apply first segment (theme intro + first track)
+    if (data.first_segment) {
+      if (data.first_segment.dj_text) {
+        setMessages(prev => [...prev, { sender: 'dj', text: data.first_segment.dj_text }]);
+      }
+      if (data.first_segment.next_track) {
+        const track = data.first_segment.next_track;
+        console.log("[stream] init: first track =", track.title, "by", track.artist);
+        setCurrentTrack(track);
+        playDJIntroThenSong(
+          data.first_segment.dj_audio_base64,
+          data.first_segment.dj_audio_mime_type || 'audio/mp3',
+          track
+        );
+      }
+    }
+  };
 
   const fetchSegmentData = async () => {
     const historyContext = messages.slice(-10).map(m => `${m.sender === 'user' ? '听众' : 'DJ小龙'}: ${m.text}`).join("\n");
@@ -220,7 +271,10 @@ export function StreamModePage() {
     }
 
     if (data.next_track) {
+      console.log("[stream] setting current track:", data.next_track.title, "by", data.next_track.artist);
+      console.log("[stream] DJ narration text:", data.dj_text?.substring(0, 120));
       setCurrentTrack(data.next_track);
+      setPlaylist(prev => prev.slice(1));
       playDJIntroThenSong(data.dj_audio_base64, data.dj_audio_mime_type || 'audio/mp3', data.next_track);
     } else {
       setIsPlaying(false);
@@ -312,7 +366,15 @@ export function StreamModePage() {
     if (!isPlaying) {
       setIsPlaying(true);
       if (!currentTrack && !pendingTrackRef.current) {
-        fetchNextSegment();
+        // First play: initialize theme + playlist
+        if (playlist.length === 0) {
+          fetchInitData().then(applyInitData).catch(err => {
+            console.error("Init failed, falling back to next:", err);
+            setIsPlaying(false);
+          });
+        } else {
+          fetchNextSegment();
+        }
       } else if (audioRef.current?.src) {
         audioRef.current.play().catch(console.error);
         activeOverlayAudiosRef.current.forEach(a => a.play().catch(() => {}));
@@ -365,6 +427,24 @@ export function StreamModePage() {
               <p className="text-mist text-center italic animate-pulse">Waiting for the DJ to take the stage...</p>
             )}
           </div>
+
+          {/* Upcoming Playlist */}
+          {playlist.length > 0 && (
+            <div className="w-full max-w-md mb-6 text-left">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-white/30 mb-3">Up Next</h4>
+              <div className="space-y-2">
+                {playlist.slice(0, 5).map((track, i) => (
+                  <div key={track.id || i} className="flex items-center gap-3 p-3 rounded-xl bg-white/5 border border-white/5 hover:border-white/10 transition-colors">
+                    <span className="text-xs font-bold text-white/20 w-5 text-right">{i + 1}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-white truncate">{track.title}</p>
+                      <p className="text-xs text-white/40 truncate">{track.artist}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <button
             onClick={togglePlay}

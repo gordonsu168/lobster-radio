@@ -112,7 +112,8 @@ wikiRouter.post("/chat/:id", async (req, res) => {
 wikiRouter.post("/narration/:id", async (req, res) => {
     try {
         const { style, language } = req.body;
-        const song = await getSongWiki(req.params.id);
+        const songId = req.params.id;
+        const song = await getSongWiki(songId);
         const settings = await getRuntimeSettings();
         if (!song) {
             res.status(404).json({ error: "Song not found" });
@@ -121,26 +122,31 @@ wikiRouter.post("/narration/:id", async (req, res) => {
         let narration;
         // Check if AI narration is enabled via env var and user settings
         const aiEnabled = process.env.DISABLE_AI_NARRATION !== "true" && (settings.enableAiNarration ?? true);
-        if (aiEnabled && style) {
+        if (aiEnabled) {
             try {
-                narration = await generateAINarration(song, style, language || "zh-HK");
+                const djAgent = new RadioDJAgent();
+                const prefs = await getPreferences();
+                // 自动包含最近的聊天历史作为上下文
+                const recentChat = prefs.chatHistory.slice(-5).map(m => `${m.role === 'user' ? '听众' : 'DJ小龙'}: ${m.content}`).join("\n");
+                const contextSummary = `正在播放列表。用户喜欢：${prefs.likes.join(", ")}。\n最近对话：\n${recentChat}`;
+                narration = await djAgent.generateIntro(song, Object.keys(prefs.moodAffinity)[0] || "Working", style || "classic", language || "zh-CN", contextSummary, prefs.memoryInsight);
             }
             catch (aiError) {
                 console.warn("AI generation failed, falling back to template:", aiError);
                 narration = style
-                    ? generateNarration(song, style, language)
-                    : generateRandomNarration(song, language);
+                    ? generateNarration(song, style, language || "zh-CN")
+                    : generateRandomNarration(song, language || "zh-CN");
             }
         }
         else {
             narration = style
-                ? generateNarration(song, style, language)
-                : generateRandomNarration(song, language);
+                ? generateNarration(song, style, language || "zh-CN")
+                : generateRandomNarration(song, language || "zh-CN");
         }
         res.json({
-            songId: song.id,
+            songId,
             title: song.title,
-            style: style || "random",
+            style: style || "classic",
             narration
         });
     }
@@ -191,28 +197,27 @@ wikiRouter.post("/narration/batch", async (req, res) => {
 // 生成歌曲结束 outro 闲聊
 wikiRouter.post("/outro/:id", async (req, res) => {
     try {
-        const { style, language, contextSummary = "" } = req.body;
+        const { style, language, contextSummary: providedContext = "" } = req.body;
         const song = await getSongWiki(req.params.id);
         if (!song) {
             res.status(404).json({ error: "Song not found" });
             return;
         }
         let outro;
-        // 如果有预存的 outro 素材，随机选一条
-        if (song.djMaterial?.outro && song.djMaterial.outro.length > 0) {
+        // 获取偏好和历史
+        const prefs = await getPreferences();
+        const recentChat = prefs.chatHistory.slice(-5).map(m => `${m.role === 'user' ? '听众' : 'DJ小龙'}: ${m.content}`).join("\n");
+        const contextSummary = providedContext || `最近对话：\n${recentChat}`;
+        const memoryInsight = req.body.memoryInsight || prefs.memoryInsight;
+        // 如果有预存的 outro 素材且没有 memoryInsight (意味着没有特殊需求)，随机选一条
+        if (song.djMaterial?.outro && song.djMaterial.outro.length > 0 && !memoryInsight) {
             const outros = song.djMaterial.outro;
             outro = outros[Math.floor(Math.random() * outros.length)];
         }
-        else if (song.djMaterial?.vibe && song.djMaterial.vibe.length > 0) {
-            // 如果没有 outro 但有 vibe 素材，用 vibe
-            const vibes = song.djMaterial.vibe;
-            outro = vibes[Math.floor(Math.random() * vibes.length)];
-        }
         else {
-            // 没有预存素材，调用 RadioDJAgent 生成
+            // 调用 RadioDJAgent 生成，更具互动性
             try {
                 const radioDJAgent = new RadioDJAgent();
-                const { memoryInsight } = req.body;
                 outro = await radioDJAgent.generateOutro(song, (style || "classic"), (language || "zh-CN"), contextSummary, memoryInsight);
             }
             catch (error) {
@@ -227,7 +232,7 @@ wikiRouter.post("/outro/:id", async (req, res) => {
             artist: song.artist,
             style: style || "classic",
             outro,
-            generated: !song.djMaterial?.outro?.length,
+            generated: true,
         });
     }
     catch (e) {

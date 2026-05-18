@@ -35,10 +35,11 @@ export function SettingsPage() {
     getVoices(settings.defaultTtsProvider)
       .then((res) => {
         setAvailableVoices(res.voices);
-        // If current voice isn't in the new provider's list, default to first
+        // If current voice isn't in the new provider's list, pick one matching djLanguage
         const voices = res.voices;
         if (voices.length > 0 && !voices.find((v) => v.id === settings.defaultVoice)) {
-          setSettings((current) => ({ ...current, defaultVoice: voices[0].id }));
+          const match = voices.find((v) => v.lang === settings.djLanguage) || voices[0];
+          setSettings((current) => ({ ...current, defaultVoice: match.id }));
         }
       })
       .catch(() => setAvailableVoices([]));

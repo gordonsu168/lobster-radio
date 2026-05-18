@@ -255,8 +255,18 @@ const EDGE_VOICE_MAP: Record<string, string> = {
 
 // 根据语言自动选择合适的语音
 function getVoiceForLanguage(voice: string, language?: string): string {
-  // If voice is already a direct Microsoft Neural voice ID, use it as-is
+  // If voice is already a direct Microsoft Neural voice ID, check it matches the requested language
   if (/^[a-z]{2}-[A-Z]{2}-\w+Neural$/.test(voice)) {
+    if (language && !voice.startsWith(language)) {
+      // Voice locale doesn't match requested language — pick a suitable voice for the language
+      if (language === "zh-HK") {
+        return "zh-HK-HiuGaaiNeural";
+      } else if (language === "zh-CN") {
+        return "zh-CN-XiaoxiaoNeural";
+      } else if (language === "en-US") {
+        return "en-US-AvaNeural";
+      }
+    }
     return voice;
   }
 

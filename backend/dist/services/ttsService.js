@@ -217,6 +217,22 @@ const EDGE_VOICE_MAP = {
 };
 // 根据语言自动选择合适的语音
 function getVoiceForLanguage(voice, language) {
+    // If voice is already a direct Microsoft Neural voice ID, check it matches the requested language
+    if (/^[a-z]{2}-[A-Z]{2}-\w+Neural$/.test(voice)) {
+        if (language && !voice.startsWith(language)) {
+            // Voice locale doesn't match requested language — pick a suitable voice for the language
+            if (language === "zh-HK") {
+                return "zh-HK-HiuGaaiNeural";
+            }
+            else if (language === "zh-CN") {
+                return "zh-CN-XiaoxiaoNeural";
+            }
+            else if (language === "en-US") {
+                return "en-US-AvaNeural";
+            }
+        }
+        return voice;
+    }
     // 如果已经是特定语言的语音，直接返回
     if (voice.startsWith("hk-") || voice.startsWith("cn-") || voice.startsWith("en-")) {
         return EDGE_VOICE_MAP[voice] || EDGE_VOICE_MAP["alloy"];
@@ -361,19 +377,16 @@ async function synthesizeWithMOSS(text, voice) {
         throw new Error("MOSS_TTS_API_URL not configured");
     }
     console.log(`🎙️ MOSS TTS: 语音=${voice}, 文本: ${text.substring(0, 40)}...`);
-    const MOSS_VOICE_MAP = {
-        "nova": "demo-8", // zh_1
-        "shimmer": "demo-9", // zh_10
-        "alloy": "demo-12", // zh_3
-        "echo": "demo-13", // zh_4
-        "fable": "demo-3", // en_4
-        "onyx": "demo-8" // fallback
+    // If voice is a direct demo ID (demo-N) use it, otherwise fall back to generic name mapping
+    const GENERIC_FALLBACK = {
+        "nova": "demo-2", "shimmer": "demo-2", "alloy": "demo-2",
+        "echo": "demo-2", "fable": "demo-3", "onyx": "demo-2"
     };
-    const selectedDemoId = MOSS_VOICE_MAP[voice] || "demo-8";
+    const selectedDemoId = /^demo-\d+$/.test(voice) ? voice : (GENERIC_FALLBACK[voice] || "demo-2");
     const formData = new FormData();
     formData.append("text", text);
     formData.append("demo_id", selectedDemoId);
-    formData.append("speed", "1.2");
+    formData.append("speed", "1.5");
     formData.append("volume", "1.5");
     formData.append("enable_text_normalization", "0");
     formData.append("enable_normalize_tts_text", "1");
@@ -554,7 +567,7 @@ async function synthesizeWithMacSay(text, voice) {
         const audioBase64 = audioBuffer.toString("base64");
         console.log(`✅ Mac TTS 成功: ${(audioBase64.length / 1024).toFixed(1)} KB`);
         const result = {
-            provider: "mac-say",
+            provider: "macsay",
             voice: selectedVoice,
             audioBase64,
             mimeType: "audio/mpeg",
@@ -562,7 +575,7 @@ async function synthesizeWithMacSay(text, voice) {
             fallback: false
         };
         // Mac TTS 也缓存，因为 ffmpeg 转码也有点慢
-        setCache(text, voice, "mac-say", result);
+        setCache(text, voice, "macsay", result);
         return result;
     }
     finally {
@@ -580,7 +593,7 @@ export async function synthesizeSpeech(text, voice, options) {
     const language = options?.language;
     // ========== 第一步：先检查所有 provider 的缓存 ==========
     // 优先级: ElevenLabs → Edge → MOSS → CosyVoice → Gemini → Mac Say
-    const providersToCheck = ["elevenlabs", "edge", "moss", "cosyvoice", "gemini", "mac-say"];
+    const providersToCheck = ["elevenlabs", "edge", "moss", "cosyvoice", "gemini", "macsay"];
     // 如果指定了 defaultProvider，把它放到最前面
     if (defaultProvider && !providersToCheck.includes(defaultProvider)) {
         providersToCheck.unshift(defaultProvider);
@@ -628,7 +641,7 @@ export async function synthesizeSpeech(text, voice, options) {
             else if (p === "gemini" && process.env.GEMINI_API_KEY) {
                 return await synthesizeWithGemini(text, selectedVoice);
             }
-            else if (p === "mac-say") {
+            else if (p === "macsay") {
                 return await synthesizeWithMacSay(text, selectedVoice);
             }
         }

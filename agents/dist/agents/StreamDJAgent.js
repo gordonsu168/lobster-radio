@@ -248,4 +248,211 @@ The response MUST be valid JSON:
             return fallbackResponse;
         }
     }
+    parseJsonResponse(contentStr) {
+        const jsonMatch = contentStr.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
+        return JSON.parse(jsonMatch ? jsonMatch[1] : contentStr);
+    }
+    async generatePlaylist(libraryContext, language = "zh-CN", style = "classic", themeContext, count = 4) {
+        const model = createOptionalModel();
+        const fallback = {
+            theme_update: {
+                theme: themeContext?.theme || "音乐漫游",
+                phase: "intro",
+                coveredTopics: []
+            },
+            songs: [
+                { artist: "", title: "", keywords: ["pop", "chill"], mood: "Relaxing" },
+                { artist: "", title: "", keywords: ["rock", "classic"], mood: "Exercising" },
+                { artist: "", title: "", keywords: ["jazz", "mellow"], mood: "Relaxing" },
+                { artist: "", title: "", keywords: ["electronic", "vibe"], mood: "Working" },
+            ],
+            intro_talk: language === "zh-CN" ? "欢迎来到龙虾电台，我是小龙。今晚的主题是「音乐漫游」，让我们一起在旋律中找到共鸣。" :
+                language === "zh-HK" ? "歡迎嚟到龍蝦電臺，我係小龍。今晚嘅主題係「音樂漫遊」，等我哋一齊喺旋律中找到共鳴。" :
+                    "Welcome to Lobster Radio, I'm Xiaolong. Tonight's theme is 'Music Odyssey' — let's find our rhythm together."
+        };
+        if (!model)
+            return fallback;
+        const timeTone = this.getTimeTone(language);
+        const styleDesc = this.getStyleDescription(style, language);
+        const existingTheme = themeContext?.theme;
+        const prompts = {
+            "zh-CN": `你是小龙，龙虾电台的DJ。你正在策划一期节目的主题歌单。
+
+你的风格：${styleDesc}。时段氛围：${timeTone}。
+${existingTheme ? `当前节目已有主题「${existingTheme}」，请延续这个主题，挑选${count}首能继续深化或转折的歌曲。` : `请为节目确定一个新主题，并挑选${count}首"点题"的歌曲。主题可以是：社会现象、哲学思考、人生感悟、音乐故事、旅行回忆、电影/文学联想等。`}
+
+${libraryContext}
+
+每首歌都应该呼应主题——用歌词、氛围、创作背景作为"音乐注解"。
+intro_talk 是你的开场白（1-3句），点出主题并引出第一首歌。
+
+返回合法 JSON：
+{
+  "theme_update": { "theme": "主题一句话", "phase": "intro", "coveredTopics": [] },
+  "songs": [
+    { "artist": "艺人名", "title": "歌名", "keywords": ["关键词1", "关键词2"], "mood": "Relaxing" }
+  ],
+  "intro_talk": "开场白..."
+}`,
+            "zh-HK": `你係小龍，龍蝦電臺嘅DJ。你正在策劃一期節目嘅主題歌單。
+
+你嘅風格：${styleDesc}。時段氛圍：${timeTone}。
+${existingTheme ? `當前節目已有主題「${existingTheme}」，請延續呢個主題，揀${count}首能夠繼續深化或轉折嘅歌曲。` : `請為節目確定一個新主題，並揀${count}首「點題」嘅歌曲。主題可以係：社會現象、哲學思考、人生感悟、音樂故事、旅行回憶、電影/文學聯想等。`}
+
+${libraryContext}
+
+每首歌都應該呼應主題——用歌詞、氛圍、創作背景作為「音樂註解」。
+intro_talk 係你嘅開場白（1-3句），點出主題並引出第一首歌。
+
+返回合法 JSON：
+{
+  "theme_update": { "theme": "主題一句話", "phase": "intro", "coveredTopics": [] },
+  "songs": [
+    { "artist": "藝人名", "title": "歌名", "keywords": ["關鍵詞1", "關鍵詞2"], "mood": "Relaxing" }
+  ],
+  "intro_talk": "開場白..."
+}`,
+            "en-US": `You are Xiaolong, DJ at Lobster Radio. You're curating a themed playlist for the show.
+
+Your style: ${styleDesc}. Time atmosphere: ${timeTone}.
+${existingTheme ? `The show already has the theme "${existingTheme}". Continue this theme and pick ${count} songs that deepen or pivot the narrative.` : `Determine a new theme for the show and pick ${count} "theme-setting" songs. Themes can be: social commentary, philosophical musings, life reflections, music history, travel memories, film/literature connections, etc.`}
+
+${libraryContext}
+
+Each song should echo the theme — using lyrics, atmosphere, or backstory as a "musical annotation."
+intro_talk is your opening remarks (40-80 words), establishing the theme and leading into the first track.
+
+Return valid JSON:
+{
+  "theme_update": { "theme": "one-sentence theme", "phase": "intro", "coveredTopics": [] },
+  "songs": [
+    { "artist": "artist name", "title": "song title", "keywords": ["keyword1", "keyword2"], "mood": "Relaxing" }
+  ],
+  "intro_talk": "opening remarks..."
+}`
+        };
+        try {
+            const result = await model.invoke([
+                new SystemMessage(prompts[language]),
+                new HumanMessage(`请生成${count}首歌的主题歌单。`)
+            ]);
+            const contentStr = typeof result.content === "string" ? result.content : JSON.stringify(result.content);
+            const parsed = this.parseJsonResponse(contentStr);
+            if (parsed.theme_update && Array.isArray(parsed.songs) && parsed.songs.length > 0 && parsed.intro_talk) {
+                return parsed;
+            }
+            return fallback;
+        }
+        catch (e) {
+            console.error("StreamDJAgent.generatePlaylist failed:", e);
+            return fallback;
+        }
+    }
+    async generateNarrationForTrack(track, themeContext, language = "zh-CN", style = "classic", historyContext) {
+        const model = createOptionalModel();
+        const fallback = {
+            dj_talk: language === "zh-CN" ? `接下来是${track.artist}的《${track.title}》。` :
+                language === "zh-HK" ? `接下來係${track.artist}嘅《${track.title}》。` :
+                    `Up next: "${track.title}" by ${track.artist}.`,
+            mid_song_inserts: [],
+            theme_update: themeContext ? {
+                theme: themeContext.theme,
+                phase: themeContext.phase,
+                coveredTopics: themeContext.coveredTopics
+            } : undefined
+        };
+        if (!model)
+            return fallback;
+        const timeTone = this.getTimeTone(language);
+        const styleDesc = this.getStyleDescription(style, language);
+        const theme = themeContext?.theme || "未设定";
+        const phase = themeContext?.phase || "intro";
+        const coveredTopics = themeContext?.coveredTopics?.join("、") || "暂无";
+        const segmentIndex = themeContext?.segmentIndex ?? 0;
+        const prompts = {
+            "zh-CN": `你是小龙，龙虾电台的DJ（DJ 流播模式）。
+风格：${styleDesc}。语气：${timeTone}。
+
+## 下一首要播放的歌曲（已确定）
+- 歌名：${track.title}
+- 艺人：${track.artist}${track.album ? `\n- 专辑：${track.album}` : ""}${track.explanation ? `\n- 简介：${track.explanation}` : ""}${track.funFact ? `\n- 趣闻：${track.funFact}` : ""}${track.trivia ? `\n- 冷知识：${track.trivia}` : ""}
+
+## 当前主题节目
+主题：「${theme}」，阶段：${phase}，第 ${segmentIndex + 1} 段。已聊：${coveredTopics}。
+
+请围绕这首歌做简短 DJ 介绍（1-3句），自然承接主题。
+你还可以插入1-2段"歌中插话"（mid_song_inserts），在歌曲播放中途简短点评/趣闻/回应听众（15-30字）。不需要就传空数组。
+
+返回合法 JSON：
+{
+  "dj_talk": "你的DJ发言...",
+  "mid_song_inserts": [
+    {"text": "歌中插话", "timing": "early"|"middle"|"late", "type": "trivia"|"commentary"|"listener_response"}
+  ],
+  "theme_update": { "theme": "主题", "phase": "intro"|"deep_dive"|"reflection"|"twist"|"outro", "coveredTopics": ["子话题"] }
+}`,
+            "zh-HK": `你係小龍，龍蝦電臺嘅DJ（DJ 流播模式）。
+風格：${styleDesc}。語氣：${timeTone}。
+
+## 下一首要播放嘅歌曲（已確定）
+- 歌名：${track.title}
+- 藝人：${track.artist}${track.album ? `\n- 專輯：${track.album}` : ""}${track.explanation ? `\n- 簡介：${track.explanation}` : ""}${track.funFact ? `\n- 趣聞：${track.funFact}` : ""}${track.trivia ? `\n- 冷知識：${track.trivia}` : ""}
+
+## 當前主題節目
+主題：「${theme}」，階段：${phase}，第 ${segmentIndex + 1} 段。已傾：${coveredTopics}。
+
+請圍繞呢首歌做簡短 DJ 介紹（1-3句），自然承接主題。
+你可以插入1-2段「歌中插話」（mid_song_inserts），喺歌曲播放中途簡短點評/趣聞/回應聽眾（15-30字）。唔需要就傳空 array。
+
+返回合法 JSON：
+{
+  "dj_talk": "你嘅DJ發言...",
+  "mid_song_inserts": [
+    {"text": "歌中插話", "timing": "early"|"middle"|"late", "type": "trivia"|"commentary"|"listener_response"}
+  ],
+  "theme_update": { "theme": "主題", "phase": "intro"|"deep_dive"|"reflection"|"twist"|"outro", "coveredTopics": ["子話題"] }
+}`,
+            "en-US": `You are Xiaolong, DJ at Lobster Radio (DJ Stream Mode).
+Style: ${styleDesc}. Tone: ${timeTone}.
+
+## Next Track (already selected)
+- Title: ${track.title}
+- Artist: ${track.artist}${track.album ? `\n- Album: ${track.album}` : ""}${track.explanation ? `\n- Description: ${track.explanation}` : ""}${track.funFact ? `\n- Fun fact: ${track.funFact}` : ""}${track.trivia ? `\n- Trivia: ${track.trivia}` : ""}
+
+## Current Theme
+Theme: "${theme}", Phase: ${phase}, Segment #${segmentIndex + 1}. Covered: ${coveredTopics}.
+
+Give a brief DJ intro (40-80 words) about this track, naturally connecting to the theme.
+You may include 1-2 "mid-song inserts" for short commentary/fun facts/listener responses during playback (15-30 words each). Pass empty array if not needed.
+
+Return valid JSON:
+{
+  "dj_talk": "Your DJ speech...",
+  "mid_song_inserts": [
+    {"text": "mid-song insert", "timing": "early"|"middle"|"late", "type": "trivia"|"commentary"|"listener_response"}
+  ],
+  "theme_update": { "theme": "theme", "phase": "intro"|"deep_dive"|"reflection"|"twist"|"outro", "coveredTopics": ["subtopic"] }
+}`
+        };
+        let userPrompt = "请为以上确定的歌曲生成DJ发言。\n";
+        if (historyContext) {
+            userPrompt += `最近的聊天/听众留言:\n${historyContext}\n\n请自然回应听众的互动。`;
+        }
+        try {
+            const result = await model.invoke([
+                new SystemMessage(prompts[language]),
+                new HumanMessage(userPrompt)
+            ]);
+            const contentStr = typeof result.content === "string" ? result.content : JSON.stringify(result.content);
+            const parsed = this.parseJsonResponse(contentStr);
+            if (parsed.dj_talk) {
+                return parsed;
+            }
+            return fallback;
+        }
+        catch (e) {
+            console.error("StreamDJAgent.generateNarrationForTrack failed:", e);
+            return fallback;
+        }
+    }
 }

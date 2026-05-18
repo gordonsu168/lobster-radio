@@ -3,172 +3,427 @@ import { StreamDJAgent } from "lobster-radio-agents";
 import { getSongWiki, searchWiki } from "../services/wikiService.js";
 import { synthesizeSpeech } from "../services/ttsService.js";
 import { getRuntimeSettings } from "../services/storageService.js";
+import type { Track } from "../types.js";
+import type { SongWiki } from "../services/wikiService.js";
 
 export const streamRouter = Router();
 const streamDJ = new StreamDJAgent();
 
-streamRouter.post("/next", async (req, res) => {
+// ── Server-side playlist state ──
+let currentPlaylist: Track[] = [];
+type ThemePhase = "intro" | "deep_dive" | "reflection" | "twist" | "outro";
+let currentTheme: { theme: string; phase: ThemePhase; coveredTopics: string[]; segmentIndex: number } | null = null;
+
+// ── Helpers ──
+
+async function buildLibraryContext(): Promise<string> {
+  const { scanMusicLibrary: scanLib } = await import("../services/musicLibraryService.js");
   try {
-    const { historyContext, lastTrackId, style, language, themeContext } = req.body;
-
-    let lastSong = null;
-    if (lastTrackId) {
-      lastSong = await getSongWiki(lastTrackId);
-    }
-
-    // Build library context summary for smarter song matching
-    const { scanMusicLibrary: scanLib } = await import("../services/musicLibraryService.js");
-    let libraryContext = "";
-    try {
-      const allTracks = await scanLib();
-      const artistCounts: Record<string, number> = {};
-      const moodCounts: Record<string, number> = {};
-      for (const t of allTracks) {
-        artistCounts[t.artist] = (artistCounts[t.artist] || 0) + 1;
-        for (const m of t.moodTags) {
-          if (["Working", "Relaxing", "Exercising", "Party", "Sleepy"].includes(m)) {
-            moodCounts[m] = (moodCounts[m] || 0) + 1;
-          }
+    const allTracks = await scanLib();
+    const artistCounts: Record<string, number> = {};
+    const moodCounts: Record<string, number> = {};
+    for (const t of allTracks) {
+      artistCounts[t.artist] = (artistCounts[t.artist] || 0) + 1;
+      for (const m of t.moodTags) {
+        if (["Working", "Relaxing", "Exercising", "Party", "Sleepy"].includes(m)) {
+          moodCounts[m] = (moodCounts[m] || 0) + 1;
         }
       }
-      const topArtists = Object.entries(artistCounts)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 20)
-        .map(([name]) => name);
-      const topMoods = Object.entries(moodCounts)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 5)
-        .map(([mood]) => mood);
-      libraryContext = `曲库概况: ${allTracks.length}首歌, 主要流派: ${topMoods.join("/")}, 热门艺术家: ${topArtists.slice(0, 12).join(", ")}等`;
-    } catch (e) {
-      console.warn("Failed to build library context:", e);
     }
+    const topArtists = Object.entries(artistCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 30)
+      .map(([name]) => name);
+    const topMoods = Object.entries(moodCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([mood]) => mood);
+    return `曲库概况: ${allTracks.length}首歌, 主要流派: ${topMoods.join("/")}, 热门艺术家: ${topArtists.slice(0, 20).join(", ")}等`;
+  } catch (e) {
+    console.warn("Failed to build library context:", e);
+    return "";
+  }
+}
 
-    const djResponse = await streamDJ.generateNextSegment(
-      historyContext || "",
-      lastSong,
-      style || "classic",
+async function resolveOneSong(
+  artist: string,
+  title: string,
+  keywords: string[],
+  excludeId?: string
+): Promise<SongWiki | null> {
+  // Try exact artist + title first
+  if (artist && title) {
+    const byTitle = await searchWiki(title);
+    const exact = byTitle.find(
+      s => s.title.toLowerCase() === title.toLowerCase() &&
+           s.artist.toLowerCase() === artist.toLowerCase()
+    );
+    if (exact && exact.id !== excludeId) return exact;
+    const byArtist = byTitle.find(
+      s => s.artist.toLowerCase().includes(artist.toLowerCase()) && s.id !== excludeId
+    );
+    if (byArtist) return byArtist;
+  }
+
+  // Score-based search using keywords
+  const scored: Map<string, { wiki: SongWiki; score: number }> = new Map();
+  for (const kw of keywords) {
+    const results = await searchWiki(kw);
+    const kwLower = kw.toLowerCase();
+    for (const r of results) {
+      if (excludeId && r.id === excludeId) continue;
+      const prev = scored.get(r.id);
+      let weight = 1;
+      if (r.title.toLowerCase().includes(kwLower)) weight = 3;
+      scored.set(r.id, { wiki: r, score: (prev?.score || 0) + weight });
+    }
+  }
+
+  if (scored.size > 0) {
+    const sorted = [...scored.values()].sort((a, b) => b.score - a.score);
+    const top = sorted.filter(s => s.score === sorted[0].score);
+    return top[Math.floor(Math.random() * top.length)].wiki;
+  }
+
+  return null;
+}
+
+async function resolveToTrack(wiki: SongWiki | null): Promise<Track | null> {
+  if (!wiki) return null;
+  const { getLocalTrackById, scanMusicLibrary } = await import("../services/musicLibraryService.js");
+  let track = await getLocalTrackById(wiki.id);
+  if (!track) {
+    const allTracks = await scanMusicLibrary();
+    track = allTracks[Math.floor(Math.random() * allTracks.length)] || null;
+  }
+  return track;
+}
+
+async function synthesizeDJTalk(
+  text: string,
+  settings: any,
+  language: string,
+  emotion: string = "normal"
+): Promise<{ audioBase64: string; mimeType: string }> {
+  try {
+    const ttsResult = await synthesizeSpeech(text, settings.defaultVoice, {
+      provider: settings.defaultTtsProvider,
+      emotion,
+      apiKey: settings.defaultTtsProvider === "openai" ? settings.openAiApiKey : undefined,
+      language
+    }) as any;
+    let mimeType = ttsResult.mimeType || "audio/mp3";
+    if (!ttsResult.mimeType && (settings.defaultTtsProvider === "moss" || settings.defaultTtsProvider === "macsay")) {
+      mimeType = "audio/wav";
+    }
+    return { audioBase64: ttsResult.audioBase64, mimeType };
+  } catch (e) {
+    console.error("TTS failed:", e);
+    return { audioBase64: "", mimeType: "audio/mp3" };
+  }
+}
+
+function detectSongRequest(historyContext: string): string | null {
+  if (!historyContext) return null;
+  const patterns = [
+    /点歌[：:\s]*[《「"']?(.+?)[》」"']?\s*$/im,
+    /点一首[：:\s]*[《「"']?(.+?)[》」"']?\s*$/im,
+    /我想听[：:\s]*[《「"']?(.+?)[》」"']?\s*$/im,
+    /播放[：:\s]*[《「"']?(.+?)[》」"']?\s*$/im,
+    /request[：:\s]+(.+?)\s*$/im,
+  ];
+  for (const re of patterns) {
+    const match = historyContext.match(re);
+    if (match) return match[1].trim();
+  }
+  return null;
+}
+
+// ── POST /init ──
+// Generates a theme + playlist, resolves all songs to actual tracks.
+streamRouter.post("/init", async (req, res) => {
+  try {
+    const { style, language } = req.body;
+    const libraryContext = await buildLibraryContext();
+
+    const playlistResp = await streamDJ.generatePlaylist(
+      libraryContext,
       language || "zh-CN",
-      themeContext || undefined,
-      libraryContext
+      style || "classic",
+      undefined,
+      4
     );
 
-    // Search for a song based on keywords
-    let nextWiki = null;
-    const keywords = djResponse.song_query.keywords;
-    
-    for (const keyword of keywords) {
-      const results = await searchWiki(keyword);
-      if (results.length > 0) {
-        // Shuffle to avoid repeating the same song for the same keyword
-        const pool = lastTrackId ? results.filter(r => r.id !== lastTrackId) : results;
-        nextWiki = pool.length > 0
-          ? pool[Math.floor(Math.random() * pool.length)]
-          : results[Math.floor(Math.random() * results.length)];
-        break;
+    console.log("[stream] theme:", playlistResp.theme_update?.theme);
+    console.log("[stream] playlist songs:", playlistResp.songs.map(s => `${s.artist} - ${s.title}`));
+
+    // Resolve each song to an actual Track in the library
+    const targetCount = playlistResp.songs.length || 4;
+    const resolvedTracks: Track[] = [];
+    const usedIds = new Set<string>();
+    for (const song of playlistResp.songs) {
+      const wiki = await resolveOneSong(song.artist, song.title, song.keywords);
+      if (!wiki) {
+        console.log(`[stream] not found: ${song.artist} - ${song.title}`);
+      }
+      const track = await resolveToTrack(wiki);
+      if (track && !usedIds.has(track.id)) {
+        usedIds.add(track.id);
+        resolvedTracks.push(track);
       }
     }
 
-    if (!nextWiki) {
-        const results = await searchWiki(""); 
-        if (results.length > 0) {
-             nextWiki = results[Math.floor(Math.random() * results.length)];
-        }
+    // Fill remaining slots with random songs to reach targetCount
+    if (resolvedTracks.length < targetCount) {
+      const { scanMusicLibrary } = await import("../services/musicLibraryService.js");
+      const all = await scanMusicLibrary();
+      const pool = all.filter(t => !usedIds.has(t.id));
+      while (resolvedTracks.length < targetCount && pool.length > 0) {
+        const idx = Math.floor(Math.random() * pool.length);
+        resolvedTracks.push(pool[idx]);
+        usedIds.add(pool[idx].id);
+        pool.splice(idx, 1);
+      }
     }
 
-    // Convert Wiki entry back to actual Track with previewUrl
-    const { getLocalTrackById, scanMusicLibrary } = await import("../services/musicLibraryService.js");
-    let nextTrack = null;
-    if (nextWiki) {
-      nextTrack = await getLocalTrackById(nextWiki.id);
+    currentPlaylist = resolvedTracks.slice(1); // first track will be served immediately
+    currentTheme = {
+      theme: playlistResp.theme_update.theme,
+      phase: playlistResp.theme_update.phase,
+      coveredTopics: playlistResp.theme_update.coveredTopics,
+      segmentIndex: 0
+    };
+
+    console.log("[stream] resolved playlist:", resolvedTracks.map(t => `${t.title} by ${t.artist}`));
+
+    // Generate narration for the FIRST resolved track (not the AI's intro_talk)
+    const firstTrack = resolvedTracks[0];
+    let firstNarration = playlistResp.intro_talk; // fallback
+
+    if (firstTrack) {
+      let wiki: SongWiki | null = null;
+      try { wiki = await getSongWiki(firstTrack.id); } catch (e) {}
+      const narrationResp = await streamDJ.generateNarrationForTrack(
+        {
+          title: firstTrack.title,
+          artist: firstTrack.artist,
+          album: firstTrack.album,
+          explanation: firstTrack.explanation || undefined,
+          funFact: wiki?.djMaterial?.funFact?.[0],
+          trivia: wiki?.trivia?.[0],
+        },
+        currentTheme,
+        language || "zh-CN",
+        style || "classic"
+      );
+      firstNarration = narrationResp.dj_talk;
+      if (narrationResp.theme_update) {
+        currentTheme = {
+          theme: narrationResp.theme_update.theme,
+          phase: narrationResp.theme_update.phase,
+          coveredTopics: narrationResp.theme_update.coveredTopics,
+          segmentIndex: 0
+        };
+      }
     }
 
-    // Absolute fallback: if still no track, pick any track from the library
-    if (!nextTrack) {
-        const allTracks = await scanMusicLibrary();
-        const pool = lastTrackId ? allTracks.filter(t => t.id !== lastTrackId) : allTracks;
-        if (pool.length > 0) {
-            nextTrack = pool[Math.floor(Math.random() * pool.length)];
-        } else if (allTracks.length > 0) {
-            nextTrack = allTracks[Math.floor(Math.random() * allTracks.length)];
-        }
-    }
-
-    // Generate audio for the DJ talk
-    let audioBase64 = "";
-    let audioMimeType = "audio/mp3";
-
-    // Fetch settings once for both TTS blocks
     let settings: any = {};
-    try {
-      settings = await getRuntimeSettings();
-    } catch (e) {
-      console.warn("Failed to load runtime settings, using defaults");
-    }
+    try { settings = await getRuntimeSettings(); } catch (e) {}
 
-    if (djResponse.dj_talk) {
-      try {
-        const ttsResult = await synthesizeSpeech(djResponse.dj_talk, settings.defaultVoice, {
-          provider: settings.defaultTtsProvider,
-          emotion: "normal",
-          apiKey: settings.defaultTtsProvider === "openai" ? settings.openAiApiKey : undefined,
-          language: language
-        }) as any;
-        audioBase64 = ttsResult.audioBase64;
-        if (ttsResult.mimeType) {
-          audioMimeType = ttsResult.mimeType;
-        } else if (settings.defaultTtsProvider === 'moss' || settings.defaultTtsProvider === ('macsay' as any)) {
-          audioMimeType = "audio/wav";
-        }
-      } catch (ttsError) {
-        console.error("TTS Generation failed:", ttsError);
-      }
-    }
-
-    // Synthesize TTS for mid-song inserts
-    const insertAudios: Array<{
-      text: string;
-      audio_base64: string;
-      mime_type: string;
-      timing: string;
-      type: string;
-    }> = [];
-
-    if (djResponse.mid_song_inserts && djResponse.mid_song_inserts.length > 0) {
-      for (const insert of djResponse.mid_song_inserts) {
-        try {
-          const ttsResult = await synthesizeSpeech(insert.text, settings.defaultVoice, {
-            provider: settings.defaultTtsProvider,
-            emotion: insert.type === 'trivia' ? 'whisper' : 'normal',
-            apiKey: settings.defaultTtsProvider === 'openai' ? settings.openAiApiKey : undefined,
-            language: language
-          }) as any;
-          if (ttsResult.audioBase64) {
-            insertAudios.push({
-              text: insert.text,
-              audio_base64: ttsResult.audioBase64,
-              mime_type: ttsResult.mimeType || 'audio/mp3',
-              timing: insert.timing,
-              type: insert.type,
-            });
-          }
-        } catch (e) {
-          console.warn('Mid-song insert TTS failed, skipping:', e);
-        }
-      }
-    }
+    const ttsResult = await synthesizeDJTalk(firstNarration, settings, language || "zh-CN");
 
     res.json({
-      dj_text: djResponse.dj_talk,
-      dj_audio_base64: audioBase64,
-      dj_audio_mime_type: audioMimeType,
-      next_track: nextTrack,
-      mood_matched: djResponse.song_query.mood,
-      mid_song_inserts: insertAudios,
-      theme_update: djResponse.theme_update || null
+      theme_update: {
+        theme: currentTheme.theme,
+        phase: currentTheme.phase,
+        coveredTopics: currentTheme.coveredTopics
+      },
+      playlist: resolvedTracks.slice(1).map(t => ({  // exclude first track from upcoming list
+        id: t.id, title: t.title, artist: t.artist, album: t.album,
+        artwork: t.artwork, moodTags: t.moodTags
+      })),
+      first_segment: {
+        dj_text: firstNarration,
+        dj_audio_base64: ttsResult.audioBase64,
+        dj_audio_mime_type: ttsResult.mimeType,
+        next_track: firstTrack,
+      }
     });
+  } catch (error) {
+    console.error("Error in stream init:", error);
+    res.status(500).json({ error: "Failed to initialize stream" });
+  }
+});
+
+// ── POST /next ──
+// Pops the next track from the playlist, generates narration specifically for it.
+streamRouter.post("/next", async (req, res) => {
+  try {
+    const { historyContext, lastTrackId, style, language } = req.body;
+
+    // Handle song requests from chat
+    const songRequest = detectSongRequest(historyContext || "");
+    if (songRequest) {
+      console.log(`[stream] song request detected: "${songRequest}"`);
+      const wiki = await resolveOneSong("", songRequest, [songRequest], lastTrackId);
+      if (wiki) {
+        const track = await resolveToTrack(wiki);
+        if (track) {
+          // Insert at position 1 (after current/next song) so it plays soon
+          if (currentPlaylist.length <= 1) {
+            currentPlaylist.push(track);
+          } else {
+            currentPlaylist.splice(1, 0, track);
+          }
+          console.log(`[stream] inserted request: ${track.title} by ${track.artist}`);
+        }
+      } else {
+        console.log(`[stream] song request not found in library: "${songRequest}"`);
+      }
+    }
+
+    // Pop next track from playlist
+    const nextTrack = currentPlaylist.shift();
+    if (!nextTrack) {
+      // Playlist exhausted — generate a new one
+      console.log("[stream] playlist exhausted, generating new one...");
+      const libraryContext = await buildLibraryContext();
+      const playlistResp = await streamDJ.generatePlaylist(
+        libraryContext, language || "zh-CN", style || "classic", undefined, 4
+      );
+      for (const song of playlistResp.songs) {
+        const wiki = await resolveOneSong(song.artist, song.title, song.keywords);
+        const track = await resolveToTrack(wiki);
+        if (track && !currentPlaylist.find(t => t.id === track.id)) {
+          currentPlaylist.push(track);
+        }
+      }
+      if (currentPlaylist.length === 0) {
+        // Absolute fallback
+        const { scanMusicLibrary } = await import("../services/musicLibraryService.js");
+        const all = await scanMusicLibrary();
+        const pick = all[Math.floor(Math.random() * all.length)];
+        if (pick) currentPlaylist.push(pick);
+      }
+      // Now try again with the freshly generated playlist
+      const freshTrack = currentPlaylist.shift();
+      if (!freshTrack) {
+        return res.status(500).json({ error: "No tracks available" });
+      }
+      return await serveNextSegment(freshTrack, req.body, res);
+    }
+
+    return await serveNextSegment(nextTrack, req.body, res);
   } catch (error) {
     console.error("Error in stream next:", error);
     res.status(500).json({ error: "Failed to generate stream segment" });
   }
 });
+
+async function serveNextSegment(track: Track, reqBody: any, res: any) {
+  const { historyContext, style, language } = reqBody;
+
+  // Get wiki info for richer narration
+  let wiki: SongWiki | null = null;
+  try { wiki = await getSongWiki(track.id); } catch (e) {}
+
+  console.log("[stream] next track from playlist:", track.title, "by", track.artist);
+
+  // Build TrackInfo for the DJ agent
+  const trackInfo = {
+    title: track.title,
+    artist: track.artist,
+    album: track.album,
+    explanation: track.explanation || undefined,
+    funFact: wiki?.djMaterial?.funFact?.[0],
+    trivia: wiki?.trivia?.[0],
+  };
+
+  // Advance theme segment index
+  if (currentTheme) {
+    currentTheme.segmentIndex++;
+  }
+
+  const narrationResp = await streamDJ.generateNarrationForTrack(
+    trackInfo,
+    currentTheme || undefined,
+    language || "zh-CN",
+    style || "classic",
+    historyContext || ""
+  );
+
+  console.log("[stream] DJ narration:", narrationResp.dj_talk?.substring(0, 120));
+
+  // Update theme
+  if (narrationResp.theme_update) {
+    currentTheme = {
+      theme: narrationResp.theme_update.theme,
+      phase: narrationResp.theme_update.phase,
+      coveredTopics: narrationResp.theme_update.coveredTopics,
+      segmentIndex: currentTheme?.segmentIndex ?? 0
+    };
+  }
+
+  // TTS for DJ talk
+  let settings: any = {};
+  try { settings = await getRuntimeSettings(); } catch (e) {}
+
+  const ttsResult = await synthesizeDJTalk(narrationResp.dj_talk, settings, language || "zh-CN");
+
+  // TTS for mid-song inserts
+  const insertAudios: Array<{
+    text: string; audio_base64: string; mime_type: string; timing: string; type: string;
+  }> = [];
+  if (narrationResp.mid_song_inserts && narrationResp.mid_song_inserts.length > 0) {
+    for (const insert of narrationResp.mid_song_inserts) {
+      const result = await synthesizeDJTalk(
+        insert.text, settings, language || "zh-CN",
+        insert.type === "trivia" ? "whisper" : "normal"
+      );
+      if (result.audioBase64) {
+        insertAudios.push({
+          text: insert.text,
+          audio_base64: result.audioBase64,
+          mime_type: result.mimeType,
+          timing: insert.timing,
+          type: insert.type,
+        });
+      }
+    }
+  }
+
+  // Replenish playlist if running low
+  if (currentPlaylist.length < 2) {
+    console.log("[stream] playlist running low, replenishing...");
+    const libraryContext = await buildLibraryContext();
+    const playlistResp = await streamDJ.generatePlaylist(
+      libraryContext, language || "zh-CN", style || "classic",
+      currentTheme ? {
+        theme: currentTheme.theme,
+        phase: currentTheme.phase,
+        segmentIndex: currentTheme.segmentIndex,
+        coveredTopics: currentTheme.coveredTopics
+      } : undefined,
+      4
+    );
+    for (const song of playlistResp.songs) {
+      const w = await resolveOneSong(song.artist, song.title, song.keywords);
+      const t = await resolveToTrack(w);
+      if (t && !currentPlaylist.find(existing => existing.id === t.id)) {
+        currentPlaylist.push(t);
+      }
+    }
+    console.log(`[stream] playlist replenished, now ${currentPlaylist.length} tracks`);
+  }
+
+  res.json({
+    dj_text: narrationResp.dj_talk,
+    dj_audio_base64: ttsResult.audioBase64,
+    dj_audio_mime_type: ttsResult.mimeType,
+    next_track: track,
+    mood_matched: track.moodTags?.[0] || "Relaxing",
+    mid_song_inserts: insertAudios,
+    theme_update: narrationResp.theme_update || null,
+    playlist_remaining: currentPlaylist.length
+  });
+}
