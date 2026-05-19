@@ -7,7 +7,7 @@ import type {
   DJStyle
 } from "../types";
 
-export const API_BASE = (window as Window & { __LOBSTER_API__?: string }).__LOBSTER_API__ ?? "http://localhost:4000";
+export const API_BASE = (window as Window & { __LOBSTER_API__?: string }).__LOBSTER_API__ ?? "";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, {

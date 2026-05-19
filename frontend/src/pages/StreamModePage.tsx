@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { SignalIcon, PlayIcon, PauseIcon } from "@heroicons/react/24/solid";
+import { SignalIcon, PlayIcon, PauseIcon, SpeakerWaveIcon, SpeakerXMarkIcon } from "@heroicons/react/24/solid";
 import { getSettings } from "../lib/api";
-import { createNarrationAudio, cleanupNarrationAudio } from "../lib/audioUtils";
+import { cleanupNarrationAudio } from "../lib/audioUtils";
 import type { Track, DJStyle } from "../types";
 
 type MidSongInsert = {
@@ -29,6 +29,7 @@ const MUSIC_DUCK_VOLUME = 0.15;
 
 export function StreamModePage() {
   const [isPlaying, setIsPlaying] = useState(false);
+  const [status, setStatus] = useState<string>("Ready");
   const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
   const [voice, setVoice] = useState<string>("alloy");
   const [djStyle, setDjStyle] = useState<DJStyle>("classic");
@@ -37,12 +38,14 @@ export function StreamModePage() {
   const [messages, setMessages] = useState<{sender: 'user' | 'dj', text: string}[]>([]);
   const [inputText, setInputText] = useState("");
   const [themeContext, setThemeContext] = useState<ThemeContext | null>(null);
-  const [playlist, setPlaylist] = useState<Array<{id: string; title: string; artist: string; album?: string; artwork?: string; moodTags?: string[]}>>([]);
+  const [playlist, setPlaylist] = useState<Array<{id: string; title: string; artist: string; album?: string; artwork?: string; moodTags?: string[]; previewUrl?: string | null}>>([]);
 
   const audioRef = useRef<HTMLAudioElement>(null);
   const isFetchingRef = useRef(false);
+  const isNarrationPlayingRef = useRef(false);
+  const narrationUrlRef = useRef<string | null>(null);
 
-  // Overlay narration
+  // Overlay narration (mid-song inserts)
   const activeOverlayAudiosRef = useRef<HTMLAudioElement[]>([]);
   const midSongInsertsRef = useRef<MidSongInsert[]>([]);
   const insertsTriggeredRef = useRef<Set<number>>(new Set());
@@ -59,6 +62,11 @@ export function StreamModePage() {
       if (settings.djStyle) setDjStyle(settings.djStyle);
       if (settings.djLanguage) setDjLanguage(settings.djLanguage);
     });
+
+    return () => {
+      if (narrationUrlRef.current) URL.revokeObjectURL(narrationUrlRef.current);
+      cleanupAllOverlays();
+    };
   }, []);
 
   // --- Overlay audio helpers ---
@@ -102,93 +110,125 @@ export function StreamModePage() {
     setMessages(prev => [...prev, { sender: 'dj', text: `🎙️ ${insert.text}` }]);
     duckMainVolume();
 
-    const { audio, url } = createNarrationAudio(
-      insert.audioBase64,
-      insert.mimeType,
-      () => {
-        cleanupNarrationAudio(audio, url);
-        removeOverlayAudio(audio);
-        if (activeOverlayAudiosRef.current.length === 0) {
-          restoreMainVolume();
-        }
-      },
-      () => {
-        cleanupNarrationAudio(audio, url);
-        removeOverlayAudio(audio);
-        if (activeOverlayAudiosRef.current.length === 0) {
-          restoreMainVolume();
-        }
-      }
-    );
+    // Mid-song inserts use separate Audio objects because they play simultaneously
+    try {
+      const binary = atob(insert.audioBase64);
+      const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+      const blob = new Blob([bytes], { type: insert.mimeType || "audio/mpeg" });
+      const url = URL.createObjectURL(blob);
+      
+      const audio = new Audio(url);
+      audio.crossOrigin = "anonymous";
+      audio.volume = Math.min(1.0, savedVolumeRef.current * 2.5);
 
-    audio.volume = Math.min(1.0, savedVolumeRef.current * 2.5);
-    addOverlayAudio(audio);
-    audio.play().catch(console.warn);
+      const finish = () => {
+        cleanupNarrationAudio(audio, url);
+        removeOverlayAudio(audio);
+        if (activeOverlayAudiosRef.current.length === 0) {
+          restoreMainVolume();
+        }
+      };
+
+      audio.onended = finish;
+      audio.onerror = finish;
+
+      addOverlayAudio(audio);
+      audio.play().catch(console.warn);
+    } catch (e) {
+      console.error("Failed to play mid-song insert:", e);
+      restoreMainVolume();
+    }
   };
 
   const playDJIntroThenSong = (djBase64: string | null, djMimeType: string, track: Track) => {
-    if (!track.previewUrl) {
-      // No music to play, fetch next
-      fetchNextSegment();
-      return;
-    }
+    if (!audioRef.current) return;
 
     pendingTrackRef.current = track;
 
     const startMusic = () => {
-      if (!audioRef.current || !pendingTrackRef.current?.previewUrl) return;
+      if (!audioRef.current) return;
       const t = pendingTrackRef.current;
-      console.log("[stream] startMusic playing:", t.title, "by", t.artist, "| previewUrl:", t.previewUrl);
-      audioRef.current.src = t.previewUrl!;
-      audioRef.current.load();
-      audioRef.current.play().catch(console.error);
-      setIsPlaying(true);
+      if (!t || !t.previewUrl) {
+        console.warn("[stream] No pending track or previewUrl, skipping...");
+        setStatus("Skipping missing track");
+        fetchNextSegment();
+        return;
+      }
+
+      console.log("[stream] 🎵 Playing music:", t.title, "by", t.artist);
+      setStatus(`Playing: ${t.title}`);
+      isNarrationPlayingRef.current = false;
+      audioRef.current.src = t.previewUrl;
+      audioRef.current.volume = 1.0;
+      audioRef.current.play()
+        .then(() => {
+          setIsPlaying(true);
+          console.log("[stream] ▶️ Music started");
+        })
+        .catch(err => {
+          console.error("[stream] ❌ Music playback blocked:", err);
+          setStatus("Playback blocked - click to fix");
+          setIsPlaying(false);
+        });
       pendingTrackRef.current = null;
     };
 
     if (!djBase64) {
+      console.log("[stream] No DJ intro, starting music immediately");
       startMusic();
       return;
     }
 
-    const { audio: djAudio, url } = createNarrationAudio(
-      djBase64,
-      djMimeType,
-      () => {
-        cleanupNarrationAudio(djAudio, url);
-        removeOverlayAudio(djAudio);
-        startMusic();
-      },
-      () => {
-        cleanupNarrationAudio(djAudio, url);
-        removeOverlayAudio(djAudio);
-        startMusic();
-      }
-    );
+    // Clean up previous narration URL
+    if (narrationUrlRef.current) {
+      URL.revokeObjectURL(narrationUrlRef.current);
+      narrationUrlRef.current = null;
+    }
 
-    djAudio.volume = 1.0;
-    addOverlayAudio(djAudio);
-    djAudio.play().catch(() => startMusic());
+    try {
+      console.log("[stream] 🎙️ Preparing DJ narration...");
+      setStatus("Loading DJ...");
+      const binary = atob(djBase64);
+      const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+      const blob = new Blob([bytes], { type: djMimeType || "audio/mpeg" });
+      const url = URL.createObjectURL(blob);
+      narrationUrlRef.current = url;
+
+      // REUSE main audio element for narration to keep user gesture context alive!
+      isNarrationPlayingRef.current = true;
+      audioRef.current.src = url;
+      audioRef.current.volume = 1.0;
+      audioRef.current.play()
+        .then(() => {
+          console.log("[stream] 🎙️ DJ narration started");
+          setStatus("DJ Speaking...");
+        })
+        .catch(e => {
+          console.warn("[stream] 🎙️ DJ narration blocked, skipping to music:", e);
+          startMusic();
+        });
+    } catch (e) {
+      console.error("[stream] Failed to prepare narration:", e);
+      startMusic();
+    }
   };
 
   // --- Core flow ---
 
   const fetchInitData = async () => {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 180000);
-    const res = await fetch('http://localhost:4000/api/stream/init', {
+    setStatus("Connecting to DJ...");
+    const res = await fetch('/api/stream/init', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      signal: controller.signal,
       body: JSON.stringify({ style: djStyle, language: djLanguage })
     });
-    clearTimeout(timeoutId);
+    if (!res.ok) throw new Error("Failed to init stream");
     return res.json();
   };
 
   const applyInitData = (data: any) => {
     console.log("[stream] init: theme =", data.theme_update?.theme);
-    console.log("[stream] init: playlist =", data.playlist?.map((t: any) => `${t.title} by ${t.artist}`));
+    setStatus("Initializing stream...");
 
     if (data.theme_update) {
       setThemeContext({
@@ -203,19 +243,16 @@ export function StreamModePage() {
       setPlaylist(data.playlist);
     }
 
-    // Apply first segment (theme intro + first track)
     if (data.first_segment) {
       if (data.first_segment.dj_text) {
         setMessages(prev => [...prev, { sender: 'dj', text: data.first_segment.dj_text }]);
       }
       if (data.first_segment.next_track) {
-        const track = data.first_segment.next_track;
-        console.log("[stream] init: first track =", track.title, "by", track.artist);
-        setCurrentTrack(track);
+        setCurrentTrack(data.first_segment.next_track);
         playDJIntroThenSong(
           data.first_segment.dj_audio_base64,
           data.first_segment.dj_audio_mime_type || 'audio/mp3',
-          track
+          data.first_segment.next_track
         );
       }
     }
@@ -224,13 +261,9 @@ export function StreamModePage() {
   const fetchSegmentData = async () => {
     const historyContext = messages.slice(-10).map(m => `${m.sender === 'user' ? '听众' : 'DJ小龙'}: ${m.text}`).join("\n");
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 180000);
-
-    const res = await fetch('http://localhost:4000/api/stream/next', {
+    const res = await fetch('/api/stream/next', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      signal: controller.signal,
       body: JSON.stringify({
         historyContext: historyContext,
         lastTrackId: currentTrack?.id,
@@ -239,12 +272,13 @@ export function StreamModePage() {
         themeContext: themeContext || undefined
       })
     });
-    clearTimeout(timeoutId);
+    if (!res.ok) throw new Error("Failed to fetch segment");
     return res.json();
   };
 
   const applySegmentData = (data: any) => {
     prefetchTriggeredRef.current = false;
+    setStatus("Loading next...");
 
     if (data.dj_text) {
       setMessages(prev => [...prev, { sender: 'dj', text: data.dj_text }]);
@@ -259,6 +293,10 @@ export function StreamModePage() {
       }));
     }
 
+    if (data.playlist) {
+      setPlaylist(data.playlist);
+    }
+
     // Store mid-song inserts
     if (data.mid_song_inserts && data.mid_song_inserts.length > 0) {
       midSongInsertsRef.current = data.mid_song_inserts.map((i: any) => ({
@@ -271,55 +309,50 @@ export function StreamModePage() {
     }
 
     if (data.next_track) {
-      console.log("[stream] setting current track:", data.next_track.title, "by", data.next_track.artist);
-      console.log("[stream] DJ narration text:", data.dj_text?.substring(0, 120));
+      console.log("[stream] next track:", data.next_track.title);
       setCurrentTrack(data.next_track);
-      setPlaylist(prev => prev.slice(1));
+      cleanupAllOverlays();
       playDJIntroThenSong(data.dj_audio_base64, data.dj_audio_mime_type || 'audio/mp3', data.next_track);
     } else {
       setIsPlaying(false);
+      setStatus("End of broadcast");
     }
   };
 
   const fetchNextSegment = async () => {
     if (isFetchingRef.current) return;
     isFetchingRef.current = true;
+    setStatus("Fetching next...");
 
-    // Reset mid-song state for the new track
     midSongInsertsRef.current = [];
     insertsTriggeredRef.current = new Set();
 
     try {
-      // Use pre-fetched data if available
       let data: any;
       if (prefetchedDataRef.current) {
-        console.log("⚡ Using pre-fetched segment data");
         data = prefetchedDataRef.current;
         prefetchedDataRef.current = null;
       } else {
-        console.log("📡 Fetching next DJ segment from server...");
         data = await fetchSegmentData();
       }
-
       applySegmentData(data);
     } catch (e) {
       console.error("Failed to fetch stream segment:", e);
-      setIsPlaying(false);
+      setStatus("Error loading segment");
     } finally {
       isFetchingRef.current = false;
     }
   };
 
-  // Pre-fetch next segment in background (called at ~80% song progress)
   const prefetchNextSegment = () => {
     if (prefetchTriggeredRef.current || isFetchingRef.current) return;
     prefetchTriggeredRef.current = true;
 
     fetchSegmentData().then(data => {
       prefetchedDataRef.current = data;
-      console.log("📦 Pre-fetched next segment ready");
+      console.log("📦 Pre-fetch complete");
     }).catch(e => {
-      console.warn("Pre-fetch failed, will fetch normally on track end:", e);
+      console.warn("Pre-fetch failed:", e);
       prefetchTriggeredRef.current = false;
     });
   };
@@ -327,49 +360,77 @@ export function StreamModePage() {
   // --- Audio event handlers ---
 
   const handleTrackEnded = () => {
-    console.log("Music track ended, fetching next segment...");
-    if (audioRef.current) {
-      audioRef.current.src = '';
+    if (isNarrationPlayingRef.current) {
+      console.log("DJ Intro ended, switching to music...");
+      isNarrationPlayingRef.current = false;
+      
+      const t = pendingTrackRef.current;
+      if (t && t.previewUrl && audioRef.current) {
+        setStatus(`Playing: ${t.title}`);
+        audioRef.current.src = t.previewUrl;
+        audioRef.current.volume = 1.0;
+        audioRef.current.play().catch(err => {
+          console.error("[stream] Auto-play music blocked after narration:", err);
+          setStatus("Music blocked - click Play");
+          setIsPlaying(false);
+        });
+        pendingTrackRef.current = null;
+      } else {
+        fetchNextSegment();
+      }
+    } else {
+      console.log("Track ended, loading next...");
+      setStatus("Track ended");
+      fetchNextSegment();
     }
-    cleanupAllOverlays();
-    fetchNextSegment();
   };
 
   const handleTimeUpdate = () => {
-    if (!audioRef.current) return;
+    if (!audioRef.current || isNarrationPlayingRef.current) return;
 
     const duration = audioRef.current.duration;
     if (!duration || !isFinite(duration)) return;
 
     const progress = audioRef.current.currentTime / duration;
 
-    // Pre-fetch next segment at 80% progress
     if (progress >= 0.8) {
       prefetchNextSegment();
     }
 
-    // Trigger mid-song inserts
     midSongInsertsRef.current.forEach((insert, index) => {
       if (insertsTriggeredRef.current.has(index)) return;
-
       const targetProgress = TIMING_PROGRESS[insert.timing];
-      if (targetProgress === undefined) return;
-
-      if (progress >= targetProgress) {
+      if (targetProgress !== undefined && progress >= targetProgress) {
         insertsTriggeredRef.current.add(index);
         triggerMidSongInsert(insert);
       }
     });
   };
 
+  const isRequest = (text: string) => {
+    const patterns = [/点歌/i, /我想听/i, /点一首/i, /播放/i, /点/i, /request/i];
+    return patterns.some(p => p.test(text));
+  };
+
   const togglePlay = () => {
     if (!isPlaying) {
       setIsPlaying(true);
+      setStatus("Starting...");
+      
+      if (audioRef.current) {
+        audioRef.current.volume = 1.0;
+        audioRef.current.muted = false;
+        // Prime the audio element immediately
+        audioRef.current.play().then(() => {
+          if (!audioRef.current?.src) audioRef.current?.pause();
+        }).catch(e => console.warn("Prime blocked:", e));
+      }
+
       if (!currentTrack && !pendingTrackRef.current) {
-        // First play: initialize theme + playlist
         if (playlist.length === 0) {
           fetchInitData().then(applyInitData).catch(err => {
-            console.error("Init failed, falling back to next:", err);
+            console.error("Init failed:", err);
+            setStatus("Failed to connect");
             setIsPlaying(false);
           });
         } else {
@@ -383,6 +444,7 @@ export function StreamModePage() {
       }
     } else {
       setIsPlaying(false);
+      setStatus("Paused");
       audioRef.current?.pause();
       activeOverlayAudiosRef.current.forEach(a => a.pause());
     }
@@ -390,9 +452,15 @@ export function StreamModePage() {
 
   return (
     <div className="flex flex-col gap-6 lg:flex-row">
-      {/* Player Area */}
       <div className="flex-1 shrink-0 flex flex-col gap-6">
-        <div className="rounded-[32px] border border-white/10 bg-black/20 p-8 backdrop-blur text-center flex flex-col items-center shadow-2xl">
+        <div className="rounded-[32px] border border-white/10 bg-black/20 p-8 backdrop-blur text-center flex flex-col items-center shadow-2xl relative">
+          
+          {/* Status Indicator */}
+          <div className="absolute top-6 right-8 flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/5 text-[10px] font-bold tracking-widest uppercase">
+            <div className={`w-1.5 h-1.5 rounded-full ${isPlaying ? 'bg-pulse animate-pulse' : 'bg-white/20'}`}></div>
+            <span className={isPlaying ? 'text-white' : 'text-white/40'}>{status}</span>
+          </div>
+
           <SignalIcon className={`h-20 w-20 text-pulse mb-6 ${isPlaying ? 'animate-pulse' : 'opacity-30'}`} />
           <h2 className="text-3xl font-bold mb-2">DJ Stream Mode</h2>
           <p className="text-mist mb-4">AI-Powered Continuous Broadcast</p>
@@ -419,7 +487,7 @@ export function StreamModePage() {
                 <p className="text-mist text-lg line-clamp-1">{currentTrack.artist}</p>
                 <div className="mt-4 flex items-center gap-2">
                    <div className="h-1 flex-1 bg-white/10 rounded-full overflow-hidden">
-                      <div className={`h-full bg-pulse transition-all duration-1000 ${isPlaying ? 'w-full opacity-30' : 'w-0'}`}></div>
+                      <div className={`h-full bg-pulse transition-all duration-1000 ${isPlaying ? (isNarrationPlayingRef.current ? 'w-1/3' : 'w-full opacity-30') : 'w-0'}`}></div>
                    </div>
                 </div>
               </div>
@@ -428,41 +496,31 @@ export function StreamModePage() {
             )}
           </div>
 
-          {/* Upcoming Playlist */}
-          {playlist.length > 0 && (
-            <div className="w-full max-w-md mb-6 text-left">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-white/30 mb-3">Up Next</h4>
-              <div className="space-y-2">
-                {playlist.slice(0, 5).map((track, i) => (
-                  <div key={track.id || i} className="flex items-center gap-3 p-3 rounded-xl bg-white/5 border border-white/5 hover:border-white/10 transition-colors">
-                    <span className="text-xs font-bold text-white/20 w-5 text-right">{i + 1}</span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-white truncate">{track.title}</p>
-                      <p className="text-xs text-white/40 truncate">{track.artist}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <button
-            onClick={togglePlay}
-            className="rounded-full bg-white text-black p-8 hover:scale-110 active:scale-90 transition-all shadow-[0_0_30px_rgba(255,255,255,0.15)] z-20"
-          >
-            {isPlaying ? <PauseIcon className="h-12 w-12" /> : <PlayIcon className="h-12 w-12 ml-1" />}
-          </button>
+          <div className="flex flex-col items-center gap-6">
+            <button
+              onClick={togglePlay}
+              className="rounded-full bg-white text-black p-8 hover:scale-110 active:scale-90 transition-all shadow-[0_0_30px_rgba(255,255,255,0.15)] z-20"
+            >
+              {isPlaying ? <PauseIcon className="h-12 w-12" /> : <PlayIcon className="h-12 w-12 ml-1" />}
+            </button>
+            
+            {!isPlaying && currentTrack && (
+               <p className="text-[10px] text-white/30 uppercase font-black tracking-tighter animate-bounce">Click to Play</p>
+            )}
+          </div>
 
           <audio
             ref={audioRef}
             onEnded={handleTrackEnded}
             onTimeUpdate={handleTimeUpdate}
-            onError={(e) => console.error("Audio Element Error:", e)}
+            onError={(e) => {
+               console.error("Audio Element Error:", e);
+               setStatus("Audio Error");
+            }}
           />
         </div>
       </div>
 
-      {/* Chat / DJ Log Area */}
       <div className="w-full lg:w-[450px] shrink-0 flex flex-col gap-4">
         <div className="flex-1 rounded-[32px] border border-white/10 bg-black/20 p-6 backdrop-blur flex flex-col h-[650px] shadow-xl">
           <header className="flex items-center justify-between mb-6">
@@ -494,8 +552,15 @@ export function StreamModePage() {
           <form onSubmit={(e) => {
               e.preventDefault();
               if (!inputText.trim()) return;
-              setMessages(prev => [...prev, { sender: 'user', text: inputText }]);
+              
+              const text = inputText.trim();
+              setMessages(prev => [...prev, { sender: 'user', text }]);
               setInputText("");
+
+              if (isRequest(text)) {
+                prefetchedDataRef.current = null;
+                fetchNextSegment();
+              }
           }} className="relative">
             <input
               type="text"

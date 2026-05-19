@@ -11,18 +11,32 @@ const streamDJ = new StreamDJAgent();
 
 // ── Server-side playlist state ──
 let currentPlaylist: Track[] = [];
+let playedTrackIds = new Set<string>();
+const MAX_PLAYED_HISTORY = 50;
+
 type ThemePhase = "intro" | "deep_dive" | "reflection" | "twist" | "outro";
 let currentTheme: { theme: string; phase: ThemePhase; coveredTopics: string[]; segmentIndex: number } | null = null;
 
 // ── Helpers ──
 
+function trackPlayed(id: string) {
+  playedTrackIds.add(id);
+  if (playedTrackIds.size > MAX_PLAYED_HISTORY) {
+    const first = playedTrackIds.values().next().value;
+    if (first) playedTrackIds.delete(first);
+  }
+}
+
 async function buildLibraryContext(): Promise<string> {
   const { scanMusicLibrary: scanLib } = await import("../services/musicLibraryService.js");
   try {
     const allTracks = await scanLib();
+    // Exclude recently played songs from context to encourage variety
+    const availableTracks = allTracks.filter(t => !playedTrackIds.has(t.id));
+    
     const artistCounts: Record<string, number> = {};
     const moodCounts: Record<string, number> = {};
-    for (const t of allTracks) {
+    for (const t of availableTracks) {
       artistCounts[t.artist] = (artistCounts[t.artist] || 0) + 1;
       for (const m of t.moodTags) {
         if (["Working", "Relaxing", "Exercising", "Party", "Sleepy"].includes(m)) {
@@ -38,7 +52,7 @@ async function buildLibraryContext(): Promise<string> {
       .sort((a, b) => b[1] - a[1])
       .slice(0, 5)
       .map(([mood]) => mood);
-    return `曲库概况: ${allTracks.length}首歌, 主要流派: ${topMoods.join("/")}, 热门艺术家: ${topArtists.slice(0, 20).join(", ")}等`;
+    return `曲库概况: ${allTracks.length}首歌 (可用: ${availableTracks.length}), 主要流派: ${topMoods.join("/")}, 热门艺术家: ${topArtists.slice(0, 20).join(", ")}等`;
   } catch (e) {
     console.warn("Failed to build library context:", e);
     return "";
@@ -49,8 +63,10 @@ async function resolveOneSong(
   artist: string,
   title: string,
   keywords: string[],
-  excludeId?: string
+  excludeIds: string[] = []
 ): Promise<SongWiki | null> {
+  const combinedExcludes = new Set([...excludeIds, ...playedTrackIds]);
+
   // Try exact artist + title first
   if (artist && title) {
     const byTitle = await searchWiki(title);
@@ -58,9 +74,9 @@ async function resolveOneSong(
       s => s.title.toLowerCase() === title.toLowerCase() &&
            s.artist.toLowerCase() === artist.toLowerCase()
     );
-    if (exact && exact.id !== excludeId) return exact;
+    if (exact && !combinedExcludes.has(exact.id)) return exact;
     const byArtist = byTitle.find(
-      s => s.artist.toLowerCase().includes(artist.toLowerCase()) && s.id !== excludeId
+      s => s.artist.toLowerCase().includes(artist.toLowerCase()) && !combinedExcludes.has(s.id)
     );
     if (byArtist) return byArtist;
   }
@@ -71,7 +87,7 @@ async function resolveOneSong(
     const results = await searchWiki(kw);
     const kwLower = kw.toLowerCase();
     for (const r of results) {
-      if (excludeId && r.id === excludeId) continue;
+      if (combinedExcludes.has(r.id)) continue;
       const prev = scored.get(r.id);
       let weight = 1;
       if (r.title.toLowerCase().includes(kwLower)) weight = 3;
@@ -81,8 +97,10 @@ async function resolveOneSong(
 
   if (scored.size > 0) {
     const sorted = [...scored.values()].sort((a, b) => b.score - a.score);
-    const top = sorted.filter(s => s.score === sorted[0].score);
-    return top[Math.floor(Math.random() * top.length)].wiki;
+    // Add some randomness among top scores
+    const topThreshold = sorted[0].score * 0.8;
+    const candidates = sorted.filter(s => s.score >= topThreshold);
+    return candidates[Math.floor(Math.random() * candidates.length)].wiki;
   }
 
   return null;
@@ -94,7 +112,8 @@ async function resolveToTrack(wiki: SongWiki | null): Promise<Track | null> {
   let track = await getLocalTrackById(wiki.id);
   if (!track) {
     const allTracks = await scanMusicLibrary();
-    track = allTracks[Math.floor(Math.random() * allTracks.length)] || null;
+    const available = allTracks.filter(t => !playedTrackIds.has(t.id));
+    track = available[Math.floor(Math.random() * available.length)] || allTracks[0];
   }
   return track;
 }
@@ -125,15 +144,21 @@ async function synthesizeDJTalk(
 
 function detectSongRequest(historyContext: string): string | null {
   if (!historyContext) return null;
+  // Get the latest message to avoid re-triggering old requests
+  const lines = historyContext.trim().split('\n');
+  const lastLine = lines[lines.length - 1];
+  if (!lastLine || !lastLine.includes("听众:")) return null;
+
   const patterns = [
     /点歌[：:\s]*[《「"']?(.+?)[》」"']?\s*$/im,
     /点一首[：:\s]*[《「"']?(.+?)[》」"']?\s*$/im,
     /我想听[：:\s]*[《「"']?(.+?)[》」"']?\s*$/im,
     /播放[：:\s]*[《「"']?(.+?)[》」"']?\s*$/im,
+    /点[：:\s]*[《「"']?(.+?)[》」"']?\s*$/im,
     /request[：:\s]+(.+?)\s*$/im,
   ];
   for (const re of patterns) {
-    const match = historyContext.match(re);
+    const match = lastLine.match(re);
     if (match) return match[1].trim();
   }
   return null;
@@ -144,6 +169,7 @@ function detectSongRequest(historyContext: string): string | null {
 streamRouter.post("/init", async (req, res) => {
   try {
     const { style, language } = req.body;
+    playedTrackIds.clear(); // Reset on fresh init
     const libraryContext = await buildLibraryContext();
 
     const playlistResp = await streamDJ.generatePlaylist(
@@ -160,15 +186,13 @@ streamRouter.post("/init", async (req, res) => {
     // Resolve each song to an actual Track in the library
     const targetCount = playlistResp.songs.length || 4;
     const resolvedTracks: Track[] = [];
-    const usedIds = new Set<string>();
+    const usedIdsInThisPlaylist = new Set<string>();
+    
     for (const song of playlistResp.songs) {
-      const wiki = await resolveOneSong(song.artist, song.title, song.keywords);
-      if (!wiki) {
-        console.log(`[stream] not found: ${song.artist} - ${song.title}`);
-      }
+      const wiki = await resolveOneSong(song.artist, song.title, song.keywords, [...usedIdsInThisPlaylist]);
       const track = await resolveToTrack(wiki);
-      if (track && !usedIds.has(track.id)) {
-        usedIds.add(track.id);
+      if (track && !usedIdsInThisPlaylist.has(track.id)) {
+        usedIdsInThisPlaylist.add(track.id);
         resolvedTracks.push(track);
       }
     }
@@ -177,11 +201,11 @@ streamRouter.post("/init", async (req, res) => {
     if (resolvedTracks.length < targetCount) {
       const { scanMusicLibrary } = await import("../services/musicLibraryService.js");
       const all = await scanMusicLibrary();
-      const pool = all.filter(t => !usedIds.has(t.id));
+      const pool = all.filter(t => !usedIdsInThisPlaylist.has(t.id));
       while (resolvedTracks.length < targetCount && pool.length > 0) {
         const idx = Math.floor(Math.random() * pool.length);
         resolvedTracks.push(pool[idx]);
-        usedIds.add(pool[idx].id);
+        usedIdsInThisPlaylist.add(pool[idx].id);
         pool.splice(idx, 1);
       }
     }
@@ -196,11 +220,12 @@ streamRouter.post("/init", async (req, res) => {
 
     console.log("[stream] resolved playlist:", resolvedTracks.map(t => `${t.title} by ${t.artist}`));
 
-    // Generate narration for the FIRST resolved track (not the AI's intro_talk)
+    // Generate narration for the FIRST resolved track
     const firstTrack = resolvedTracks[0];
-    let firstNarration = playlistResp.intro_talk; // fallback
+    let firstNarration = playlistResp.intro_talk; 
 
     if (firstTrack) {
+      trackPlayed(firstTrack.id);
       let wiki: SongWiki | null = null;
       try { wiki = await getSongWiki(firstTrack.id); } catch (e) {}
       const narrationResp = await streamDJ.generateNarrationForTrack(
@@ -238,9 +263,9 @@ streamRouter.post("/init", async (req, res) => {
         phase: currentTheme.phase,
         coveredTopics: currentTheme.coveredTopics
       },
-      playlist: resolvedTracks.slice(1).map(t => ({  // exclude first track from upcoming list
+      playlist: currentPlaylist.map(t => ({  
         id: t.id, title: t.title, artist: t.artist, album: t.album,
-        artwork: t.artwork, moodTags: t.moodTags
+        artwork: t.artwork, moodTags: t.moodTags, previewUrl: t.previewUrl
       })),
       first_segment: {
         dj_text: firstNarration,
@@ -265,17 +290,15 @@ streamRouter.post("/next", async (req, res) => {
     const songRequest = detectSongRequest(historyContext || "");
     if (songRequest) {
       console.log(`[stream] song request detected: "${songRequest}"`);
-      const wiki = await resolveOneSong("", songRequest, [songRequest], lastTrackId);
+      // When explicitly requested, we might allow playing it even if it was played a while ago, 
+      // but let's pass an empty exclude list for the search.
+      const wiki = await resolveOneSong("", songRequest, [songRequest], []);
       if (wiki) {
         const track = await resolveToTrack(wiki);
         if (track) {
-          // Insert at position 1 (after current/next song) so it plays soon
-          if (currentPlaylist.length <= 1) {
-            currentPlaylist.push(track);
-          } else {
-            currentPlaylist.splice(1, 0, track);
-          }
-          console.log(`[stream] inserted request: ${track.title} by ${track.artist}`);
+          // Push to front of playlist to play immediately
+          currentPlaylist.unshift(track);
+          console.log(`[stream] inserted requested track at front: ${track.title} by ${track.artist}`);
         }
       } else {
         console.log(`[stream] song request not found in library: "${songRequest}"`);
@@ -283,36 +306,50 @@ streamRouter.post("/next", async (req, res) => {
     }
 
     // Pop next track from playlist
-    const nextTrack = currentPlaylist.shift();
+    let nextTrack = currentPlaylist.shift();
+    
     if (!nextTrack) {
       // Playlist exhausted — generate a new one
       console.log("[stream] playlist exhausted, generating new one...");
       const libraryContext = await buildLibraryContext();
       const playlistResp = await streamDJ.generatePlaylist(
-        libraryContext, language || "zh-CN", style || "classic", undefined, 4
+        libraryContext, language || "zh-CN", style || "classic", 
+        currentTheme ? {
+          theme: currentTheme.theme,
+          phase: currentTheme.phase,
+          segmentIndex: currentTheme.segmentIndex,
+          coveredTopics: currentTheme.coveredTopics
+        } : undefined, 
+        4
       );
+      
+      const usedIdsInNext = new Set<string>();
       for (const song of playlistResp.songs) {
-        const wiki = await resolveOneSong(song.artist, song.title, song.keywords);
+        const wiki = await resolveOneSong(song.artist, song.title, song.keywords, [...usedIdsInNext]);
         const track = await resolveToTrack(wiki);
-        if (track && !currentPlaylist.find(t => t.id === track.id)) {
+        if (track && !usedIdsInNext.has(track.id)) {
           currentPlaylist.push(track);
+          usedIdsInNext.add(track.id);
         }
       }
+      
+      // Still empty? Force a random one that's not the last one
       if (currentPlaylist.length === 0) {
-        // Absolute fallback
         const { scanMusicLibrary } = await import("../services/musicLibraryService.js");
         const all = await scanMusicLibrary();
-        const pick = all[Math.floor(Math.random() * all.length)];
+        const available = all.filter(t => t.id !== lastTrackId && !playedTrackIds.has(t.id));
+        const pick = available.length > 0 ? available[Math.floor(Math.random() * available.length)] : all[0];
         if (pick) currentPlaylist.push(pick);
       }
-      // Now try again with the freshly generated playlist
-      const freshTrack = currentPlaylist.shift();
-      if (!freshTrack) {
-        return res.status(500).json({ error: "No tracks available" });
-      }
-      return await serveNextSegment(freshTrack, req.body, res);
+      
+      nextTrack = currentPlaylist.shift();
     }
 
+    if (!nextTrack) {
+      return res.status(500).json({ error: "No tracks available" });
+    }
+
+    trackPlayed(nextTrack.id);
     return await serveNextSegment(nextTrack, req.body, res);
   } catch (error) {
     console.error("Error in stream next:", error);
@@ -407,7 +444,7 @@ async function serveNextSegment(track: Track, reqBody: any, res: any) {
       4
     );
     for (const song of playlistResp.songs) {
-      const w = await resolveOneSong(song.artist, song.title, song.keywords);
+      const w = await resolveOneSong(song.artist, song.title, song.keywords, [...currentPlaylist.map(t => t.id)]);
       const t = await resolveToTrack(w);
       if (t && !currentPlaylist.find(existing => existing.id === t.id)) {
         currentPlaylist.push(t);
@@ -424,6 +461,10 @@ async function serveNextSegment(track: Track, reqBody: any, res: any) {
     mood_matched: track.moodTags?.[0] || "Relaxing",
     mid_song_inserts: insertAudios,
     theme_update: narrationResp.theme_update || null,
-    playlist_remaining: currentPlaylist.length
+    playlist: currentPlaylist.map(t => ({  
+      id: t.id, title: t.title, artist: t.artist, album: t.album,
+      artwork: t.artwork, moodTags: t.moodTags, previewUrl: t.previewUrl
+    }))
   });
 }
+

@@ -9,28 +9,43 @@ export function createNarrationAudio(
   onComplete: () => void,
   onError: () => void
 ): NarrationAudioResult {
-  const binary = atob(audioBase64);
-  const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
-  const blob = new Blob([bytes], { type: mimeType || "audio/mpeg" });
-  const url = URL.createObjectURL(blob);
+  if (!audioBase64) {
+    console.warn("createNarrationAudio: empty or null audioBase64 provided");
+    // Return a dummy audio object that immediately finishes
+    const audio = new Audio();
+    setTimeout(onComplete, 0);
+    return { audio, url: "" };
+  }
 
-  const audio = new Audio(url);
-  audio.crossOrigin = "anonymous";
+  try {
+    const binary = atob(audioBase64);
+    const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+    const blob = new Blob([bytes], { type: mimeType || "audio/mpeg" });
+    const url = URL.createObjectURL(blob);
 
-  const handleEnded = () => {
-    cleanupNarrationAudio(audio, url);
-    onComplete();
-  };
+    const audio = new Audio(url);
+    audio.crossOrigin = "anonymous";
 
-  const handleError = () => {
-    cleanupNarrationAudio(audio, url);
-    onError();
-  };
+    const handleEnded = () => {
+      cleanupNarrationAudio(audio, url);
+      onComplete();
+    };
 
-  audio.addEventListener("ended", handleEnded, { once: true });
-  audio.addEventListener("error", handleError, { once: true });
+    const handleError = (e: any) => {
+      console.error("Narration audio playback error:", e);
+      cleanupNarrationAudio(audio, url);
+      onError();
+    };
 
-  return { audio, url };
+    audio.addEventListener("ended", handleEnded, { once: true });
+    audio.addEventListener("error", handleError, { once: true });
+
+    return { audio, url };
+  } catch (e) {
+    console.error("Failed to create narration audio:", e);
+    setTimeout(onError, 0);
+    return { audio: new Audio(), url: "" };
+  }
 }
 
 export function cleanupNarrationAudio(audio: HTMLAudioElement, url: string): void {

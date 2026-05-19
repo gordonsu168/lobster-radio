@@ -492,9 +492,9 @@ Return valid JSON:
 
 返回合法 JSON：
 {
-  "dj_talk": "你的DJ发言...",
+  "dj_talk": "你刚才说的话，直接用于语音合成（不要带任何 emoji）...",
   "mid_song_inserts": [
-    {"text": "歌中插话", "timing": "early"|"middle"|"late", "type": "trivia"|"commentary"|"listener_response"}
+    {"text": "简短插话内容（不要带任何 emoji）", "timing": "early" | "middle" | "late", "type": "trivia" | "commentary" | "listener_response"}
   ],
   "theme_update": { "theme": "主题", "phase": "intro"|"deep_dive"|"reflection"|"twist"|"outro", "coveredTopics": ["子话题"] }
 }`,
