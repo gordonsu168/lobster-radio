@@ -50,6 +50,62 @@ async function searchWithCustomApi(apiBase: string, keyword: string, mood: MoodO
   }
 }
 
+export async function fetchNeteaseFacts(title: string, artist: string): Promise<{
+  composer?: string;
+  lyricist?: string;
+  arranger?: string;
+  releaseYear?: number;
+  hotComments?: string[];
+  neteaseId?: string;
+} | null> {
+  const secrets = await resolveRuntimeSecrets();
+  if (!secrets.neteaseApiEnabled || !secrets.neteaseApiUrl) return null;
+
+  try {
+    const apiBase = secrets.neteaseApiUrl;
+    // 1. 搜索歌曲
+    const searchUrl = `${apiBase}/search?keywords=${encodeURIComponent(`${title} ${artist}`)}&limit=1`;
+    const searchRes = await fetch(searchUrl);
+    const searchData: any = await searchRes.json();
+    const song = searchData.result?.songs?.[0];
+    if (!song) return null;
+
+    const songId = song.id;
+
+    // 2. 获取歌曲详情 (包含作者信息)
+    const detailUrl = `${apiBase}/song/detail?ids=${songId}`;
+    const detailRes = await fetch(detailUrl);
+    const detailData: any = await detailRes.json();
+    const fullSong = detailData.songs?.[0];
+
+    // 3. 获取热评
+    const commentUrl = `${apiBase}/comment/hot?id=${songId}&type=0&limit=5`;
+    const commentRes = await fetch(commentUrl);
+    const commentData: any = await commentRes.json();
+    const hotComments = commentData.hotComments?.map((c: any) => c.content) || [];
+
+    // 尝试解析发行年份
+    let releaseYear: number | undefined;
+    if (fullSong?.publishTime) {
+      releaseYear = new Date(fullSong.publishTime).getFullYear();
+    } else if (song?.publishTime) {
+      releaseYear = new Date(song.publishTime).getFullYear();
+    }
+
+    // 尝试从歌曲名或描述中提取作词作曲 (网易云搜索结果有时包含这些)
+    // 如果没有，后续靠 Wikipedia 补全
+    
+    return {
+      neteaseId: songId.toString(),
+      releaseYear,
+      hotComments: hotComments.slice(0, 3),
+    };
+  } catch (e) {
+    console.warn("[netease] Failed to fetch facts:", e);
+    return null;
+  }
+}
+
 export async function searchTracksByMood(mood: MoodOption): Promise<Track[]> {
   const secrets = await resolveRuntimeSecrets();
 

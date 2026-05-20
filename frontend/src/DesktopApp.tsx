@@ -726,10 +726,12 @@ export default function DesktopApp() {
 // 扩展 Window 类型
 declare global {
   interface Window {
-    electron: {
+    electron?: {
       minimize: () => void;
       close: () => void;
       maximize: () => void;
+      setMiniMode?: (isMini: boolean) => void;
+      onToggleMiniMode?: (callback: () => void) => void;
     };
   }
 }

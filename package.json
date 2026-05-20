@@ -11,6 +11,8 @@
     "dev": "npm run build -w agents && concurrently -n frontend,backend,agents -c cyan,green,magenta \"npm run dev -w frontend\" \"npm run dev -w backend\" \"npm run dev -w agents\"",
     "build": "npm run build -w agents && npm run build -w backend && npm run build -w frontend",
     "lint": "npm run lint -w frontend && npm run lint -w backend && npm run lint -w agents",
+    "populate-wiki": "npm run populate-wiki -w backend",
+    "test-apis": "npm run test-apis -w backend",
     "restart": "./restart.sh",
     "stop": "./stop.sh"
   },

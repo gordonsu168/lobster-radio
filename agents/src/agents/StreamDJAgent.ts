@@ -45,8 +45,12 @@ export interface TrackInfo {
   artist: string;
   album?: string;
   explanation?: string;
-  funFact?: string;
+  composer?: string;
+  lyricist?: string;
+  releaseYear?: number;
+  hotComments?: string[];
   trivia?: string;
+  funFact?: string; // Legacy
 }
 
 export interface NarrationResponse {
@@ -482,64 +486,88 @@ Return valid JSON:
 
 ## 下一首要播放的歌曲（已确定）
 - 歌名：${track.title}
-- 艺人：${track.artist}${track.album ? `\n- 专辑：${track.album}` : ""}${track.explanation ? `\n- 简介：${track.explanation}` : ""}${track.funFact ? `\n- 趣闻：${track.funFact}` : ""}${track.trivia ? `\n- 冷知识：${track.trivia}` : ""}
+- 艺人：${track.artist}${track.album ? `\n- 专辑：${track.album}` : ""}${track.releaseYear ? `\n- 发行年份：${track.releaseYear}` : ""}${track.composer ? `\n- 作曲：${track.composer}` : ""}${track.lyricist ? `\n- 作词：${track.lyricist}` : ""}${track.explanation ? `\n- 简介：${track.explanation}` : ""}${track.hotComments ? `\n- 网友热评（重要素材）：\n  ${track.hotComments.join("\n  ")}` : ""}${track.trivia ? `\n- 背景/趣闻：${track.trivia}` : ""}
 
 ## 当前主题节目
 主题：「${theme}」，阶段：${phase}，第 ${segmentIndex + 1} 段。已聊：${coveredTopics}。
 
 请围绕这首歌做简短 DJ 介绍（1-3句），自然承接主题。
+**核心指令：请优先从上面的"网友热评"中寻找灵感，将那些感人的、引起共鸣的听众故事或情绪编织进你的播报中。这会让你的节目听起来更有温度，更像是一个真实的人在分享。**
+同时也请参考发行年份、作者信息等事实，确保专业性。
+
 你还可以插入1-2段"歌中插话"（mid_song_inserts），在歌曲播放中途简短点评/趣闻/回应听众（15-30字）。不需要就传空数组。
 
 返回合法 JSON：
 {
   "dj_talk": "你刚才说的话，直接用于语音合成（不要带任何 emoji）...",
   "mid_song_inserts": [
-    {"text": "简短插话内容（不要带任何 emoji）", "timing": "early" | "middle" | "late", "type": "trivia" | "commentary" | "listener_response"}
+    {
+      "text": "简短插话内容。必须遵循优先级：1. 如果有听众实时留言，优先回应留言；2. 否则，使用提供的'网友热评'作为素材，以'有听众说'或'有网友留言'开头；3. 最后才考虑通用点评。",
+      "timing": "early" | "middle" | "late", 
+      "type": "trivia" | "commentary" | "listener_response"
+    }
   ],
   "theme_update": { "theme": "主题", "phase": "intro"|"deep_dive"|"reflection"|"twist"|"outro", "coveredTopics": ["子话题"] }
-}`,
+}
+`,
       "zh-HK": `你係小龍，龍蝦電臺嘅DJ（DJ 流播模式）。
 風格：${styleDesc}。語氣：${timeTone}。
 
 ## 下一首要播放嘅歌曲（已確定）
 - 歌名：${track.title}
-- 藝人：${track.artist}${track.album ? `\n- 專輯：${track.album}` : ""}${track.explanation ? `\n- 簡介：${track.explanation}` : ""}${track.funFact ? `\n- 趣聞：${track.funFact}` : ""}${track.trivia ? `\n- 冷知識：${track.trivia}` : ""}
+- 藝人：${track.artist}${track.album ? `\n- 專輯：${track.album}` : ""}${track.releaseYear ? `\n- 發行年份：${track.releaseYear}` : ""}${track.composer ? `\n- 作曲：${track.composer}` : ""}${track.lyricist ? `\n- 作詞：${track.lyricist}` : ""}${track.explanation ? `\n- 簡介：${track.explanation}` : ""}${track.hotComments ? `\n- 網友熱評（重要素材）：\n  ${track.hotComments.join("\n  ")}` : ""}${track.trivia ? `\n- 背景/趣聞：${track.trivia}` : ""}
 
 ## 當前主題節目
 主題：「${theme}」，階段：${phase}，第 ${segmentIndex + 1} 段。已傾：${coveredTopics}。
 
 請圍繞呢首歌做簡短 DJ 介紹（1-3句），自然承接主題。
-你可以插入1-2段「歌中插話」（mid_song_inserts），喺歌曲播放中途簡短點評/趣聞/回應聽眾（15-30字）。唔需要就傳空 array。
+**核心指令：請優先從上面嘅「網友熱評」中搵靈感，將嗰啲感人、引起共鳴嘅聽眾故事或情緒編入你嘅播報。咁會令你嘅節目聽落更有溫度。**
+同時請參考發行年份、作者信息等事實，確保專業性。
 
+你可以插入1-2段「歌中插話」（mid_song_inserts），喺歌曲播放中途簡短點評/趣聞/回應聽眾（15-30字）。唔需要就傳空 array。
 返回合法 JSON：
 {
   "dj_talk": "你嘅DJ發言...",
   "mid_song_inserts": [
-    {"text": "歌中插話", "timing": "early"|"middle"|"late", "type": "trivia"|"commentary"|"listener_response"}
+    {
+      "text": "簡短插話內容。遵循優先級：1. 若有聽眾即時留言，優先回應；2. 否則，使用提供嘅「網友熱評」作為素材，以「有聽眾話」或「有網友留言」開头；3. 最後才考慮通用點評。",
+      "timing": "early" | "middle" | "late", 
+      "type": "trivia" | "commentary" | "listener_response"
+    }
   ],
   "theme_update": { "theme": "主題", "phase": "intro"|"deep_dive"|"reflection"|"twist"|"outro", "coveredTopics": ["子話題"] }
+}
+
 }`,
       "en-US": `You are Xiaolong, DJ at Lobster Radio (DJ Stream Mode).
 Style: ${styleDesc}. Tone: ${timeTone}.
 
 ## Next Track (already selected)
 - Title: ${track.title}
-- Artist: ${track.artist}${track.album ? `\n- Album: ${track.album}` : ""}${track.explanation ? `\n- Description: ${track.explanation}` : ""}${track.funFact ? `\n- Fun fact: ${track.funFact}` : ""}${track.trivia ? `\n- Trivia: ${track.trivia}` : ""}
+- Artist: ${track.artist}${track.album ? `\n- Album: ${track.album}` : ""}${track.releaseYear ? `\n- Year: ${track.releaseYear}` : ""}${track.composer ? `\n- Composer: ${track.composer}` : ""}${track.lyricist ? `\n- Lyricist: ${track.lyricist}` : ""}${track.explanation ? `\n- Description: ${track.explanation}` : ""}${track.hotComments ? `\n- Listener Comments (Top Source):\n  ${track.hotComments.join("\n  ")}` : ""}${track.trivia ? `\n- Trivia/Facts: ${track.trivia}` : ""}
 
 ## Current Theme
 Theme: "${theme}", Phase: ${phase}, Segment #${segmentIndex + 1}. Covered: ${coveredTopics}.
 
 Give a brief DJ intro (40-80 words) about this track, naturally connecting to the theme.
+**Core Directive: Prioritize the "Listener Comments" provided above. Weave these emotional, resonant stories or sentiments into your narration to make it feel warm, human, and relatable.**
+Also use factual data like Year and Author to maintain authority.
+
 You may include 1-2 "mid-song inserts" for short commentary/fun facts/listener responses during playback (15-30 words each). Pass empty array if not needed.
 
 Return valid JSON:
 {
   "dj_talk": "Your DJ speech...",
   "mid_song_inserts": [
-    {"text": "mid-song insert", "timing": "early"|"middle"|"late", "type": "trivia"|"commentary"|"listener_response"}
+    {
+      "text": "Short insert text. Priority: 1. If there is a real-time listener message, respond to it; 2. Otherwise, use provided 'Top Comments' as material, starting with 'A listener said...' or 'One comment mentioned...'; 3. Finally, use general commentary.",
+      "timing": "early" | "middle" | "late",
+      "type": "trivia" | "commentary" | "listener_response"
+    }
   ],
   "theme_update": { "theme": "theme", "phase": "intro"|"deep_dive"|"reflection"|"twist"|"outro", "coveredTopics": ["subtopic"] }
-}`
+}
+`
     };
 
     let userPrompt = "请为以上确定的歌曲生成DJ发言。\n";

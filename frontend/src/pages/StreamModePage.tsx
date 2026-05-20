@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { SignalIcon, PlayIcon, PauseIcon, SpeakerWaveIcon, SpeakerXMarkIcon } from "@heroicons/react/24/solid";
 import { getSettings } from "../lib/api";
+import { TrackQueue } from "../components/TrackQueue";
 import { cleanupNarrationAudio } from "../lib/audioUtils";
 import type { Track, DJStyle } from "../types";
 
@@ -38,7 +39,7 @@ export function StreamModePage() {
   const [messages, setMessages] = useState<{sender: 'user' | 'dj', text: string}[]>([]);
   const [inputText, setInputText] = useState("");
   const [themeContext, setThemeContext] = useState<ThemeContext | null>(null);
-  const [playlist, setPlaylist] = useState<Array<{id: string; title: string; artist: string; album?: string; artwork?: string; moodTags?: string[]; previewUrl?: string | null}>>([]);
+  const [playlist, setPlaylist] = useState<Track[]>([]);
 
   const audioRef = useRef<HTMLAudioElement>(null);
   const isFetchingRef = useRef(false);
@@ -350,7 +351,19 @@ export function StreamModePage() {
 
     fetchSegmentData().then(data => {
       prefetchedDataRef.current = data;
-      console.log("📦 Pre-fetch complete");
+      
+      // Real-time update: Show the prefetched next track and updated playlist immediately
+      if (data.next_track) {
+        const nextPlaylist = [data.next_track];
+        if (data.playlist && Array.isArray(data.playlist)) {
+          nextPlaylist.push(...data.playlist);
+        }
+        setPlaylist(nextPlaylist);
+      } else if (data.playlist && Array.isArray(data.playlist)) {
+        setPlaylist(data.playlist);
+      }
+      
+      console.log("📦 Pre-fetch complete, playlist updated");
     }).catch(e => {
       console.warn("Pre-fetch failed:", e);
       prefetchTriggeredRef.current = false;
@@ -519,6 +532,35 @@ export function StreamModePage() {
             }}
           />
         </div>
+
+        {playlist.length > 0 && (
+          <TrackQueue
+            tracks={playlist}
+            currentTrackId={currentTrack?.id ?? null}
+            compact={true}
+            onSelect={(track: Track) => {
+              // In stream mode, selecting a track from the queue triggers a skip
+              // and immediate play of that track.
+              if (isFetchingRef.current) return;
+              
+              if (audioRef.current) {
+                audioRef.current.pause();
+                audioRef.current.src = "";
+                audioRef.current.load();
+              }
+              
+              // Remove this track and anything before it from the playlist
+              const idx = playlist.findIndex(t => t.id === track.id);
+              if (idx !== -1) {
+                setPlaylist(prev => prev.slice(idx + 1));
+              }
+              
+              setCurrentTrack(track);
+              cleanupAllOverlays();
+              playDJIntroThenSong(null, "audio/mp3", track);
+            }}
+          />
+        )}
       </div>
 
       <div className="w-full lg:w-[450px] shrink-0 flex flex-col gap-4">
@@ -557,9 +599,19 @@ export function StreamModePage() {
               setMessages(prev => [...prev, { sender: 'user', text }]);
               setInputText("");
 
+              // Always fetch next segment (or update) when user talks to DJ
+              // to keep the broadcast responsive to chat.
+              // If it's a request, we force an immediate skip.
               if (isRequest(text)) {
                 prefetchedDataRef.current = null;
                 fetchNextSegment();
+              } else {
+                // If it's just chatting, we pre-fetch the next segment early 
+                // so the DJ can respond in the next song intro or mid-song.
+                prefetchNextSegment();
+                
+                // Optional: We could also trigger a special "commentary" fetch here
+                // if we want the DJ to respond immediately without skipping.
               }
           }} className="relative">
             <input

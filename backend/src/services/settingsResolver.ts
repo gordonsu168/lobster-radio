@@ -8,7 +8,7 @@ export async function resolveRuntimeSecrets() {
   return {
     spotifyClientId: process.env.SPOTIFY_CLIENT_ID || stored.spotifyClientId,
     spotifyClientSecret: process.env.SPOTIFY_CLIENT_SECRET || stored.spotifyClientSecret,
-    neteaseApiEnabled: stored.neteaseApiEnabled ?? true,
+    neteaseApiEnabled: (process.env.NETEASE_API_ENABLED === "true") || stored.neteaseApiEnabled || false,
     neteaseApiUrl: process.env.NETEASE_API_URL || stored.neteaseApiUrl || "",
     openAiApiKey: process.env.OPENAI_API_KEY || stored.openAiApiKey,
     elevenLabsApiKey: process.env.ELEVENLABS_API_KEY || stored.elevenLabsApiKey,

@@ -56,13 +56,30 @@ export interface SongWiki {
   title: string;
   artist: string;
   album: string;
+  
+  // --- Hard Facts ---
   releaseYear?: number;
   genre?: string[];
   composer?: string;
   lyricist?: string;
   arranger?: string;
   producer?: string;
+  recordLabel?: string;
+  
+  // --- External Links ---
+  neteaseId?: string;
+  wikipediaUrl?: string;
+  
+  // --- Original Materials ---
+  hotComments?: string[];
+  wikiAbstract?: string;
   trivia?: string[];
+  
+  // --- Task Status ---
+  enrichmentStatus: 'pending' | 'completed' | 'failed';
+  lastUpdated: string;
+
+  // --- Deprecated ---
   moodTags?: string[];
   djMaterial?: {
     intro?: string[];
@@ -72,3 +89,4 @@ export interface SongWiki {
   relatedSongs?: string[];
   tags?: string[];
 }
+

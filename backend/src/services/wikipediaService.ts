@@ -68,6 +68,7 @@ export async function searchSongInfo(
   lyricist: string;
   releaseYear: number | undefined;
   trivia: string[];
+  wikiAbstract?: string;
 } | null> {
   // 构建搜索查询
   const queries = [
@@ -87,7 +88,7 @@ export async function searchSongInfo(
       // 从摘要中提取信息
       const info = parseSongInfo(extract, songTitle, artist);
       if (info) {
-        return info;
+        return { ...info, wikiAbstract: extract };
       }
     }
   }

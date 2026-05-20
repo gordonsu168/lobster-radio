@@ -227,15 +227,21 @@ streamRouter.post("/init", async (req, res) => {
     if (firstTrack) {
       trackPlayed(firstTrack.id);
       let wiki: SongWiki | null = null;
-      try { wiki = await getSongWiki(firstTrack.id); } catch (e) {}
+      try { 
+        const { getSongWiki } = await import("../services/wikiService.js");
+        wiki = await getSongWiki(firstTrack.id); 
+      } catch (e) {}
       const narrationResp = await streamDJ.generateNarrationForTrack(
         {
           title: firstTrack.title,
           artist: firstTrack.artist,
           album: firstTrack.album,
           explanation: firstTrack.explanation || undefined,
-          funFact: wiki?.djMaterial?.funFact?.[0],
-          trivia: wiki?.trivia?.[0],
+          composer: wiki?.composer,
+          lyricist: wiki?.lyricist,
+          releaseYear: wiki?.releaseYear,
+          hotComments: wiki?.hotComments,
+          trivia: wiki?.trivia?.[0] || wiki?.wikiAbstract,
         },
         currentTheme,
         language || "zh-CN",
@@ -333,13 +339,18 @@ streamRouter.post("/next", async (req, res) => {
         }
       }
       
-      // Still empty? Force a random one that's not the last one
-      if (currentPlaylist.length === 0) {
+      // Fallback: fill to at least 4 tracks if resolution failed
+      if (currentPlaylist.length < 4) {
         const { scanMusicLibrary } = await import("../services/musicLibraryService.js");
         const all = await scanMusicLibrary();
-        const available = all.filter(t => t.id !== lastTrackId && !playedTrackIds.has(t.id));
-        const pick = available.length > 0 ? available[Math.floor(Math.random() * available.length)] : all[0];
-        if (pick) currentPlaylist.push(pick);
+        const existingIds = new Set(currentPlaylist.map(t => t.id));
+        const pool = all.filter(t => !existingIds.has(t.id) && !playedTrackIds.has(t.id));
+        while (currentPlaylist.length < 4 && pool.length > 0) {
+          const idx = Math.floor(Math.random() * pool.length);
+          currentPlaylist.push(pool[idx]);
+          existingIds.add(pool[idx].id);
+          pool.splice(idx, 1);
+        }
       }
       
       nextTrack = currentPlaylist.shift();
@@ -362,7 +373,10 @@ async function serveNextSegment(track: Track, reqBody: any, res: any) {
 
   // Get wiki info for richer narration
   let wiki: SongWiki | null = null;
-  try { wiki = await getSongWiki(track.id); } catch (e) {}
+  try { 
+    const { getSongWiki } = await import("../services/wikiService.js");
+    wiki = await getSongWiki(track.id); 
+  } catch (e) {}
 
   console.log("[stream] next track from playlist:", track.title, "by", track.artist);
 
@@ -372,9 +386,14 @@ async function serveNextSegment(track: Track, reqBody: any, res: any) {
     artist: track.artist,
     album: track.album,
     explanation: track.explanation || undefined,
-    funFact: wiki?.djMaterial?.funFact?.[0],
-    trivia: wiki?.trivia?.[0],
+    composer: wiki?.composer,
+    lyricist: wiki?.lyricist,
+    releaseYear: wiki?.releaseYear,
+    hotComments: wiki?.hotComments,
+    trivia: wiki?.trivia?.[0] || wiki?.wikiAbstract,
   };
+
+  console.log(`[stream] 为 DJ 提供事实: 年份=${trackInfo.releaseYear || '未知'}, 作词=${trackInfo.lyricist || '未知'}, 热评=${trackInfo.hotComments?.length || 0}条`);
 
   // Advance theme segment index
   if (currentTheme) {
@@ -430,7 +449,7 @@ async function serveNextSegment(track: Track, reqBody: any, res: any) {
   }
 
   // Replenish playlist if running low
-  if (currentPlaylist.length < 2) {
+  if (currentPlaylist.length < 3) {
     console.log("[stream] playlist running low, replenishing...");
     const libraryContext = await buildLibraryContext();
     const playlistResp = await streamDJ.generatePlaylist(
@@ -450,6 +469,20 @@ async function serveNextSegment(track: Track, reqBody: any, res: any) {
         currentPlaylist.push(t);
       }
     }
+    
+    // Fallback: fill to at least 4 tracks
+    if (currentPlaylist.length < 4) {
+      const { scanMusicLibrary } = await import("../services/musicLibraryService.js");
+      const all = await scanMusicLibrary();
+      const existingIds = new Set(currentPlaylist.map(t => t.id));
+      const pool = all.filter(t => !existingIds.has(t.id) && !playedTrackIds.has(t.id));
+      while (currentPlaylist.length < 4 && pool.length > 0) {
+        const idx = Math.floor(Math.random() * pool.length);
+        currentPlaylist.push(pool[idx]);
+        existingIds.add(pool[idx].id);
+        pool.splice(idx, 1);
+      }
+    }
     console.log(`[stream] playlist replenished, now ${currentPlaylist.length} tracks`);
   }
 
@@ -467,4 +500,3 @@ async function serveNextSegment(track: Track, reqBody: any, res: any) {
     }))
   });
 }
-

@@ -41,7 +41,11 @@ wikiRouter.get("/song/:id", async (req: Request, res: Response) => {
 // 更新歌曲 Wiki
 wikiRouter.put("/song/:id", async (req: Request, res: Response) => {
   try {
-    const updated = await updateSongWiki(req.params.id as string, req.body as Partial<SongWiki>);
+    const data = req.body as Partial<SongWiki>;
+    // Ensure we track when an edit happens
+    data.lastUpdated = new Date().toISOString();
+    
+    const updated = await updateSongWiki(req.params.id as string, data);
     res.json(updated);
   } catch (e) {
     res.status(500).json({ error: "Failed to update song wiki" });

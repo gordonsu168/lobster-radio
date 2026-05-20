@@ -38,8 +38,12 @@ export interface TrackInfo {
     artist: string;
     album?: string;
     explanation?: string;
-    funFact?: string;
+    composer?: string;
+    lyricist?: string;
+    releaseYear?: number;
+    hotComments?: string[];
     trivia?: string;
+    funFact?: string;
 }
 export interface NarrationResponse {
     dj_talk: string;

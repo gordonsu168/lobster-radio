@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc -p tsconfig.json",
-    "lint": "tsc --noEmit -p tsconfig.json"
+    "lint": "tsc --noEmit -p tsconfig.json",
+    "populate-wiki": "tsx src/scripts/populateWiki.ts",
+    "test-apis": "tsx src/scripts/testApis.ts"
   },
   "dependencies": {
     "better-sqlite3": "^12.9.0",
