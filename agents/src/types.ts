@@ -1,3 +1,12 @@
+export interface DJIdentity {
+  name: string;
+  englishName: string;
+  programName: string;
+  englishProgramName: string;
+  persona: string;
+  englishPersona: string;
+}
+
 export type MoodOption = "Working" | "Relaxing" | "Exercising" | "Party" | "Sleepy";
 export type DJStyle = "classic" | "night" | "vibe" | "trivia";
 export type DJLanguage = "zh-CN" | "zh-HK" | "en-US";

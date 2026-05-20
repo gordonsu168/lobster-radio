@@ -118,7 +118,7 @@ export async function buildRecommendations(mood: MoodOption, style: DJStyle = "c
     try {
       // Try RadioDJAgent first (more context-aware with memory)
       const radioDJ = new RadioDJAgent();
-      narration = await radioDJ.generateIntro(selectedTrack, mood, style, djLanguage, "Lobster Radio recommendation", preferences.memoryInsight);
+      narration = await radioDJ.generateIntro(selectedTrack as any, mood, style, djLanguage, "Lobster Radio recommendation", preferences.memoryInsight);
       console.log(`🎙️ 使用 RadioDJAgent 生成的旁白: ${narration}`);
 
       // Clear memoryInsight after use so it doesn't get reused
@@ -126,17 +126,17 @@ export async function buildRecommendations(mood: MoodOption, style: DJStyle = "c
     } catch (error) {
       console.warn("❌ RadioDJAgent failed, falling back to AINarrationService:", error);
       try {
-        narration = await generateAINarration(selectedTrack, style, djLanguage);
+        narration = await generateAINarration(selectedTrack as any, style, djLanguage);
         console.log(`🎙️ 使用 AINarrationService 生成的旁白: ${narration}`);
       } catch (aiError) {
         console.error("❌ AINarrationService also failed, falling back to template:", aiError);
-        narration = generateNarration(selectedTrack, style, djLanguage);
+        narration = generateNarration(selectedTrack as any, style, djLanguage);
         console.log(`🎙️ 回退使用模板生成的旁白: ${narration}`);
       }
     }
   } else {
     // AI disabled, use template directly
-    narration = generateNarration(selectedTrack, style, djLanguage);
+    narration = generateNarration(selectedTrack as any, style, djLanguage);
     console.log(`🎙️ AI 已禁用，使用模板生成的旁白: ${narration}`);
   }
 

@@ -183,7 +183,13 @@ export function StreamModePage() {
         return;
       }
 
-      console.log("[stream] 🎵 Playing music:", t.title, "by", t.artist);
+      console.log("--------------------------------------------------");
+      console.log("[stream] 🎵 STARTING MUSIC PLAYBACK");
+      console.log("[stream] Title:", t.title);
+      console.log("[stream] Artist:", t.artist);
+      console.log("[stream] SRC being set:", t.previewUrl);
+      console.log("--------------------------------------------------");
+
       setStatus(`Playing: ${t.title}`);
       isNarrationPlayingRef.current = false;
       audioRef.current.src = t.previewUrl;
@@ -276,6 +282,13 @@ export function StreamModePage() {
         setMessages(prev => [...prev, { sender: 'dj', text: data.first_segment.dj_text }]);
       }
       if (data.first_segment.next_track) {
+        console.log("--------------------------------------------------");
+        console.log("[stream] RECEIVED FIRST TRACK DATA");
+        console.log("[stream] Track:", data.first_segment.next_track.title, "by", data.first_segment.next_track.artist);
+        console.log("[stream] ID:", data.first_segment.next_track.id);
+        console.log("[stream] Preview URL:", data.first_segment.next_track.previewUrl);
+        console.log("--------------------------------------------------");
+
         setCurrentTrack(data.first_segment.next_track);
         playDJIntroThenSong(
           data.first_segment.dj_audio_base64,
@@ -337,7 +350,13 @@ export function StreamModePage() {
     }
 
     if (data.next_track) {
-      console.log("[stream] next track:", data.next_track.title);
+      console.log("--------------------------------------------------");
+      console.log("[stream] RECEIVED NEXT TRACK DATA");
+      console.log("[stream] Track:", data.next_track.title, "by", data.next_track.artist);
+      console.log("[stream] ID:", data.next_track.id);
+      console.log("[stream] Preview URL:", data.next_track.previewUrl);
+      console.log("--------------------------------------------------");
+
       setCurrentTrack(data.next_track);
       cleanupAllOverlays();
       playDJIntroThenSong(data.dj_audio_base64, data.dj_audio_mime_type || 'audio/mp3', data.next_track);
@@ -401,11 +420,18 @@ export function StreamModePage() {
 
   const handleTrackEnded = () => {
     if (isNarrationPlayingRef.current) {
-      console.log("DJ Intro ended, switching to music...");
+      console.log("[stream] DJ Intro ended, switching to music...");
       isNarrationPlayingRef.current = false;
       
       const t = pendingTrackRef.current;
       if (t && t.previewUrl && audioRef.current) {
+        console.log("--------------------------------------------------");
+        console.log("[stream] 🎵 SWITCHING TO MUSIC (from narration)");
+        console.log("[stream] Title:", t.title);
+        console.log("[stream] Artist:", t.artist);
+        console.log("[stream] SRC being set:", t.previewUrl);
+        console.log("--------------------------------------------------");
+        
         setStatus(`Playing: ${t.title}`);
         audioRef.current.src = t.previewUrl;
         audioRef.current.volume = 1.0;

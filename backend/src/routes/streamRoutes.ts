@@ -222,6 +222,24 @@ streamRouter.post("/init", async (req, res) => {
 
     // Generate narration for the FIRST resolved track
     const firstTrack = resolvedTracks[0];
+    console.log("--------------------------------------------------");
+    console.log("[stream] >>> INITIAL TRACK <<<");
+    console.log("[stream] Track ID:", firstTrack?.id);
+    console.log("[stream] Track Title:", firstTrack?.title);
+    console.log("[stream] Track Artist:", firstTrack?.artist);
+    if (firstTrack?.source === "local" && firstTrack?.previewUrl?.includes("/stream/")) {
+      try {
+        const b64 = firstTrack.previewUrl.split("/stream/")[1];
+        const decodedPath = Buffer.from(b64, "base64url").toString();
+        console.log("[stream] Local File Path:", decodedPath);
+      } catch (e) {
+        console.log("[stream] Preview URL:", firstTrack.previewUrl);
+      }
+    } else {
+      console.log("[stream] Preview URL:", firstTrack?.previewUrl);
+    }
+    console.log("--------------------------------------------------");
+
     let firstNarration = playlistResp.intro_talk; 
 
     if (firstTrack) {
@@ -378,7 +396,23 @@ async function serveNextSegment(track: Track, reqBody: any, res: any) {
     wiki = await getSongWiki(track.id); 
   } catch (e) {}
 
-  console.log("[stream] next track from playlist:", track.title, "by", track.artist);
+  console.log("--------------------------------------------------");
+  console.log("[stream] >>> SERVING NEXT SEGMENT <<<");
+  console.log("[stream] Track ID:", track.id);
+  console.log("[stream] Track Title:", track.title);
+  console.log("[stream] Track Artist:", track.artist);
+  if (track.source === "local" && track.previewUrl?.includes("/stream/")) {
+    try {
+      const b64 = track.previewUrl.split("/stream/")[1];
+      const decodedPath = Buffer.from(b64, "base64url").toString();
+      console.log("[stream] Local File Path:", decodedPath);
+    } catch (e) {
+      console.log("[stream] Preview URL:", track.previewUrl);
+    }
+  } else {
+    console.log("[stream] Preview URL:", track.previewUrl);
+  }
+  console.log("--------------------------------------------------");
 
   // Build TrackInfo for the DJ agent
   const trackInfo = {

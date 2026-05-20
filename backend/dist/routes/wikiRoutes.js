@@ -2,7 +2,7 @@ import { Router } from "express";
 import { getAllSongs, getSongWiki, updateSongWiki, searchWiki } from "../services/wikiService.js";
 import { generateNarration, generateRandomNarration } from "../services/narrationGenerator.js";
 import { generateAINarration } from "../services/AINarrationService.js";
-import { getRuntimeSettings } from "../services/storageService.js";
+import { getRuntimeSettings, getPreferences } from "../services/storageService.js";
 import { RadioDJAgent } from "lobster-radio-agents";
 export const wikiRouter = Router();
 // 获取所有歌曲 Wiki
@@ -32,7 +32,10 @@ wikiRouter.get("/song/:id", async (req, res) => {
 // 更新歌曲 Wiki
 wikiRouter.put("/song/:id", async (req, res) => {
     try {
-        const updated = await updateSongWiki(req.params.id, req.body);
+        const data = req.body;
+        // Ensure we track when an edit happens
+        data.lastUpdated = new Date().toISOString();
+        const updated = await updateSongWiki(req.params.id, data);
         res.json(updated);
     }
     catch (e) {
@@ -48,6 +51,24 @@ wikiRouter.get("/search", async (req, res) => {
     }
     catch (e) {
         res.status(500).json({ error: "Failed to search wiki" });
+    }
+});
+// 手动触发补全
+wikiRouter.post("/song/:id/enrich", async (req, res) => {
+    try {
+        const { enqueueWikiEnrichment, getSongWiki, updateSongWiki } = await import("../services/wikiService.js");
+        const song = await getSongWiki(req.params.id);
+        if (!song) {
+            res.status(404).json({ error: "Song not found" });
+            return;
+        }
+        // 重置状态为 pending 并触发异步补全
+        const updated = await updateSongWiki(song.id, { enrichmentStatus: 'pending' });
+        enqueueWikiEnrichment(updated);
+        res.json({ status: "pending", message: "Enrichment started" });
+    }
+    catch (e) {
+        res.status(500).json({ error: "Failed to start enrichment" });
     }
 });
 // 生成歌曲中间的闲聊插话
@@ -127,7 +148,7 @@ wikiRouter.post("/narration/:id", async (req, res) => {
                 const djAgent = new RadioDJAgent();
                 const prefs = await getPreferences();
                 // 自动包含最近的聊天历史作为上下文
-                const recentChat = prefs.chatHistory.slice(-5).map(m => `${m.role === 'user' ? '听众' : 'DJ小龙'}: ${m.content}`).join("\n");
+                const recentChat = (prefs.chatHistory || []).slice(-5).map((m) => `${m.role === 'user' ? '听众' : 'DJ小龙'}: ${m.content}`).join("\n");
                 const contextSummary = `正在播放列表。用户喜欢：${prefs.likes.join(", ")}。\n最近对话：\n${recentChat}`;
                 narration = await djAgent.generateIntro(song, Object.keys(prefs.moodAffinity)[0] || "Working", style || "classic", language || "zh-CN", contextSummary, prefs.memoryInsight);
             }
@@ -206,7 +227,7 @@ wikiRouter.post("/outro/:id", async (req, res) => {
         let outro;
         // 获取偏好和历史
         const prefs = await getPreferences();
-        const recentChat = prefs.chatHistory.slice(-5).map(m => `${m.role === 'user' ? '听众' : 'DJ小龙'}: ${m.content}`).join("\n");
+        const recentChat = (prefs.chatHistory || []).slice(-5).map((m) => `${m.role === 'user' ? '听众' : 'DJ小龙'}: ${m.content}`).join("\n");
         const contextSummary = providedContext || `最近对话：\n${recentChat}`;
         const memoryInsight = req.body.memoryInsight || prefs.memoryInsight;
         // 如果有预存的 outro 素材且没有 memoryInsight (意味着没有特殊需求)，随机选一条

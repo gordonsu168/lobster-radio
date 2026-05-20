@@ -89,33 +89,14 @@ async function synthesizeWithElevenLabs(text, voice = "rachel", emotion = "norma
     return result;
 }
 const execAsync = promisify(exec);
-// TTS 缓存文件路径
-const CACHE_FILE = path.join(path.dirname(new URL(import.meta.url).pathname), "../../data/tts-cache.json");
-// 内存缓存 + 文件持久化
-let memoryCache = {};
-// 加载缓存
-function loadCache() {
-    try {
-        if (fs.existsSync(CACHE_FILE)) {
-            const data = fs.readFileSync(CACHE_FILE, "utf-8");
-            memoryCache = JSON.parse(data);
-            console.log(`📦 TTS 缓存已加载: ${Object.keys(memoryCache).length} 条记录`);
-        }
-    }
-    catch (e) {
-        console.warn("⚠️ 加载 TTS 缓存失败，使用空缓存:", e.message);
-        memoryCache = {};
-    }
-}
-// 保存缓存
-function saveCache() {
-    try {
-        fs.mkdirSync(path.dirname(CACHE_FILE), { recursive: true });
-        fs.writeFileSync(CACHE_FILE, JSON.stringify(memoryCache, null, 2));
-    }
-    catch (e) {
-        console.warn("⚠️ 保存 TTS 缓存失败:", e.message);
-    }
+// TTS 缓存目录
+const CACHE_DIR = path.join(path.dirname(new URL(import.meta.url).pathname), "../../data/tts-cache");
+// 获取缓存文件路径
+function getCachePaths(key) {
+    return {
+        meta: path.join(CACHE_DIR, `${key}.json`),
+        audio: path.join(CACHE_DIR, `${key}.bin`),
+    };
 }
 // 生成缓存 key
 function getCacheKey(text, voice, provider) {
@@ -125,20 +106,49 @@ function getCacheKey(text, voice, provider) {
 // 获取缓存
 function getCache(text, voice, provider) {
     const key = getCacheKey(text, voice, provider);
-    return memoryCache[key] || null;
+    const paths = getCachePaths(key);
+    if (fs.existsSync(paths.meta) && fs.existsSync(paths.audio)) {
+        try {
+            const meta = JSON.parse(fs.readFileSync(paths.meta, "utf-8"));
+            const audioBuffer = fs.readFileSync(paths.audio);
+            return {
+                ...meta,
+                audioBase64: audioBuffer.toString("base64"),
+            };
+        }
+        catch (e) {
+            return null;
+        }
+    }
+    return null;
 }
 // 设置缓存
 function setCache(text, voice, provider, data) {
     const key = getCacheKey(text, voice, provider);
-    memoryCache[key] = {
-        ...data,
+    const paths = getCachePaths(key);
+    const { audioBase64, ...metaWithoutAudio } = data;
+    const meta = {
+        ...metaWithoutAudio,
         cachedAt: new Date().toISOString(),
     };
-    // 异步保存，不阻塞
-    setImmediate(saveCache);
+    // 异步写入文件
+    setImmediate(() => {
+        try {
+            if (!fs.existsSync(CACHE_DIR)) {
+                fs.mkdirSync(CACHE_DIR, { recursive: true });
+            }
+            fs.writeFileSync(paths.meta, JSON.stringify(meta, null, 2));
+            fs.writeFileSync(paths.audio, Buffer.from(audioBase64, "base64"));
+        }
+        catch (e) {
+            console.warn(`⚠️ 写入 TTS 缓存失败 (${key}):`, e.message);
+        }
+    });
 }
-// 启动时加载缓存
-loadCache();
+// 确保缓存目录存在
+if (!fs.existsSync(CACHE_DIR)) {
+    fs.mkdirSync(CACHE_DIR, { recursive: true });
+}
 // 可用的 Mac 中文语音 - 按音质排序
 const MAC_VOICES = {
     "alloy": "Meijia", // 美佳 - 温暖女声

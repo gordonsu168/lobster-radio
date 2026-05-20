@@ -1,9 +1,13 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { getSettings, saveSettings, getVoices, API_BASE } from "../lib/api";
+import { 
+  getSettings, saveSettings, getVoices, API_BASE, 
+  getDJIdentity, saveDJIdentity, getDJPersona, saveDJPersona,
+  type DJIdentity 
+} from "../lib/api";
 import type { RuntimeSettings } from "../types";
 import type { VoiceInfo } from "../lib/api";
 
-const initialState: RuntimeSettings = {
+const initialSettings: RuntimeSettings = {
   spotifyClientId: "",
   spotifyClientSecret: "",
   neteaseApiEnabled: true,
@@ -18,8 +22,20 @@ const initialState: RuntimeSettings = {
   localMusicPath: ""
 };
 
+const initialIdentity: DJIdentity = {
+  name: "",
+  englishName: "",
+  programName: "",
+  englishProgramName: "",
+  persona: "",
+  englishPersona: ""
+};
+
 export function SettingsPage() {
-  const [settings, setSettings] = useState<RuntimeSettings>(initialState);
+  const [settings, setSettings] = useState<RuntimeSettings>(initialSettings);
+  const [identity, setIdentity] = useState<DJIdentity>(initialIdentity);
+  const [persona, setPersona] = useState<string>("");
+  
   const [status, setStatus] = useState<string>("");
   const [availableVoices, setAvailableVoices] = useState<VoiceInfo[]>([]);
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -29,13 +45,20 @@ export function SettingsPage() {
     void getSettings()
       .then(setSettings)
       .catch(() => setStatus("Unable to load saved settings."));
+      
+    void getDJIdentity()
+      .then(setIdentity)
+      .catch(() => console.error("Unable to load DJ identity."));
+
+    void getDJPersona()
+      .then((res) => setPersona(res.persona))
+      .catch(() => console.error("Unable to load DJ persona."));
   }, []);
 
   useEffect(() => {
     getVoices(settings.defaultTtsProvider)
       .then((res) => {
         setAvailableVoices(res.voices);
-        // If current voice isn't in the new provider's list, pick one matching djLanguage
         const voices = res.voices;
         if (voices.length > 0 && !voices.find((v) => v.id === settings.defaultVoice)) {
           const match = voices.find((v) => v.lang === settings.djLanguage) || voices[0];
@@ -49,7 +72,6 @@ export function SettingsPage() {
     const voice = availableVoices.find((v) => v.id === settings.defaultVoice);
     if (!voice) return;
 
-    // Stop any currently playing preview
     if (previewAudio) {
       previewAudio.pause();
       previewAudio.src = "";
@@ -65,7 +87,6 @@ export function SettingsPage() {
     audio.play().catch(() => setPreviewLoading(false));
   }
 
-  // Stop preview audio on unmount
   useEffect(() => {
     return () => {
       if (previewAudio) {
@@ -77,266 +98,232 @@ export function SettingsPage() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const saved = await saveSettings(settings);
-    setSettings(saved);
-    setStatus("Settings saved.");
+    try {
+      const savedSettings = await saveSettings(settings);
+      setSettings(savedSettings);
+      
+      await saveDJIdentity(identity);
+      await saveDJPersona(persona);
+      
+      setStatus("All settings saved successfully.");
+    } catch (error) {
+      setStatus("Failed to save some settings.");
+    }
   }
 
   return (
-    <div className="mx-auto max-w-3xl rounded-[32px] border border-white/10 bg-white/5 p-8">
-      <p className="text-sm uppercase tracking-[0.35em] text-pulse">Settings</p>
-      <h1 className="mt-4 font-display text-4xl font-bold text-white">Provider configuration</h1>
-      <p className="mt-4 text-base leading-8 text-slate-300">
-        Store local API keys for Spotify, OpenAI, and ElevenLabs. Environment variables still work and are preferred for
-        deployment.
-      </p>
+    <div className="mx-auto max-w-3xl space-y-8 pb-20">
+      <div className="rounded-[32px] border border-white/10 bg-white/5 p-8">
+        <p className="text-sm uppercase tracking-[0.35em] text-pulse">Settings</p>
+        <h1 className="mt-4 font-display text-4xl font-bold text-white">DJ Identify & Persona</h1>
+        <p className="mt-4 text-base leading-8 text-slate-300">
+          Customize who your AI DJ is and how they talk. These changes are saved to DJ_IDENTITY.md and DJ_PERSONA.md.
+        </p>
 
-      <form className="mt-8 space-y-5" onSubmit={handleSubmit}>
-        <Field
-          label="Spotify Client ID"
-          value={settings.spotifyClientId}
-          onChange={(value) => setSettings((current) => ({ ...current, spotifyClientId: value }))}
-        />
-        <Field
-          label="Spotify Client Secret"
-          type="password"
-          value={settings.spotifyClientSecret}
-          onChange={(value) => setSettings((current) => ({ ...current, spotifyClientSecret: value }))}
-        />
-
-        <div>
-          <label className="mb-2 block text-sm font-semibold text-white">网易云音乐</label>
-          <label className="flex cursor-pointer items-center gap-3 mb-3">
-            <input
-              type="checkbox"
-              checked={settings.neteaseApiEnabled}
-              onChange={(event) =>
-                setSettings((current) => ({
-                  ...current,
-                  neteaseApiEnabled: event.target.checked
-                }))
-              }
-              className="h-5 w-5 accent-pulse"
+        <div className="mt-8 space-y-6">
+          <div className="grid gap-5 md:grid-cols-2">
+            <Field
+              label="DJ Name (中文)"
+              value={identity.name}
+              onChange={(v) => setIdentity({ ...identity, name: v })}
             />
-            <span className="text-white">启用网易云音乐搜索（中文歌曲）</span>
-          </label>
-          <p className="text-sm text-slate-400 mb-2">
-            💡 内置 13 首精选中文歌单。如需实时搜索，请自行部署
-            <a
-              href="https://github.com/Binaryify/NeteaseCloudMusicApi"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-pulse underline"
-            >
-              网易云音乐 API
-            </a>
-            并填写下方地址。
-          </p>
-          <input
-            type="text"
-            value={settings.neteaseApiUrl}
-            onChange={(event) =>
-              setSettings((current) => ({
-                ...current,
-                neteaseApiUrl: event.target.value
-              }))
-            }
-            placeholder="API 地址（如：http://localhost:3000）"
-            className="w-full rounded-2xl border border-white/15 bg-slate-950/80 px-4 py-3 text-white outline-none placeholder:text-slate-500"
-          />
-        </div>
-
-        <div>
-          <label className="mb-2 block text-sm font-semibold text-white">本地音乐库</label>
-          <p className="text-sm text-slate-400 mb-2">
-            🎵 扫描本地音乐文件夹，支持 mp3, flac, wav, m4a, aac, ogg, opus, wma 等格式
-          </p>
-          <input
-            type="text"
-            value={settings.localMusicPath}
-            onChange={(event) =>
-              setSettings((current) => ({
-                ...current,
-                localMusicPath: event.target.value
-              }))
-            }
-            placeholder="音乐文件夹路径（如：/Users/xxx/Music）"
-            className="w-full rounded-2xl border border-white/15 bg-slate-950/80 px-4 py-3 text-white outline-none placeholder:text-slate-500"
-          />
-          <p className="text-xs text-slate-500 mt-2">
-            💡 Mac 用户建议：/Users/[你的用户名]/Music 或 /Users/[你的用户名]/Music/Music/Media.localized
-          </p>
-        </div>
-
-        <div>
-          <label className="mb-2 block text-sm font-semibold text-white">优先音乐源</label>
-          <select
-            value={settings.preferredMusicSource}
-            onChange={(event) =>
-              setSettings((current) => ({
-                ...current,
-                preferredMusicSource: event.target.value as RuntimeSettings["preferredMusicSource"]
-              }))
-            }
-            className="w-full rounded-2xl border border-white/15 bg-slate-950/80 px-4 py-3 text-white outline-none"
-          >
-            <option value="auto">自动（优先本地音乐）</option>
-            <option value="local">本地音乐库</option>
-            <option value="netease">网易云音乐</option>
-            <option value="spotify">Spotify</option>
-          </select>
-        </div>
-        <Field
-          label="OpenAI API Key"
-          type="password"
-          value={settings.openAiApiKey}
-          onChange={(value) => setSettings((current) => ({ ...current, openAiApiKey: value }))}
-        />
-        <Field
-          label="ElevenLabs API Key"
-          type="password"
-          value={settings.elevenLabsApiKey}
-          onChange={(value) => setSettings((current) => ({ ...current, elevenLabsApiKey: value }))}
-        />
-        <div className="grid gap-5 md:grid-cols-2">
-          <div>
-            <label className="mb-2 block text-sm font-semibold text-white">Default TTS Provider</label>
-            <select
-              value={settings.defaultTtsProvider}
-              onChange={(event) =>
-                setSettings((current) => ({
-                  ...current,
-                  defaultTtsProvider: event.target.value as RuntimeSettings["defaultTtsProvider"]
-                }))
-              }
-              className="w-full rounded-2xl border border-white/15 bg-slate-950/80 px-4 py-3 text-white outline-none"
-            >
-              <option value="moss">🤖 MOSS-TTS-Nano (本地0.1B引擎)</option>
-              <option value="edge">🔥 Edge TTS (推荐！粤语超棒)</option>
-              <option value="gemini">Gemini TTS</option>
-              <option value="macsay">Mac Say (系统语音)</option>
-              <option value="openai">OpenAI</option>
-              <option value="elevenlabs">ElevenLabs</option>
-            </select>          </div>
-          <div>
-            <label className="mb-2 block text-sm font-semibold text-white">DJ 语言</label>
-            <select
-              value={settings.djLanguage || "zh-CN"}
-              onChange={(event) =>
-                setSettings((current) => ({
-                  ...current,
-                  djLanguage: event.target.value as RuntimeSettings["djLanguage"]
-                }))
-              }
-              className="w-full rounded-2xl border border-white/15 bg-slate-950/80 px-4 py-3 text-white outline-none mb-4"
-            >
-              <option value="zh-CN">🇨🇳 普通话（推荐）</option>
-              <option value="zh-HK">🇭🇰 粤语 Cantonese</option>
-              <option value="en-US">🇺🇸 英语 English</option>
-            </select>
+            <Field
+              label="DJ Name (English)"
+              value={identity.englishName}
+              onChange={(v) => setIdentity({ ...identity, englishName: v })}
+            />
           </div>
+          
+          <div className="grid gap-5 md:grid-cols-2">
+            <Field
+              label="Program Name (中文)"
+              value={identity.programName}
+              onChange={(v) => setIdentity({ ...identity, programName: v })}
+            />
+            <Field
+              label="Program Name (English)"
+              value={identity.englishProgramName}
+              onChange={(v) => setIdentity({ ...identity, englishProgramName: v })}
+            />
+          </div>
+
+          <Field
+            label="Brief Persona (中文)"
+            value={identity.persona}
+            onChange={(v) => setIdentity({ ...identity, persona: v })}
+          />
+          <Field
+            label="Brief Persona (English)"
+            value={identity.englishPersona}
+            onChange={(v) => setIdentity({ ...identity, englishPersona: v })}
+          />
+
           <div>
-            <label className="mb-2 block text-sm font-semibold text-white">DJ 语音</label>
-            {availableVoices.length > 0 ? (
-              <select
-                value={settings.defaultVoice}
+            <label className="mb-2 block text-sm font-semibold text-white">Full DJ Persona (Markdown)</label>
+            <textarea
+              value={persona}
+              onChange={(e) => setPersona(e.target.value)}
+              className="h-64 w-full rounded-2xl border border-white/15 bg-slate-950/80 px-4 py-3 font-mono text-sm text-white outline-none"
+              placeholder="# Role: ..."
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-[32px] border border-white/10 bg-white/5 p-8">
+        <h2 className="font-display text-2xl font-bold text-white">Provider Configuration</h2>
+        <form className="mt-8 space-y-5" onSubmit={handleSubmit}>
+          <Field
+            label="Spotify Client ID"
+            value={settings.spotifyClientId}
+            onChange={(value) => setSettings((current) => ({ ...current, spotifyClientId: value }))}
+          />
+          <Field
+            label="Spotify Client Secret"
+            type="password"
+            value={settings.spotifyClientSecret}
+            onChange={(value) => setSettings((current) => ({ ...current, spotifyClientSecret: value }))}
+          />
+
+          <div>
+            <label className="mb-2 block text-sm font-semibold text-white">网易云音乐</label>
+            <label className="flex cursor-pointer items-center gap-3 mb-3">
+              <input
+                type="checkbox"
+                checked={settings.neteaseApiEnabled}
                 onChange={(event) =>
                   setSettings((current) => ({
                     ...current,
-                    defaultVoice: event.target.value
+                    neteaseApiEnabled: event.target.checked
+                  }))
+                }
+                className="h-5 w-5 accent-pulse"
+              />
+              <span className="text-white">启用网易云音乐搜索（中文歌曲）</span>
+            </label>
+            <input
+              type="text"
+              value={settings.neteaseApiUrl}
+              onChange={(event) =>
+                setSettings((current) => ({
+                  ...current,
+                  neteaseApiUrl: event.target.value
+                }))
+              }
+              placeholder="API 地址"
+              className="w-full rounded-2xl border border-white/15 bg-slate-950/80 px-4 py-3 text-white outline-none"
+            />
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-semibold text-white">本地音乐库</label>
+            <input
+              type="text"
+              value={settings.localMusicPath}
+              onChange={(event) =>
+                setSettings((current) => ({
+                  ...current,
+                  localMusicPath: event.target.value
+                }))
+              }
+              placeholder="音乐文件夹路径"
+              className="w-full rounded-2xl border border-white/15 bg-slate-950/80 px-4 py-3 text-white outline-none"
+            />
+          </div>
+
+          <div className="grid gap-5 md:grid-cols-2">
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-white">TTS Provider</label>
+              <select
+                value={settings.defaultTtsProvider}
+                onChange={(event) =>
+                  setSettings((current) => ({
+                    ...current,
+                    defaultTtsProvider: event.target.value as RuntimeSettings["defaultTtsProvider"]
                   }))
                 }
                 className="w-full rounded-2xl border border-white/15 bg-slate-950/80 px-4 py-3 text-white outline-none"
               >
-                {["zh-CN", "zh-HK", "en-US", "ja", "ko", "other"].map((lang) => {
-                  const group = availableVoices.filter((v) => v.lang === lang);
-                  if (group.length === 0) return null;
-                  const labels: Record<string, string> = {
-                    "zh-CN": "普通话", "zh-HK": "粤语", "en-US": "英语",
-                    "ja": "日本語", "ko": "한국어", "other": "其他语言"
-                  };
-                  return (
-                    <optgroup key={lang} label={labels[lang] || lang}>
-                      {group.map((v) => (
-                        <option key={v.id} value={v.id}>{v.name}</option>
-                      ))}
-                    </optgroup>
-                  );
-                })}
+                <option value="moss">🤖 MOSS-TTS-Nano</option>
+                <option value="edge">🔥 Edge TTS</option>
+                <option value="gemini">Gemini TTS</option>
+                <option value="macsay">Mac Say</option>
+                <option value="openai">OpenAI</option>
+                <option value="elevenlabs">ElevenLabs</option>
               </select>
-            ) : (
-              <input
-                type="text"
+            </div>
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-white">DJ 语言</label>
+              <select
+                value={settings.djLanguage || "zh-CN"}
+                onChange={(event) =>
+                  setSettings((current) => ({
+                    ...current,
+                    djLanguage: event.target.value as RuntimeSettings["djLanguage"]
+                  }))
+                }
+                className="w-full rounded-2xl border border-white/15 bg-slate-950/80 px-4 py-3 text-white outline-none"
+              >
+                <option value="zh-CN">🇨🇳 普通话</option>
+                <option value="zh-HK">🇭🇰 粤语</option>
+                <option value="en-US">🇺🇸 英语</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="grid gap-5 md:grid-cols-2">
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-white">DJ 语音</label>
+              <select
                 value={settings.defaultVoice}
                 onChange={(event) =>
                   setSettings((current) => ({ ...current, defaultVoice: event.target.value }))
                 }
                 className="w-full rounded-2xl border border-white/15 bg-slate-950/80 px-4 py-3 text-white outline-none"
-                placeholder="输入语音 ID"
-              />
-            )}
-            <button
-              type="button"
-              onClick={handlePreview}
-              disabled={previewLoading || availableVoices.length === 0}
-              className="mt-2 rounded-full bg-pulse px-4 py-1.5 text-sm font-semibold text-white transition hover:scale-[1.02] disabled:opacity-50"
-            >
-              {previewLoading ? "⏳ 合成中..." : "🔊 试听"}
+              >
+                {availableVoices.map((v) => (
+                  <option key={v.id} value={v.id}>{v.name} ({v.lang})</option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={handlePreview}
+                disabled={previewLoading || availableVoices.length === 0}
+                className="mt-2 rounded-full bg-pulse px-4 py-1.5 text-sm font-semibold text-white transition hover:scale-[1.02] disabled:opacity-50"
+              >
+                {previewLoading ? "⏳ 合成中..." : "🔊 试听"}
+              </button>
+            </div>
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-white">🎭 DJ 情绪风格</label>
+              <select
+                value={settings.djEmotion || "normal"}
+                onChange={(event) =>
+                  setSettings((current) => ({
+                    ...current,
+                    djEmotion: event.target.value as RuntimeSettings["djEmotion"]
+                  }))
+                }
+                className="w-full rounded-2xl border border-white/15 bg-slate-950/80 px-4 py-3 text-white outline-none"
+              >
+                <option value="normal">😐 正常</option>
+                <option value="happy">😊 开心</option>
+                <option value="calm">😌 平静</option>
+                <option value="excited">🤩 兴奋</option>
+                <option value="sad">😢 悲伤</option>
+                <option value="whisper">🤫 耳语</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="pt-4">
+            <button className="w-full rounded-full bg-white px-5 py-4 text-lg font-bold text-slate-950 shadow-xl transition hover:scale-[1.01] hover:bg-slate-100 active:scale-95">
+              Save All Settings
             </button>
+            {status ? <p className="mt-4 text-center text-sm font-medium text-pulse animate-pulse">{status}</p> : null}
           </div>
-          <div>
-            <label className="mb-2 block text-sm font-semibold text-white">🎭 DJ 情绪风格</label>
-            <select
-              value={settings.djEmotion || "normal"}
-              onChange={(event) =>
-                setSettings((current) => ({
-                  ...current,
-                  djEmotion: event.target.value as RuntimeSettings["djEmotion"]
-                }))
-              }
-              className="w-full rounded-2xl border border-white/15 bg-slate-950/80 px-4 py-3 text-white outline-none"
-            >
-              <option value="normal">😐 正常 - 标准语调</option>
-              <option value="happy">😊 开心 - 欢快愉悦</option>
-              <option value="calm">😌 平静 - 放松舒缓</option>
-              <option value="excited">🤩 兴奋 - 充满活力</option>
-              <option value="sad">😢 悲伤 - 低沉温柔</option>
-              <option value="angry">😠 有力 - 激动有气势</option>
-              <option value="whisper">🤫 耳语 - 低声私密</option>
-              <option value="radio">📻 电台 - 专业主持风格</option>
-            </select>
-            <p className="mt-2 text-xs text-slate-400">
-              💡 情绪调整目前仅支持 ElevenLabs TTS Provider
-            </p>
-          </div>
-        </div>
-
-        <div>
-          <label className="mb-2 block text-sm font-semibold text-white">AI 功能</label>
-          <label className="flex cursor-pointer items-center gap-3 mb-3">
-            <input
-              type="checkbox"
-              checked={settings.enableAiNarration ?? true}
-              onChange={(event) =>
-                setSettings((current) => ({
-                  ...current,
-                  enableAiNarration: event.target.checked
-                }))
-              }
-              className="h-5 w-5 accent-pulse"
-            />
-            <span className="text-white">AI 智能旁白</span>
-          </label>
-          <p className="text-sm text-slate-400">
-            使用 Gemini AI 生成更自然多样的开场白，关闭则使用固定模板。需要配置 GEMINI_API_KEY。
-          </p>
-        </div>
-
-        <button className="rounded-full bg-white px-5 py-3 font-semibold text-slate-950 transition hover:scale-[1.02]">
-          Save Settings
-        </button>
-        {status ? <p className="text-sm text-mist">{status}</p> : null}
-      </form>
+        </form>
+      </div>
     </div>
   );
 }

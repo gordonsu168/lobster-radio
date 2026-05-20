@@ -106,8 +106,8 @@ export async function getSongWiki(songId: string): Promise<SongWiki | null> {
     const fallbackTrack = fallbackCatalog.find(t => t.id === songId);
     if (fallbackTrack) {
       const key = `${fallbackTrack.title} - ${fallbackTrack.artist}`.toLowerCase();
-      foundWiki = Object.values(wiki.songs).find(s => `${s.title} - ${s.artist}`.toLowerCase() === key) || null;
-      if (!foundWiki) foundWiki = generateDefaultWiki(fallbackTrack);
+      const existing = Object.values(wiki.songs).find(s => `${s.title} - ${s.artist}`.toLowerCase() === key);
+      foundWiki = existing || generateDefaultWiki(fallbackTrack);
     }
   }
 
@@ -116,8 +116,8 @@ export async function getSongWiki(songId: string): Promise<SongWiki | null> {
     const localTrack = await getLocalTrackById(songId);
     if (localTrack) {
       const key = `${localTrack.title} - ${localTrack.artist}`.toLowerCase();
-      foundWiki = Object.values(wiki.songs).find(s => `${s.title} - ${s.artist}`.toLowerCase() === key) || null;
-      if (!foundWiki) foundWiki = generateDefaultWiki(localTrack);
+      const existing = Object.values(wiki.songs).find(s => `${s.title} - ${s.artist}`.toLowerCase() === key);
+      foundWiki = existing || generateDefaultWiki(localTrack);
     }
   }
 
@@ -133,7 +133,7 @@ export async function getSongWiki(songId: string): Promise<SongWiki | null> {
 const enrichmentQueue = new Set<string>();
 
 export async function enrichSongWithLLM(title: string, artist: string): Promise<Partial<SongWiki> | null> {
-  const { createOptionalModel } = await import("lobster-radio-agents/dist/lib/model.js");
+  const { createOptionalModel } = await import("lobster-radio-agents");
   const model = createOptionalModel();
   if (!model) return null;
 
@@ -244,6 +244,8 @@ export async function updateSongWiki(songId: string, data: Partial<SongWiki>): P
       title: "",
       artist: "",
       album: "",
+      enrichmentStatus: 'pending',
+      lastUpdated: new Date().toISOString(),
       ...data
     };
   } else {

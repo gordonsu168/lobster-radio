@@ -1,4 +1,4 @@
-import type { DJLanguage, DJStyle, MoodOption, ThemeContext, ThemePhase } from "../types.js";
+import type { DJLanguage, DJStyle, MoodOption, ThemeContext, ThemePhase, DJIdentity } from "../types.js";
 import type { SongWiki } from "./RadioDJAgent.js";
 export interface MidSongInsert {
     text: string;
@@ -55,6 +55,8 @@ export interface NarrationResponse {
     };
 }
 export declare class StreamDJAgent {
+    private identity;
+    constructor(identity?: DJIdentity);
     private getTimeOfDay;
     private getTimeTone;
     private getStyleDescription;

@@ -27,7 +27,7 @@ async function runNcmCli(args: string[]): Promise<any> {
     const { stdout } = await execAsync(cmd, { timeout: 15000 });
     if (!stdout.trim()) return null;
     return JSON.parse(stdout);
-  } catch (e) {
+  } catch (e: any) {
     if (e.killed) {
       console.error(`[ncm-cli] 命令超时 (15s): ${cmd}`);
     } else {

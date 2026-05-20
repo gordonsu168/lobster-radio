@@ -7,3 +7,4 @@ export { LearningAgent } from "./agents/LearningAgent.js";
 export { ProducerAgent } from "./agents/ProducerAgent.js";
 export { MemoryAgent } from "./agents/MemoryAgent.js";
 export * from "./lib/MemorySummarizer.js";
+export { createOptionalModel } from "./lib/model.js";

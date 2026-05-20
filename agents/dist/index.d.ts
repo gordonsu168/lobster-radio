@@ -8,5 +8,6 @@ export { LearningAgent } from "./agents/LearningAgent.js";
 export { ProducerAgent } from "./agents/ProducerAgent.js";
 export { MemoryAgent } from "./agents/MemoryAgent.js";
 export * from "./lib/MemorySummarizer.js";
+export { createOptionalModel } from "./lib/model.js";
 export type { ChatMessage, DJLanguage, DJStyle, MoodOption, PlaybackHistoryItem, Preferences, Track } from "./types.js";
 export type { ToolCall } from "./agents/ProducerAgent.js";

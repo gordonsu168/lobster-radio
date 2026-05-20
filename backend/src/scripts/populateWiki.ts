@@ -40,9 +40,8 @@ async function populateWiki() {
     try {
       await processSingleSong(song);
       success++;
-    } catch (error) {
+    } catch (error: any) {
       console.error(`  ❌ 处理 ${song.title} 时发生非预期错误:`, error.message);
-      fail++;
     }
 
     // 稍微停顿，释放系统资源，防止 ncm-cli 堆积

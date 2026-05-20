@@ -56,6 +56,37 @@ export function saveSettings(settings: RuntimeSettings) {
   });
 }
 
+export interface DJIdentity {
+  name: string;
+  englishName: string;
+  programName: string;
+  englishProgramName: string;
+  persona: string;
+  englishPersona: string;
+}
+
+export function getDJIdentity() {
+  return request<DJIdentity>("/api/settings/dj-identity");
+}
+
+export function saveDJIdentity(identity: DJIdentity) {
+  return request<{ success: boolean }>("/api/settings/dj-identity", {
+    method: "PUT",
+    body: JSON.stringify(identity)
+  });
+}
+
+export function getDJPersona() {
+  return request<{ persona: string }>("/api/settings/dj-persona");
+}
+
+export function saveDJPersona(persona: string) {
+  return request<{ success: boolean }>("/api/settings/dj-persona", {
+    method: "PUT",
+    body: JSON.stringify({ persona })
+  });
+}
+
 export function synthesizeNarration(text: string, voice: string, options?: { provider?: string; emotion?: string; language?: string }) {
   return request<{
     provider: string;

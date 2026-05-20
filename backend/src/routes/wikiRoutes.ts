@@ -9,7 +9,7 @@ import {
 } from "../services/wikiService.js";
 import { generateNarration, generateRandomNarration, type DJStyle } from "../services/narrationGenerator.js";
 import { generateAINarration } from "../services/AINarrationService.js";
-import { getRuntimeSettings } from "../services/storageService.js";
+import { getRuntimeSettings, getPreferences } from "../services/storageService.js";
 import { NarratorAgent, RadioDJAgent, type DJLanguage } from "lobster-radio-agents";
 
 export const wikiRouter = Router();
@@ -60,6 +60,26 @@ wikiRouter.get("/search", async (req: Request, res: Response) => {
     res.json({ count: results.length, results });
   } catch (e) {
     res.status(500).json({ error: "Failed to search wiki" });
+  }
+});
+
+// 手动触发补全
+wikiRouter.post("/song/:id/enrich", async (req: Request, res: Response) => {
+  try {
+    const { enqueueWikiEnrichment, getSongWiki, updateSongWiki } = await import("../services/wikiService.js");
+    const song = await getSongWiki(req.params.id as string);
+    if (!song) {
+      res.status(404).json({ error: "Song not found" });
+      return;
+    }
+
+    // 重置状态为 pending 并触发异步补全
+    const updated = await updateSongWiki(song.id, { enrichmentStatus: 'pending' });
+    enqueueWikiEnrichment(updated);
+    
+    res.json({ status: "pending", message: "Enrichment started" });
+  } catch (e) {
+    res.status(500).json({ error: "Failed to start enrichment" });
   }
 });
 
@@ -150,7 +170,7 @@ wikiRouter.post("/narration/:id", async (req: Request, res: Response) => {
         const prefs = await getPreferences();
         
         // 自动包含最近的聊天历史作为上下文
-        const recentChat = prefs.chatHistory.slice(-5).map(m => `${m.role === 'user' ? '听众' : 'DJ小龙'}: ${m.content}`).join("\n");
+        const recentChat = (prefs.chatHistory || []).slice(-5).map((m: any) => `${m.role === 'user' ? '听众' : 'DJ小龙'}: ${m.content}`).join("\n");
         const contextSummary = `正在播放列表。用户喜欢：${prefs.likes.join(", ")}。\n最近对话：\n${recentChat}`;
         
         narration = await djAgent.generateIntro(
@@ -242,8 +262,9 @@ wikiRouter.post("/outro/:id", async (req: Request, res: Response) => {
 
     // 获取偏好和历史
     const prefs = await getPreferences();
-    const recentChat = prefs.chatHistory.slice(-5).map(m => `${m.role === 'user' ? '听众' : 'DJ小龙'}: ${m.content}`).join("\n");
+    const recentChat = (prefs.chatHistory || []).slice(-5).map((m: any) => `${m.role === 'user' ? '听众' : 'DJ小龙'}: ${m.content}`).join("\n");
     const contextSummary = providedContext || `最近对话：\n${recentChat}`;
+
     const memoryInsight = (req.body as any).memoryInsight || prefs.memoryInsight;
 
     // 如果有预存的 outro 素材且没有 memoryInsight (意味着没有特殊需求)，随机选一条

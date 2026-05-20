@@ -12,7 +12,7 @@ export function WikiPage() {
     fetch("/api/wiki")
       .then((res) => res.json())
       .then((data) => {
-        setSongs(data.songs);
+        setSongs(data.songs || []);
         setLoading(false);
       })
       .catch(() => setLoading(false));
@@ -58,6 +58,56 @@ export function WikiPage() {
       loadData();
     } catch (e) {
       console.error("Set pending failed:", e);
+    }
+  };
+
+  // 重新获取信息
+  const refetchInfo = async (id: string) => {
+    try {
+      setLoading(true);
+      const res = await fetch(`/api/wiki/song/${id}/enrich`, {
+        method: "POST"
+      });
+      
+      if (!res.ok) throw new Error("Failed to start enrichment");
+
+      // Start polling for results
+      let attempts = 0;
+      const maxAttempts = 30; // 30 seconds max
+      
+      const poll = async () => {
+        if (attempts >= maxAttempts) {
+          setLoading(false);
+          alert("Enrichment is taking longer than expected. Please check back later.");
+          return;
+        }
+
+        attempts++;
+        const songRes = await fetch(`/api/wiki/song/${id}`);
+        if (songRes.ok) {
+          const updatedSong = await songRes.json();
+          if (updatedSong.enrichmentStatus === 'completed' || updatedSong.enrichmentStatus === 'failed') {
+            setSelectedSong(updatedSong);
+            setLoading(false);
+            loadData(); // Refresh list too
+            if (updatedSong.enrichmentStatus === 'completed') {
+              alert("AI Enrichment complete! Fields have been updated.");
+            } else {
+              alert("AI Enrichment failed to find new info.");
+            }
+          } else {
+            // Still pending, wait and try again
+            setTimeout(poll, 1000);
+          }
+        } else {
+          setLoading(false);
+        }
+      };
+
+      poll();
+    } catch (e) {
+      console.error("Refetch failed:", e);
+      setLoading(false);
     }
   };
 
@@ -126,13 +176,40 @@ export function WikiPage() {
           ) : (
             <div className="space-y-6">
               <div className="flex items-start justify-between border-b border-white/10 pb-4">
-                <div>
-                  <h2 className="font-display text-2xl font-bold text-white mb-1">
-                    {selectedSong.title}
-                  </h2>
-                  <p className="text-mist text-sm">{selectedSong.artist} • {selectedSong.album}</p>
+                <div className="flex-1 mr-4">
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block pb-1 text-[10px] text-white/30 uppercase font-bold tracking-tighter">歌曲标题</label>
+                      <input
+                        type="text"
+                        value={selectedSong.title}
+                        onChange={(e) => setSelectedSong({ ...selectedSong, title: e.target.value })}
+                        className="w-full font-display text-2xl font-bold text-white bg-white/5 border border-white/10 rounded-xl px-3 py-1 outline-none focus:border-pulse/50"
+                      />
+                    </div>
+                    <div className="flex gap-4">
+                      <div className="flex-1">
+                        <label className="block pb-1 text-[10px] text-white/30 uppercase font-bold tracking-tighter">艺术家</label>
+                        <input
+                          type="text"
+                          value={selectedSong.artist}
+                          onChange={(e) => setSelectedSong({ ...selectedSong, artist: e.target.value })}
+                          className="w-full text-mist text-sm bg-white/5 border border-white/10 rounded-lg px-3 py-1 outline-none focus:border-pulse/50"
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <label className="block pb-1 text-[10px] text-white/30 uppercase font-bold tracking-tighter">专辑</label>
+                        <input
+                          type="text"
+                          value={selectedSong.album}
+                          onChange={(e) => setSelectedSong({ ...selectedSong, album: e.target.value })}
+                          className="w-full text-mist text-sm bg-white/5 border border-white/10 rounded-lg px-3 py-1 outline-none focus:border-pulse/50"
+                        />
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex flex-col items-end gap-2">
+                <div className="flex flex-col items-end gap-2 shrink-0">
                   <span className={`px-2 py-1 rounded text-[10px] uppercase font-bold tracking-wider ${
                     selectedSong.enrichmentStatus === 'completed' ? 'bg-green-500/20 text-green-400' :
                     selectedSong.enrichmentStatus === 'failed' ? 'bg-red-500/20 text-red-400' : 
@@ -244,17 +321,6 @@ export function WikiPage() {
                       placeholder="维基百科爬取的原始长段落摘要..."
                     />
                   </div>
-
-                  <div>
-                    <label className="block pb-1 text-xs text-white/50 uppercase">歌词 (Lyrics)</label>
-                    <textarea
-                      value={selectedSong.lyric || ""}
-                      onChange={(e) => setSelectedSong({ ...selectedSong, lyric: e.target.value })}
-                      rows={6}
-                      className="w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-sm font-mono text-white outline-none focus:border-pulse/50 resize-y"
-                      placeholder="歌曲完整歌词..."
-                    />
-                  </div>
                 </div>
               </div>
 
@@ -275,7 +341,14 @@ export function WikiPage() {
               </div>
 
               {/* 保存按钮 */}
-              <div className="pt-6 flex justify-end">
+              <div className="pt-6 flex justify-end gap-4">
+                <button
+                  onClick={() => refetchInfo(selectedSong.id)}
+                  disabled={loading}
+                  className="rounded-xl bg-white/10 px-6 py-3 font-bold text-white transition hover:bg-white/20 active:scale-95 disabled:opacity-50"
+                >
+                  {loading ? "Processing..." : "Refetch AI Info"}
+                </button>
                 <button
                   onClick={() => saveSong(selectedSong.id, selectedSong)}
                   className="rounded-xl bg-pulse px-8 py-3 font-bold text-black transition hover:scale-105 active:scale-95 shadow-[0_0_15px_rgba(var(--color-pulse),0.3)]"

@@ -133,7 +133,7 @@ async function parseTrack(filePath) {
         title,
         artist,
         album,
-        previewUrl: `${baseUrl}/api/library/stream/${filePathBase64}`,
+        previewUrl: `/api/library/stream/${filePathBase64}`,
         artwork: "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?auto=format&fit=crop&w=500&q=80",
         moodTags: [...moods, "local", "本地"],
         energy,

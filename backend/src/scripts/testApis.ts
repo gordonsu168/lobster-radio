@@ -61,7 +61,7 @@ async function testNetease() {
     } else {
       console.log(`❌ 网易云搜索无结果，请检查 API 是否正常运行`);
     }
-  } catch (e) {
+  } catch (e: any) {
     console.error(`❌ 网易云 API 连接失败:`, e.message);
   }
 }
