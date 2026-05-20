@@ -40,11 +40,38 @@ export function StreamModePage() {
   const [inputText, setInputText] = useState("");
   const [themeContext, setThemeContext] = useState<ThemeContext | null>(null);
   const [playlist, setPlaylist] = useState<Track[]>([]);
+  const [showScrollButton, setShowScrollButton] = useState(false);
 
   const audioRef = useRef<HTMLAudioElement>(null);
   const isFetchingRef = useRef(false);
   const isNarrationPlayingRef = useRef(false);
   const narrationUrlRef = useRef<string | null>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
+
+  // Auto scroll to bottom
+  useEffect(() => {
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+    }
+  }, [messages]);
+
+  const handleScroll = () => {
+    if (chatContainerRef.current) {
+      const { scrollTop, scrollHeight, clientHeight } = chatContainerRef.current;
+      // Show button if we're more than 100px from bottom
+      const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
+      setShowScrollButton(!isNearBottom);
+    }
+  };
+
+  const scrollToBottom = () => {
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTo({
+        top: chatContainerRef.current.scrollHeight,
+        behavior: 'smooth'
+      });
+    }
+  };
 
   // Overlay narration (mid-song inserts)
   const activeOverlayAudiosRef = useRef<HTMLAudioElement[]>([]);
@@ -464,9 +491,9 @@ export function StreamModePage() {
   };
 
   return (
-    <div className="flex flex-col gap-6 lg:flex-row">
-      <div className="flex-1 shrink-0 flex flex-col gap-6">
-        <div className="rounded-[32px] border border-white/10 bg-black/20 p-8 backdrop-blur text-center flex flex-col items-center shadow-2xl relative">
+    <div className="flex flex-col gap-6 lg:flex-row items-start">
+      <div className="flex-1 flex flex-col gap-6 w-full min-w-0">
+        <div className="rounded-[32px] border border-white/10 bg-black/20 p-8 backdrop-blur text-center flex flex-col items-center shadow-2xl relative shrink-0">
           
           {/* Status Indicator */}
           <div className="absolute top-6 right-8 flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/5 text-[10px] font-bold tracking-widest uppercase">
@@ -534,38 +561,43 @@ export function StreamModePage() {
         </div>
 
         {playlist.length > 0 && (
-          <TrackQueue
-            tracks={playlist}
-            currentTrackId={currentTrack?.id ?? null}
-            compact={true}
-            onSelect={(track: Track) => {
-              // In stream mode, selecting a track from the queue triggers a skip
-              // and immediate play of that track.
-              if (isFetchingRef.current) return;
-              
-              if (audioRef.current) {
-                audioRef.current.pause();
-                audioRef.current.src = "";
-                audioRef.current.load();
-              }
-              
-              // Remove this track and anything before it from the playlist
-              const idx = playlist.findIndex(t => t.id === track.id);
-              if (idx !== -1) {
-                setPlaylist(prev => prev.slice(idx + 1));
-              }
-              
-              setCurrentTrack(track);
-              cleanupAllOverlays();
-              playDJIntroThenSong(null, "audio/mp3", track);
-            }}
-          />
+          <div className="bg-white/5 border border-white/10 rounded-[28px] flex flex-col overflow-hidden max-h-[600px]">
+            <div className="overflow-y-auto custom-scrollbar">
+              <TrackQueue
+                tracks={playlist}
+                currentTrackId={currentTrack?.id ?? null}
+                compact={true}
+                className="bg-transparent border-none shadow-none"
+                onSelect={(track: Track) => {
+                  // In stream mode, selecting a track from the queue triggers a skip
+                  // and immediate play of that track.
+                  if (isFetchingRef.current) return;
+                  
+                  if (audioRef.current) {
+                    audioRef.current.pause();
+                    audioRef.current.src = "";
+                    audioRef.current.load();
+                  }
+                  
+                  // Remove this track and anything before it from the playlist
+                  const idx = playlist.findIndex(t => t.id === track.id);
+                  if (idx !== -1) {
+                    setPlaylist(prev => prev.slice(idx + 1));
+                  }
+                  
+                  setCurrentTrack(track);
+                  cleanupAllOverlays();
+                  playDJIntroThenSong(null, "audio/mp3", track);
+                }}
+              />
+            </div>
+          </div>
         )}
       </div>
 
-      <div className="w-full lg:w-[450px] shrink-0 flex flex-col gap-4">
-        <div className="flex-1 rounded-[32px] border border-white/10 bg-black/20 p-6 backdrop-blur flex flex-col h-[650px] shadow-xl">
-          <header className="flex items-center justify-between mb-6">
+      <div className="w-full lg:w-[450px] shrink-0 flex flex-col min-h-[600px] h-[800px]">
+        <div className="flex-1 rounded-[32px] border border-white/10 bg-black/20 p-6 backdrop-blur flex flex-col shadow-xl relative overflow-hidden">
+          <header className="flex items-center justify-between mb-6 shrink-0">
             <h3 className="text-xl font-bold flex items-center gap-2">
                 <span className="relative flex h-3 w-3">
                   <span className={`animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75 ${isPlaying ? '' : 'hidden'}`}></span>
@@ -576,7 +608,11 @@ export function StreamModePage() {
             <span className="text-[10px] bg-white/10 px-2 py-1 rounded-md text-mist uppercase font-bold tracking-widest">On Air</span>
           </header>
 
-          <div className="flex-1 overflow-y-auto space-y-4 mb-6 pr-2 flex flex-col scroll-smooth">
+          <div 
+            ref={chatContainerRef}
+            onScroll={handleScroll}
+            className="flex-1 overflow-y-auto space-y-4 mb-6 pr-2 flex flex-col scroll-smooth min-h-0"
+          >
             {messages.length === 0 && (
               <div className="flex-1 flex flex-col items-center justify-center text-white/10 space-y-4">
                 <SignalIcon className="h-12 w-12" />
@@ -590,6 +626,19 @@ export function StreamModePage() {
               </div>
             ))}
           </div>
+
+          {/* Scroll to bottom button */}
+          {showScrollButton && (
+            <button
+              onClick={scrollToBottom}
+              className="absolute bottom-24 right-8 bg-pulse text-white rounded-full p-3 shadow-lg hover:scale-110 active:scale-95 transition-all animate-in fade-in zoom-in duration-300 z-30"
+              title="Scroll to bottom"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 13.5L12 21m0 0l-7.5-7.5M12 21V3" />
+              </svg>
+            </button>
+          )}
 
           <form onSubmit={(e) => {
               e.preventDefault();

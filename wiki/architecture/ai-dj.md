@@ -23,7 +23,7 @@ The AI DJ is the heart of Lobster Radio - it generates natural-sounding narratio
 
 ### Text-to-Speech
 - Multiple providers supported (Edge TTS, others)
-- TTS audio is cached in `backend/data/tts-cache.json` to avoid re-generating the same text twice
+- TTS audio is cached in `backend/data/tts-cache/` as separate files to avoid re-generating the same text twice and to avoid file size limits.
 - Caching saves API costs and speeds up playback
 
 ## Message Flow

@@ -6,11 +6,12 @@ interface TrackQueueProps {
   currentTrackId: string | null;
   onSelect: (track: Track) => void;
   compact?: boolean;
+  className?: string;
 }
 
-export function TrackQueue({ tracks, currentTrackId, onSelect, compact = false }: TrackQueueProps) {
+export function TrackQueue({ tracks, currentTrackId, onSelect, compact = false, className }: TrackQueueProps) {
   return (
-    <div className={clsx("rounded-[28px] border border-white/10 bg-white/5", compact ? "p-4" : "p-5")}>
+    <div className={clsx("rounded-[28px] border border-white/10 bg-white/5", compact ? "p-4" : "p-5", className)}>
       <div className={clsx("flex items-center justify-between", compact ? "mb-3" : "mb-4")}>
         <h3 className={clsx("font-display font-semibold text-white", compact ? "text-base" : "text-lg")}>Up Next</h3>
         <span className="text-[10px] uppercase tracking-[0.25em] text-mist">Queue</span>

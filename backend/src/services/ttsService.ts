@@ -105,43 +105,27 @@ async function synthesizeWithElevenLabs(text: string, voice: string = "rachel", 
 
 const execAsync = promisify(exec);
 
-// TTS 缓存文件路径
-const CACHE_FILE = path.join(path.dirname(new URL(import.meta.url).pathname), "../../data/tts-cache.json");
+// TTS 缓存目录
+const CACHE_DIR = path.join(path.dirname(new URL(import.meta.url).pathname), "../../data/tts-cache");
 
 // 缓存数据结构
-interface TTSType {
-  audioBase64: string;
+interface TTSMeta {
   provider: string;
   voice: string;
   mimeType: string;
   cachedAt: string;
 }
 
-// 内存缓存 + 文件持久化
-let memoryCache: Record<string, TTSType> = {};
-
-// 加载缓存
-function loadCache(): void {
-  try {
-    if (fs.existsSync(CACHE_FILE)) {
-      const data = fs.readFileSync(CACHE_FILE, "utf-8");
-      memoryCache = JSON.parse(data);
-      console.log(`📦 TTS 缓存已加载: ${Object.keys(memoryCache).length} 条记录`);
-    }
-  } catch (e) {
-    console.warn("⚠️ 加载 TTS 缓存失败，使用空缓存:", (e as Error).message);
-    memoryCache = {};
-  }
+interface TTSType extends TTSMeta {
+  audioBase64: string;
 }
 
-// 保存缓存
-function saveCache(): void {
-  try {
-    fs.mkdirSync(path.dirname(CACHE_FILE), { recursive: true });
-    fs.writeFileSync(CACHE_FILE, JSON.stringify(memoryCache, null, 2));
-  } catch (e) {
-    console.warn("⚠️ 保存 TTS 缓存失败:", (e as Error).message);
-  }
+// 获取缓存文件路径
+function getCachePaths(key: string) {
+  return {
+    meta: path.join(CACHE_DIR, `${key}.json`),
+    audio: path.join(CACHE_DIR, `${key}.bin`),
+  };
 }
 
 // 生成缓存 key
@@ -153,22 +137,52 @@ function getCacheKey(text: string, voice: string, provider: string): string {
 // 获取缓存
 function getCache(text: string, voice: string, provider: string): TTSType | null {
   const key = getCacheKey(text, voice, provider);
-  return memoryCache[key] || null;
+  const paths = getCachePaths(key);
+  
+  if (fs.existsSync(paths.meta) && fs.existsSync(paths.audio)) {
+    try {
+      const meta = JSON.parse(fs.readFileSync(paths.meta, "utf-8"));
+      const audioBuffer = fs.readFileSync(paths.audio);
+      return {
+        ...meta,
+        audioBase64: audioBuffer.toString("base64"),
+      };
+    } catch (e) {
+      return null;
+    }
+  }
+  return null;
 }
 
-  // 设置缓存
+// 设置缓存
 function setCache(text: string, voice: string, provider: string, data: Omit<TTSType, 'cachedAt'>): void {
   const key = getCacheKey(text, voice, provider);
-  memoryCache[key] = {
-    ...data,
+  const paths = getCachePaths(key);
+  
+  const { audioBase64, ...metaWithoutAudio } = data;
+  const meta: TTSMeta = {
+    ...metaWithoutAudio,
     cachedAt: new Date().toISOString(),
-  } as TTSType;
-  // 异步保存，不阻塞
-  setImmediate(saveCache);
+  };
+
+  // 异步写入文件
+  setImmediate(() => {
+    try {
+      if (!fs.existsSync(CACHE_DIR)) {
+        fs.mkdirSync(CACHE_DIR, { recursive: true });
+      }
+      fs.writeFileSync(paths.meta, JSON.stringify(meta, null, 2));
+      fs.writeFileSync(paths.audio, Buffer.from(audioBase64, "base64"));
+    } catch (e) {
+      console.warn(`⚠️ 写入 TTS 缓存失败 (${key}):`, (e as Error).message);
+    }
+  });
 }
 
-// 启动时加载缓存
-loadCache();
+// 确保缓存目录存在
+if (!fs.existsSync(CACHE_DIR)) {
+  fs.mkdirSync(CACHE_DIR, { recursive: true });
+}
 
 // 可用的 Mac 中文语音 - 按音质排序
 const MAC_VOICES: Record<string, string> = {

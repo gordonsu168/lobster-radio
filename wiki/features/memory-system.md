@@ -40,4 +40,4 @@ preferences (id INTEGER PRIMARY KEY, snapshot_json TEXT, created_at TIMESTAMP)
 
 ## Caching
 
-- TTS audio cache is stored separately at `backend/data/tts-cache.json`
+- TTS audio cache is stored as individual files in `backend/data/tts-cache/` to handle large amounts of data efficiently.
