@@ -213,6 +213,10 @@ streamRouter.post("/init", async (req, res) => {
                 wiki = await getSongWiki(firstTrack.id);
             }
             catch (e) { }
+            // Attach lyric to the track object if available
+            if (wiki?.lyric) {
+                firstTrack.lyric = wiki.lyric;
+            }
             const narrationResp = await streamDJ.generateNarrationForTrack({
                 title: firstTrack.title,
                 artist: firstTrack.artist,
@@ -343,6 +347,10 @@ async function serveNextSegment(track, reqBody, res) {
         wiki = await getSongWiki(track.id);
     }
     catch (e) { }
+    // Attach lyric to the track object if available
+    if (wiki?.lyric) {
+        track.lyric = wiki.lyric;
+    }
     console.log("--------------------------------------------------");
     console.log("[stream] >>> SERVING NEXT SEGMENT <<<");
     console.log("[stream] Track ID:", track.id);

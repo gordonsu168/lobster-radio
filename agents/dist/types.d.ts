@@ -27,6 +27,7 @@ export interface Track {
     energy: number;
     explanation: string;
     source: "spotify" | "netease" | "local" | "fallback";
+    lyric?: string;
 }
 export interface PlaybackHistoryItem extends Track {
     playedAt: string;

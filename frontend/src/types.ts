@@ -12,6 +12,7 @@ export interface Track {
   energy: number;
   explanation: string;
   source: "spotify" | "netease" | "local" | "fallback";
+  lyric?: string;
 }
 
 export interface PlaybackHistoryItem extends Track {
@@ -74,6 +75,7 @@ export interface SongWiki {
   hotComments?: string[];
   wikiAbstract?: string;
   trivia?: string[];
+  lyric?: string;
   
   // --- Task Status ---
   enrichmentStatus: 'pending' | 'completed' | 'failed';

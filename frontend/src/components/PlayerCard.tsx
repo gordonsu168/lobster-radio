@@ -3,8 +3,11 @@ import {
   HandThumbUpIcon,
   PauseIcon,
   PlayIcon,
-  SpeakerWaveIcon
+  SpeakerWaveIcon,
+  MusicalNoteIcon,
+  ChatBubbleLeftEllipsisIcon
 } from "@heroicons/react/24/solid";
+import { useState, useMemo } from "react";
 import type { Track, DJStyle } from "../types";
 
 const voices: string[] = [
@@ -51,6 +54,13 @@ export function PlayerCard({
   onNextTrack,
   onAutoChatToggle
 }: PlayerCardProps) {
+  const [showLyrics, setShowLyrics] = useState(false);
+
+  const lyricLines = useMemo(() => {
+    if (!track?.lyric) return [];
+    return track.lyric.split('\n').filter(line => line.trim());
+  }, [track?.lyric]);
+
   if (!track) {
     return (
       <div className="rounded-[32px] border border-white/10 bg-white/5 p-8">
@@ -60,19 +70,54 @@ export function PlayerCard({
   }
 
   return (
-    <section className="rounded-[32px] border border-white/10 bg-gradient-to-br from-white/10 via-white/5 to-transparent p-6">
+    <section className="rounded-[32px] border border-white/10 bg-gradient-to-br from-white/10 via-white/5 to-transparent p-6 relative">
+      {/* Lyrics Toggle Button */}
+      {track.lyric && (
+        <button
+          onClick={() => setShowLyrics(!showLyrics)}
+          className="absolute top-6 right-6 z-20 p-2.5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-white/40 hover:text-pulse transition-all group"
+          title={showLyrics ? "Show Track Info" : "Show Lyrics"}
+        >
+          {showLyrics ? (
+            <ChatBubbleLeftEllipsisIcon className="h-5 w-5" />
+          ) : (
+            <div className="relative">
+              <MusicalNoteIcon className="h-5 w-5" />
+              <span className="absolute -top-1 -right-1 flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-pulse opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-pulse"></span>
+              </span>
+            </div>
+          )}
+        </button>
+      )}
+
       <div className="grid gap-6 lg:grid-cols-[1.2fr,0.8fr]">
         <div>
           <div className="flex flex-col gap-5 md:flex-row">
-            <img src={track.artwork} alt={track.album} className="h-44 w-44 rounded-[28px] object-cover shadow-glow" />
-            <div className="flex-1">
+            <img src={track.artwork} alt={track.album} className="h-44 w-44 rounded-[28px] object-cover shadow-glow shrink-0" />
+            
+            <div className="flex-1 min-w-0">
               <span className="rounded-full border border-pulse/40 bg-pulse/10 px-3 py-1 text-xs uppercase tracking-[0.28em] text-pulse">
                 {track.source}
               </span>
-              <h2 className="mt-4 font-display text-3xl font-bold text-white">{track.title}</h2>
-              <p className="mt-2 text-lg text-mist">{track.artist}</p>
-              <p className="mt-1 text-sm text-mist/90">{track.album}</p>
-              <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-200">{track.explanation}</p>
+              
+              {!showLyrics ? (
+                <div className="animate-in fade-in slide-in-from-right-4 duration-500">
+                  <h2 className="mt-4 font-display text-3xl font-bold text-white truncate">{track.title}</h2>
+                  <p className="mt-2 text-lg text-mist truncate">{track.artist}</p>
+                  <p className="mt-1 text-sm text-mist/90 truncate">{track.album}</p>
+                  <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-200 line-clamp-3 md:line-clamp-none">{track.explanation}</p>
+                </div>
+              ) : (
+                <div className="animate-in fade-in slide-in-from-left-4 duration-500 mt-4 max-h-[140px] overflow-y-auto custom-scrollbar pr-2">
+                  <h3 className="text-xs font-bold uppercase tracking-widest text-pulse mb-3">Lyrics</h3>
+                  {lyricLines.map((line, idx) => (
+                    <p key={idx} className="text-sm text-slate-200 mb-2 leading-relaxed italic">{line}</p>
+                  ))}
+                </div>
+              )}
+
               <div className="mt-6 flex flex-wrap gap-3">
                 <button
                   onClick={onPlayTrack}

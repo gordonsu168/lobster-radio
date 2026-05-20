@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { SignalIcon, PlayIcon, PauseIcon, SpeakerWaveIcon, SpeakerXMarkIcon } from "@heroicons/react/24/solid";
+import { useEffect, useRef, useState, useMemo } from "react";
+import { SignalIcon, PlayIcon, PauseIcon, SpeakerWaveIcon, SpeakerXMarkIcon, MusicalNoteIcon, ChatBubbleLeftRightIcon } from "@heroicons/react/24/solid";
 import { getSettings } from "../lib/api";
 import { TrackQueue } from "../components/TrackQueue";
 import { cleanupNarrationAudio } from "../lib/audioUtils";
@@ -41,12 +41,14 @@ export function StreamModePage() {
   const [themeContext, setThemeContext] = useState<ThemeContext | null>(null);
   const [playlist, setPlaylist] = useState<Track[]>([]);
   const [showScrollButton, setShowScrollButton] = useState(false);
+  const [showLyrics, setShowLyrics] = useState(false);
 
   const audioRef = useRef<HTMLAudioElement>(null);
   const isFetchingRef = useRef(false);
   const isNarrationPlayingRef = useRef(false);
   const narrationUrlRef = useRef<string | null>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
+  const lyricsContainerRef = useRef<HTMLDivElement>(null);
 
   // Auto scroll to bottom
   useEffect(() => {
@@ -471,6 +473,16 @@ export function StreamModePage() {
         triggerMidSongInsert(insert);
       }
     });
+
+    // Auto-scroll lyrics
+    if (showLyrics && lyricsContainerRef.current) {
+      const { scrollHeight, clientHeight } = lyricsContainerRef.current;
+      const targetScroll = (scrollHeight - clientHeight) * progress;
+      lyricsContainerRef.current.scrollTo({
+        top: targetScroll,
+        behavior: 'smooth'
+      });
+    }
   };
 
   const isRequest = (text: string) => {
@@ -516,10 +528,15 @@ export function StreamModePage() {
     }
   };
 
+  const lyricLines = useMemo(() => {
+    if (!currentTrack?.lyric) return [];
+    return currentTrack.lyric.split('\n').filter(line => line.trim());
+  }, [currentTrack]);
+
   return (
     <div className="flex flex-col gap-6 lg:flex-row items-start">
       <div className="flex-1 flex flex-col gap-6 w-full min-w-0">
-        <div className="rounded-[32px] border border-white/10 bg-black/20 p-8 backdrop-blur text-center flex flex-col items-center shadow-2xl relative shrink-0">
+        <div className="rounded-[32px] border border-white/10 bg-black/20 p-8 backdrop-blur text-center flex flex-col items-center shadow-2xl relative shrink-0 min-h-[500px]">
           
           {/* Status Indicator */}
           <div className="absolute top-6 right-8 flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/5 text-[10px] font-bold tracking-widest uppercase">
@@ -544,18 +561,46 @@ export function StreamModePage() {
             </div>
           )}
 
-          <div className="w-full max-w-md bg-white/5 rounded-3xl p-8 mb-8 border border-white/10 min-h-[160px] flex flex-col justify-center text-left relative overflow-hidden group">
+          <div className="w-full max-w-md bg-white/5 rounded-3xl p-8 mb-8 border border-white/10 min-h-[200px] flex flex-col justify-center text-left relative overflow-hidden group">
             <div className="absolute inset-0 bg-gradient-to-br from-pulse/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+            
+            {/* Toggle Button for Lyrics/Now Playing */}
+            {currentTrack?.lyric && (
+              <button 
+                onClick={() => setShowLyrics(!showLyrics)}
+                className="absolute top-4 right-4 z-20 p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white/40 hover:text-pulse transition-all"
+                title={showLyrics ? "Show Info" : "Show Lyrics"}
+              >
+                {showLyrics ? <ChatBubbleLeftRightIcon className="h-5 w-5" /> : <MusicalNoteIcon className="h-5 w-5" />}
+              </button>
+            )}
+
             {currentTrack ? (
-              <div className="relative z-10">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-pulse mb-2 block">Now Playing</span>
-                <h3 className="text-2xl font-bold line-clamp-1 mb-1">{currentTrack.title}</h3>
-                <p className="text-mist text-lg line-clamp-1">{currentTrack.artist}</p>
-                <div className="mt-4 flex items-center gap-2">
-                   <div className="h-1 flex-1 bg-white/10 rounded-full overflow-hidden">
-                      <div className={`h-full bg-pulse transition-all duration-1000 ${isPlaying ? (isNarrationPlayingRef.current ? 'w-1/3' : 'w-full opacity-30') : 'w-0'}`}></div>
-                   </div>
-                </div>
+              <div className="relative z-10 h-full">
+                {!showLyrics ? (
+                  <div className="animate-in fade-in slide-in-from-right-4 duration-500">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-pulse mb-2 block">Now Playing</span>
+                    <h3 className="text-2xl font-bold line-clamp-1 mb-1">{currentTrack.title}</h3>
+                    <p className="text-mist text-lg line-clamp-1">{currentTrack.artist}</p>
+                    <div className="mt-4 flex items-center gap-2">
+                       <div className="h-1 flex-1 bg-white/10 rounded-full overflow-hidden">
+                          <div className={`h-full bg-pulse transition-all duration-1000 ${isPlaying ? (isNarrationPlayingRef.current ? 'w-1/3' : 'w-full opacity-30') : 'w-0'}`}></div>
+                       </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="animate-in fade-in slide-in-from-left-4 duration-500 h-[140px] flex flex-col">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-pulse mb-2 block">Lyrics</span>
+                    <div 
+                      ref={lyricsContainerRef}
+                      className="flex-1 overflow-y-auto pr-2 custom-scrollbar text-center"
+                    >
+                      {lyricLines.map((line, idx) => (
+                        <p key={idx} className="text-sm text-mist/80 mb-2 leading-relaxed">{line}</p>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
               <p className="text-mist text-center italic animate-pulse">Waiting for the DJ to take the stage...</p>

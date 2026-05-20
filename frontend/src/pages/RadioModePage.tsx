@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import { ChatPanel, type ChatPanelRef } from "../components/ChatPanel";
+import { MusicalNoteIcon, ChatBubbleLeftEllipsisIcon } from "@heroicons/react/24/solid";
 import {
   getPreferences,
   getRecommendations,
@@ -33,6 +34,8 @@ export function RadioModePage() {
   const [currentNarration, setCurrentNarration] = useState<string>("");
   const [currentOutro, setCurrentOutro] = useState<string>("");
   const [currentTrivia, setCurrentTrivia] = useState<string>("");
+  const [showLyrics, setShowLyrics] = useState(false);
+  
   const triviaTriggeredRef = useRef(false); // 是否已触发过本次插播
   const audioRef = useRef<HTMLAudioElement>(null);
   const userInteractedRef = useRef(false);
@@ -231,6 +234,7 @@ export function RadioModePage() {
     triviaTriggeredRef.current = false;
     setCurrentTrivia("");
     setCurrentOutro("");
+    setShowLyrics(false);
 
     // 使用函数式更新确保拿到最新队列并取出第一首
     // 这避免了闭包陷阱问题
@@ -440,7 +444,7 @@ export function RadioModePage() {
     });
   };
 
-  // 处理歌曲进度，触发 mid-track trivia 插播
+  // 处理进度
   const handleTimeUpdate = () => {
     if (!audioRef.current || !currentTrack || triviaTriggeredRef.current) {
       return;
@@ -558,6 +562,11 @@ export function RadioModePage() {
     loadMoreRecommendations("Working");
   };
 
+  const lyricLines = useMemo(() => {
+    if (!currentTrack?.lyric) return [];
+    return currentTrack.lyric.split('\n').filter(line => line.trim());
+  }, [currentTrack]);
+
   return (
     <div className="min-h-[calc(100vh-160px)] flex flex-col">
       {/* 隐藏的音频播放器 */}
@@ -591,7 +600,29 @@ export function RadioModePage() {
 
           {/* 当前播放歌曲卡片 - 大尺寸居中 */}
           {currentTrack ? (
-            <div className="rounded-[32px] border border-white/10 bg-gradient-to-br from-white/10 via-transparent to-pulse/10 p-6 md:p-8 backdrop-blur-sm">
+            <div className="rounded-[32px] border border-white/10 bg-gradient-to-br from-white/10 via-transparent to-pulse/10 p-6 md:p-8 backdrop-blur-sm relative">
+              
+              {/* Lyrics Toggle Button */}
+              {currentTrack.lyric && (
+                <button
+                  onClick={() => setShowLyrics(!showLyrics)}
+                  className="absolute top-6 right-6 z-20 p-2.5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-white/40 hover:text-pulse transition-all group"
+                  title={showLyrics ? "Show Info" : "Show Lyrics"}
+                >
+                  {showLyrics ? (
+                    <ChatBubbleLeftEllipsisIcon className="h-5 w-5" />
+                  ) : (
+                    <div className="relative">
+                      <MusicalNoteIcon className="h-5 w-5" />
+                      <span className="absolute -top-1 -right-1 flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-pulse opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-pulse"></span>
+                      </span>
+                    </div>
+                  )}
+                </button>
+              )}
+
               <div className="flex flex-col items-center gap-6 md:flex-row md:gap-8">
                 <div className="flex-shrink-0">
                   <img
@@ -600,22 +631,34 @@ export function RadioModePage() {
                     className="h-56 w-56 rounded-[28px] object-cover shadow-glow"
                   />
                 </div>
-                <div className="flex-1 text-center md:text-left">
+                <div className="flex-1 text-center md:text-left min-w-0">
                   <span className="inline-block rounded-full border border-pulse/40 bg-pulse/10 px-3 py-1 text-xs uppercase tracking-[0.28em] text-pulse">
                     {currentTrack.source}
                   </span>
-                  <h2 className="mt-4 font-display text-4xl font-bold text-white">{currentTrack.title}</h2>
-                  <p className="mt-3 text-xl text-mist">{currentTrack.artist}</p>
-                  <p className="mt-1 text-sm text-mist/90">{currentTrack.album}</p>
+                  
+                  {!showLyrics ? (
+                    <div className="animate-in fade-in slide-in-from-right-4 duration-500">
+                      <h2 className="mt-4 font-display text-4xl font-bold text-white truncate">{currentTrack.title}</h2>
+                      <p className="mt-3 text-xl text-mist truncate">{currentTrack.artist}</p>
+                      <p className="mt-1 text-sm text-mist/90 truncate">{currentTrack.album}</p>
 
-                  {/* 情绪标签 */}
-                  <div className="mt-4 flex flex-wrap justify-center md:justify-start gap-2">
-                    {currentTrack.moodTags.slice(0, 5).map((tag) => (
-                      <span key={tag} className="rounded-full bg-white/10 px-3 py-1 text-xs text-slate-200">
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
+                      {/* 情绪标签 */}
+                      <div className="mt-4 flex flex-wrap justify-center md:justify-start gap-2">
+                        {currentTrack.moodTags.slice(0, 5).map((tag) => (
+                          <span key={tag} className="rounded-full bg-white/10 px-3 py-1 text-xs text-slate-200">
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="animate-in fade-in slide-in-from-left-4 duration-500 mt-4 max-h-[180px] overflow-y-auto custom-scrollbar pr-2">
+                      <h3 className="text-xs font-bold uppercase tracking-widest text-pulse mb-3 text-center md:text-left">Lyrics</h3>
+                      {lyricLines.map((line, idx) => (
+                        <p key={idx} className="text-sm text-slate-200 mb-2 leading-relaxed italic text-center md:text-left">{line}</p>
+                      ))}
+                    </div>
+                  )}
 
                   {/* 控制按钮 */}
                   <div className="mt-8 flex flex-wrap justify-center md:justify-start gap-3">

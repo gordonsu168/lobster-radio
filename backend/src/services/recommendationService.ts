@@ -14,6 +14,7 @@ import { searchTracksByMood as searchSpotify } from "./spotifyService.js";
 import { searchTracksByMood as searchNetEase } from "./neteaseService.js";
 import { getLocalTracksByMood } from "./musicLibraryService.js";
 import { resolveRuntimeSecrets } from "./settingsResolver.js";
+import { getSongWiki } from "./wikiService.js";
 
 function getTimeSegment(date = new Date()) {
   const hour = date.getHours();
@@ -103,6 +104,16 @@ export async function buildRecommendations(mood: MoodOption, style: DJStyle = "c
 
   const selectedTrack = curated[0] || backup[0];
   console.log(`🎵 生成旁白 - 歌曲: ${selectedTrack.title}, 风格: ${style}, 语言: ${djLanguage}`);
+
+  // Fetch wiki info to get lyrics for selected track
+  try {
+    const wiki = await getSongWiki(selectedTrack.id);
+    if (wiki?.lyric) {
+      selectedTrack.lyric = wiki.lyric;
+    }
+  } catch (e) {
+    console.warn(`[recommendation] Failed to fetch lyrics for ${selectedTrack.id}:`, e);
+  }
 
   // Check if AI narration is enabled
   const settings = await getRuntimeSettings();
