@@ -79,9 +79,9 @@ class AgentPlayerService {
   }
 
   private executeAfplay(source: string, title: string) {
-    this.lastActivity = `PLAYING: ${title.slice(0, 25)}`;
+    this.lastActivity = `INJECTING: ${title.slice(0, 15)} | SRC: ${source}`;
     this.currentProcess = exec(`afplay "${source}"`);
-    this.currentProcess.on("exit", (code) => {
+    this.currentProcess.on("exit", () => {
       if (!this.isPaused) this.next();
     });
   }
