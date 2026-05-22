@@ -30,7 +30,7 @@ export interface SongWiki {
   lyric?: string;         // 歌词
   
   // --- 任务状态 ---
-  enrichmentStatus: 'pending' | 'completed' | 'failed';
+  enrichmentStatus: 'pending' | 'completed' | 'failed' | 'skipped';
   lastUpdated: string;
 
   // --- 弃用字段 (仅为兼容性保留，后续清理) ---
@@ -129,9 +129,6 @@ export async function getSongWiki(songId: string): Promise<SongWiki | null> {
   return foundWiki;
 }
 
-// 异步补全队列
-const enrichmentQueue = new Set<string>();
-
 export async function enrichSongWithLLM(title: string, artist: string): Promise<Partial<SongWiki> | null> {
   const { createOptionalModel } = await import("lobster-radio-agents");
   const model = createOptionalModel();
@@ -167,8 +164,27 @@ export async function enrichSongWithLLM(title: string, artist: string): Promise<
   }
 }
 
+// 异步补全队列
+const enrichmentQueue = new Set<string>();
+
+/**
+ * 检查是否为垃圾标题（防止对空白或占位符进行无效搜索）
+ */
+function isJunkTitle(title: string, artist: string): boolean {
+  if (!title || title.trim().length === 0 || title.includes("\u3164")) return true;
+  if (title === "未知艺术家" || title === "Unknown Artist") return true;
+  return false;
+}
+
 export function enqueueWikiEnrichment(wiki: SongWiki) {
   if (enrichmentQueue.has(wiki.id)) return;
+  
+  // 如果是垃圾标题，直接跳过并标记，避免消耗 API 和产生错误数据
+  if (isJunkTitle(wiki.title, wiki.artist)) {
+    updateSongWiki(wiki.id, { enrichmentStatus: 'skipped' });
+    return;
+  }
+
   enrichmentQueue.add(wiki.id);
 
   // 延迟执行，不阻塞当前请求
