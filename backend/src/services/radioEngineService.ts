@@ -5,15 +5,16 @@ import { synthesizeSpeech } from "./ttsService.js";
 import { resolveRuntimeSecrets } from "./settingsResolver.js";
 import { agentPlayer } from "./agentPlayerService.js";
 import { getSongWiki } from "./wikiService.js";
+import { getCachedUserState } from "./userStateMonitor.js";
 import fs from "node:fs";
 import fsp from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 
-// Pulse-X 专属电台身份
+// DJ-X 专属电台身份
 const PULSE_X_IDENTITY = {
-  name: "Pulse-X",
-  englishName: "Pulse-X",
+  name: "DJ-X",
+  englishName: "DJ-X",
   programName: "共振频率",
   englishProgramName: "Resonance Frequency",
   persona: "Gordon 的共振内核，一名穿梭在数字废墟与情感脉冲之间的破障者",
@@ -36,7 +37,7 @@ function getLocalPathFromUrl(previewUrl: string): string | null {
 }
 
 /**
- * Pulse-X: 深度对位电台引擎
+ * DJ-X: 深度对位电台引擎
  */
 export async function fetchNextRadioSegment() {
   const secrets = await resolveRuntimeSecrets();
@@ -59,8 +60,13 @@ export async function fetchNextRadioSegment() {
   const candidateList = candidates.map(c => `${c.artist} - ${c.title}`).join(", ");
 
   // 3. 调用 StreamDJ 生成主题（强制从候选名单中选）
+  const userState = getCachedUserState();
+  const userStateDesc = userState
+    ? `听众当前状态: ${userState.label}，${userState.dayOfWeek} ${userState.timeOfDay}。`
+    : "";
+
   const playlistResp = await streamDJ.generatePlaylist(
-    `候选信号列表: [${candidateList}]. 请从中选出 1 首最契合当前 DNA ${JSON.stringify(dna?.spectralMap)} 的信号。`, 
+    `${userStateDesc}候选信号列表: [${candidateList}]. 请从中选出 1 首最契合当前 DNA ${JSON.stringify(dna?.spectralMap)} 的信号。`,
     "zh-CN", "classic", currentThemeContext || undefined, 1
   );
 
@@ -88,7 +94,8 @@ export async function fetchNextRadioSegment() {
     trackInfo,
     playlistResp.theme_update,
     "zh-CN",
-    "night" // 强制使用深夜治愈模式，更具质感
+    "night", // 强制使用深夜治愈模式，更具质感
+    userState ? `${userState.label}，${userState.dayOfWeek} ${userState.timeOfDay}` : undefined
   );
 
   const dj_talk = narrationResp.dj_talk;

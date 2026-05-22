@@ -19,7 +19,14 @@ const initialSettings: RuntimeSettings = {
   djStyle: "classic",
   enableAiNarration: true,
   preferredMusicSource: "auto",
-  localMusicPath: ""
+  localMusicPath: "",
+  userSchedule: {
+    workStart: "09:00",
+    workEnd: "18:00",
+    workDays: [1, 2, 3, 4, 5],
+    sleepTime: "23:00",
+    wakeTime: "07:00",
+  },
 };
 
 const initialIdentity: DJIdentity = {
@@ -229,6 +236,98 @@ export function SettingsPage() {
               placeholder="音乐文件夹路径"
               className="w-full rounded-2xl border border-white/15 bg-slate-950/80 px-4 py-3 text-white outline-none"
             />
+          </div>
+
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+            <h3 className="mb-4 font-semibold text-white">作息时间 (User Schedule)</h3>
+            <p className="mb-4 text-sm text-slate-400">DJ-X 会根据你的作息自动调整推荐和语气。</p>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-400">起床时间</label>
+                <input
+                  type="time"
+                  value={settings.userSchedule?.wakeTime || "07:00"}
+                  onChange={(e) => setSettings((c) => ({
+                    ...c,
+                    userSchedule: { ...(c.userSchedule || { workStart: "09:00", workEnd: "18:00", workDays: [1,2,3,4,5], sleepTime: "23:00", wakeTime: "07:00" }), wakeTime: e.target.value }
+                  }))}
+                  className="w-full rounded-xl border border-white/15 bg-slate-950/80 px-3 py-2 text-white outline-none"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-400">睡觉时间</label>
+                <input
+                  type="time"
+                  value={settings.userSchedule?.sleepTime || "23:00"}
+                  onChange={(e) => setSettings((c) => ({
+                    ...c,
+                    userSchedule: { ...(c.userSchedule || { workStart: "09:00", workEnd: "18:00", workDays: [1,2,3,4,5], sleepTime: "23:00", wakeTime: "07:00" }), sleepTime: e.target.value }
+                  }))}
+                  className="w-full rounded-xl border border-white/15 bg-slate-950/80 px-3 py-2 text-white outline-none"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-400">上班时间</label>
+                <input
+                  type="time"
+                  value={settings.userSchedule?.workStart || "09:00"}
+                  onChange={(e) => setSettings((c) => ({
+                    ...c,
+                    userSchedule: { ...(c.userSchedule || { workStart: "09:00", workEnd: "18:00", workDays: [1,2,3,4,5], sleepTime: "23:00", wakeTime: "07:00" }), workStart: e.target.value }
+                  }))}
+                  className="w-full rounded-xl border border-white/15 bg-slate-950/80 px-3 py-2 text-white outline-none"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-400">下班时间</label>
+                <input
+                  type="time"
+                  value={settings.userSchedule?.workEnd || "18:00"}
+                  onChange={(e) => setSettings((c) => ({
+                    ...c,
+                    userSchedule: { ...(c.userSchedule || { workStart: "09:00", workEnd: "18:00", workDays: [1,2,3,4,5], sleepTime: "23:00", wakeTime: "07:00" }), workEnd: e.target.value }
+                  }))}
+                  className="w-full rounded-xl border border-white/15 bg-slate-950/80 px-3 py-2 text-white outline-none"
+                />
+              </div>
+            </div>
+            <div className="mt-3">
+              <label className="mb-1 block text-xs font-medium text-slate-400">工作日</label>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { day: 1, label: "周一" },
+                  { day: 2, label: "周二" },
+                  { day: 3, label: "周三" },
+                  { day: 4, label: "周四" },
+                  { day: 5, label: "周五" },
+                  { day: 6, label: "周六" },
+                  { day: 0, label: "周日" },
+                ].map(({ day, label }) => {
+                  const workDays = settings.userSchedule?.workDays || [1,2,3,4,5];
+                  const active = workDays.includes(day);
+                  return (
+                    <button
+                      key={day}
+                      type="button"
+                      onClick={() => {
+                        setSettings((c) => ({
+                          ...c,
+                          userSchedule: {
+                            ...(c.userSchedule || { workStart: "09:00", workEnd: "18:00", workDays: [1,2,3,4,5], sleepTime: "23:00", wakeTime: "07:00" }),
+                            workDays: active ? workDays.filter((d) => d !== day) : [...workDays, day].sort(),
+                          }
+                        }));
+                      }}
+                      className={`rounded-full px-3 py-1 text-sm font-medium transition ${
+                        active ? "bg-pulse text-white" : "bg-white/10 text-slate-400 hover:bg-white/20"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
 
           <div className="grid gap-5 md:grid-cols-2">

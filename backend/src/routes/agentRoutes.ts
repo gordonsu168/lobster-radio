@@ -6,6 +6,7 @@ import { agentPlayer } from "../services/agentPlayerService.js";
 import { resolveRuntimeSecrets } from "../services/settingsResolver.js";
 import { synthesizeSpeech } from "../services/ttsService.js";
 import { getSongWiki } from "../services/wikiService.js";
+import { getUserState, getCachedUserState } from "../services/userStateMonitor.js";
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
@@ -38,6 +39,18 @@ async function broadcastNarration(text: string) {
 
 lobsterCoreXRouter.get("/status", (req, res) => {
   res.json(agentPlayer.getState());
+});
+
+lobsterCoreXRouter.get("/state", async (_req, res) => {
+  try {
+    const state = await getUserState();
+    res.json(state);
+  } catch (error) {
+    // Return cached state on failure, or a fallback
+    const cached = getCachedUserState();
+    if (cached) return res.json(cached);
+    res.status(500).json({ error: "Unable to detect user state" });
+  }
 });
 
 lobsterCoreXRouter.post("/chat", async (req, res) => {
@@ -109,7 +122,7 @@ lobsterCoreXRouter.post("/chat", async (req, res) => {
       return res.json({ 
         logs: [
             { id: 's1', timestamp: Date.now(), type: 'action', content: `[RADIO_LOCKED] 成功连接至 http://localhost:5173/stream 的逻辑核心。` },
-            { id: 's2', timestamp: Date.now(), type: 'message', content: `\n> **Pulse-X 旁白：** "${dj_talk}"\n\n> **正在注入：** ${track.artist} - ${track.title}` }
+            { id: 's2', timestamp: Date.now(), type: 'message', content: `\n> **DJ-X 旁白：** "${dj_talk}"\n\n> **正在注入：** ${track.artist} - ${track.title}` }
         ],
         dna: (await getAgent()).getDna() 
       });

@@ -1,6 +1,14 @@
 export type MoodOption = "Working" | "Relaxing" | "Exercising" | "Party" | "Sleepy";
 export type DJStyle = "classic" | "night" | "vibe" | "trivia";
 
+export interface UserSchedule {
+  workStart: string;
+  workEnd: string;
+  workDays: number[];
+  sleepTime: string;
+  wakeTime: string;
+}
+
 export interface Track {
   id: string;
   title: string;
@@ -50,6 +58,7 @@ export interface RuntimeSettings {
   enableAiNarration?: boolean;
   preferredMusicSource: "local" | "netease" | "spotify" | "auto";
   localMusicPath: string;
+  userSchedule?: UserSchedule;
 }
 
 export interface SongWiki {

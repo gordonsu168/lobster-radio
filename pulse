@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Pulse-X: The Resonant Heart - Quick Launcher
+# DJ-X: The Resonant Heart - Quick Launcher
 # --------------------------------------------------
 
 # 1. 确定项目根目录
@@ -9,7 +9,7 @@ CLI_DIR="$PROJECT_ROOT/cli"
 
 # 2. 静默检查并加载 Python 环境
 source "$CLI_DIR/nanobot/.venv/bin/activate" 2>/dev/null || {
-    echo "⚠️ 首次运行，正在初始化 Pulse-X 内核环境..."
+    echo "⚠️ 首次运行，正在初始化 DJ-X 内核环境..."
     bash "$CLI_DIR/start-x.sh"
     exit 0
 }
