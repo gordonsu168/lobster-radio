@@ -27,7 +27,6 @@ export class LobsterCoreXAgent {
             metadata
         };
         this.logs.push(packet);
-        console.error(`[Lobster-Core-X][${type.toUpperCase()}] ${content}`);
         return packet;
     }
     /**

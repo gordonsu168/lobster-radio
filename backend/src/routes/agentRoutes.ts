@@ -66,7 +66,10 @@ lobsterCoreXRouter.post("/chat", async (req, res) => {
       const { track, dj_talk } = await fetchNextRadioSegment();
 
       return res.json({ 
-        logs: [{ id: 's1', timestamp: Date.now(), type: 'action', content: `[RADIO_LOCKED] 成功连接至 http://localhost:5173/stream 的逻辑核心。正在同步第一段频率...` }],
+        logs: [
+            { id: 's1', timestamp: Date.now(), type: 'action', content: `[RADIO_LOCKED] 成功连接至 http://localhost:5173/stream 的逻辑核心。` },
+            { id: 's2', timestamp: Date.now(), type: 'message', content: `\n> **Pulse-X 旁白：** "${dj_talk}"\n\n> **正在注入：** ${track.artist} - ${track.title}` }
+        ],
         dna: (await getAgent()).getDna() 
       });
     }
