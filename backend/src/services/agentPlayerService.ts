@@ -19,8 +19,8 @@ class AgentPlayerService {
   private isPaused: boolean = false;
   private onQueueLow: QueueLowCallback | null = null;
   private isReplenishing: boolean = false;
-  private lastActivity: string = "PULSE_IDLE";
-  private currentDownloadProcess: ChildProcess | null = null;
+  private lastActivity: string = "PULSE_READY";
+  private downloadProcess: ChildProcess | null = null;
 
   setReplenishCallback(cb: QueueLowCallback) {
     this.onQueueLow = cb;
@@ -29,7 +29,8 @@ class AgentPlayerService {
   add(path: string | null | undefined, title: string = "Unknown Signal") {
     if (!path) return;
     this.playlist.push({ path, title });
-    if (!this.currentProcess && !this.currentDownloadProcess) {
+    this.lastActivity = `LOCKED: ${title.slice(0, 15)}`;
+    if (!this.currentProcess && !this.downloadProcess) {
       this.play(this.currentIndex + 1);
     }
   }
@@ -39,9 +40,9 @@ class AgentPlayerService {
       this.currentProcess = null;
       if (this.onQueueLow && !this.isReplenishing) {
         this.isReplenishing = true;
-        this.lastActivity = "AUTO_FETCH...";
+        this.lastActivity = "FETCHING_NEXT...";
         this.onQueueLow().finally(() => {
-          setTimeout(() => { this.isReplenishing = false; }, 5000);
+          setTimeout(() => { this.isReplenishing = false; }, 3000);
         });
       }
       return;
@@ -53,18 +54,26 @@ class AgentPlayerService {
     const item = this.playlist[index];
 
     if (item.path.startsWith('http')) {
-      const tempPath = path.join(os.tmpdir(), `p_${Date.now()}.mp3`);
+      const tempPath = path.join(os.tmpdir(), `pulse_s_${Date.now()}.mp3`);
       this.lastActivity = `SYNCING: ${item.title.slice(0, 20)}`;
       
-      this.currentDownloadProcess = exec(`curl -L -s --max-time 15 "${item.path}" -o "${tempPath}"`, (err) => {
-          this.currentDownloadProcess = null;
+      // 使用 curl 下载，增加 -L (跟随重定向) 和 -A (伪装 User-Agent 防止被网易云封杀)
+      const userAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+      this.downloadProcess = exec(`curl -L -s -A "${userAgent}" --max-time 15 "${item.path}" -o "${tempPath}"`, (err) => {
+          this.downloadProcess = null;
           if (err || !fs.existsSync(tempPath) || fs.statSync(tempPath).size < 1000) {
-              this.next();
+              this.lastActivity = `ERR: SIGNAL_LOST [${item.title.slice(0,10)}]`;
+              setTimeout(() => this.next(), 1000);
           } else {
               this.executeAfplay(tempPath, item.title);
           }
       });
     } else {
+      if (!fs.existsSync(item.path)) {
+          this.lastActivity = `ERR: FILE_NOT_FOUND`;
+          setTimeout(() => this.next(), 1000);
+          return;
+      }
       this.executeAfplay(item.path, item.title);
     }
   }
@@ -72,7 +81,7 @@ class AgentPlayerService {
   private executeAfplay(source: string, title: string) {
     this.lastActivity = `PLAYING: ${title.slice(0, 25)}`;
     this.currentProcess = exec(`afplay "${source}"`);
-    this.currentProcess.on("exit", () => {
+    this.currentProcess.on("exit", (code) => {
       if (!this.isPaused) this.next();
     });
   }
@@ -87,8 +96,15 @@ class AgentPlayerService {
   }
 
   private stopCurrent() {
-    if (this.currentProcess) { this.currentProcess.removeAllListeners("exit"); this.currentProcess.kill(); this.currentProcess = null; }
-    if (this.currentDownloadProcess) { this.currentDownloadProcess.kill(); this.currentDownloadProcess = null; }
+    if (this.currentProcess) {
+      this.currentProcess.removeAllListeners("exit");
+      this.currentProcess.kill();
+      this.currentProcess = null;
+    }
+    if (this.downloadProcess) {
+        this.downloadProcess.kill();
+        this.downloadProcess = null;
+    }
   }
 
   clear() {
