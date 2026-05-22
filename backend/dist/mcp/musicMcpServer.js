@@ -32,9 +32,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                 // 立即获取当前这一段的信息
                 const { track, dj_talk } = await fetchNextRadioSegment();
                 const report = `
-### [PULSE_SYNC] 📡 信号塔已对齐
+### [DJ_SYNC] 📡 信号塔已对齐
 
-> **Pulse-X 旁白：** "${dj_talk}"
+> **DJ-X 旁白：** "${dj_talk}"
 > **正在注入：** ${track.artist} - ${track.title}
             `.trim();
                 return { content: [{ type: "text", text: report }] };

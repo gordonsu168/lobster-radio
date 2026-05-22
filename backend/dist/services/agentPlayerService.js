@@ -9,7 +9,7 @@ class AgentPlayerService {
     isPaused = false;
     onQueueLow = null;
     isReplenishing = false;
-    lastActivity = "PULSE_READY";
+    lastActivity = "DJ_READY";
     downloadProcess = null;
     setReplenishCallback(cb) {
         this.onQueueLow = cb;
@@ -40,7 +40,7 @@ class AgentPlayerService {
         this.isPaused = false;
         const item = this.playlist[index];
         if (item.path.startsWith('http')) {
-            const tempPath = path.join(os.tmpdir(), `pulse_s_${Date.now()}.mp3`);
+            const tempPath = path.join(os.tmpdir(), `dj_s_${Date.now()}.mp3`);
             this.lastActivity = `SYNCING: ${item.title.slice(0, 20)}`;
             // 使用 curl 下载，增加 -L (跟随重定向) 和 -A (伪装 User-Agent 防止被网易云封杀)
             const userAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";

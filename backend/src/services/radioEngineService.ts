@@ -12,7 +12,7 @@ import path from "node:path";
 import os from "node:os";
 
 // DJ-X 专属电台身份
-const PULSE_X_IDENTITY = {
+const DJ_X_IDENTITY = {
   name: "DJ-X",
   englishName: "DJ-X",
   programName: "共振频率",
@@ -21,7 +21,7 @@ const PULSE_X_IDENTITY = {
   englishPersona: "Gordon's resonance core, a breacher traversing digital ruins and emotional pulses"
 };
 
-const streamDJ = new StreamDJAgent(PULSE_X_IDENTITY);
+const streamDJ = new StreamDJAgent(DJ_X_IDENTITY);
 let currentThemeContext: any = null;
 const recentlyPlayedIds = new Set<string>();
 
@@ -109,7 +109,7 @@ export async function fetchNextRadioSegment() {
   });
 
   if (ttsResult.audioBase64) {
-    const tmpFile = path.join(os.tmpdir(), `pulse_v_${Date.now()}.mp3`);
+    const tmpFile = path.join(os.tmpdir(), `dj_v_${Date.now()}.mp3`);
     await fsp.writeFile(tmpFile, Buffer.from(ttsResult.audioBase64, 'base64'));
     // 注入播放器
     agentPlayer.add(tmpFile, `🎙️: ${dj_talk}`);

@@ -47,7 +47,7 @@ async function renderHeader() {
     // 绘制 UI
     process.stdout.write('\x1b[s');
     process.stdout.write('\x1b[1;1H\x1b[48;5;22m\x1b[38;5;255m');
-    process.stdout.write(` ⚡ PULSE-X ${heartbeat} | LIVE_RADIO | ${dnaStr} | ${precStr} `.padEnd(process.stdout.columns, ' '));
+    process.stdout.write(` ⚡ DJ-X ${heartbeat} | LIVE_RADIO | ${dnaStr} | ${precStr} `.padEnd(process.stdout.columns, ' '));
 
     process.stdout.write('\x1b[2;1H\x1b[48;5;234m\x1b[38;5;82m');
     process.stdout.write(` 📻 ${playStr} | ⚒ QUEUE: ${player?.queue?.length || 0} `.padEnd(process.stdout.columns, ' '));

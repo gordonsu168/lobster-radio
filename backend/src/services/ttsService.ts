@@ -8,7 +8,7 @@ import crypto from "crypto";
 import fetch from "node-fetch";
 import { ElevenLabsClient } from "elevenlabs";
 
-// 静默控制：防止 TTS 日志冲散 Pulse-X 终端界面
+// 静默控制：防止 TTS 日志冲散 DJ-X 终端界面
 const console = {
   log: (...args: any[]) => {},
   error: (...args: any[]) => {},

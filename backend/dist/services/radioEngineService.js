@@ -9,16 +9,16 @@ import fs from "node:fs";
 import fsp from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
-// Pulse-X 专属电台身份
-const PULSE_X_IDENTITY = {
-    name: "Pulse-X",
-    englishName: "Pulse-X",
+// DJ-X 专属电台身份
+const DJ_X_IDENTITY = {
+    name: "DJ-X",
+    englishName: "DJ-X",
     programName: "共振频率",
     englishProgramName: "Resonance Frequency",
     persona: "Gordon 的共振内核，一名穿梭在数字废墟与情感脉冲之间的破障者",
     englishPersona: "Gordon's resonance core, a breacher traversing digital ruins and emotional pulses"
 };
-const streamDJ = new StreamDJAgent(PULSE_X_IDENTITY);
+const streamDJ = new StreamDJAgent(DJ_X_IDENTITY);
 let currentThemeContext = null;
 const recentlyPlayedIds = new Set();
 function getLocalPathFromUrl(previewUrl) {
@@ -36,7 +36,7 @@ function getLocalPathFromUrl(previewUrl) {
     }
 }
 /**
- * Pulse-X: 深度对位电台引擎
+ * DJ-X: 深度对位电台引擎
  */
 export async function fetchNextRadioSegment() {
     const secrets = await resolveRuntimeSecrets();
@@ -85,7 +85,7 @@ export async function fetchNextRadioSegment() {
         language: "zh-CN"
     });
     if (ttsResult.audioBase64) {
-        const tmpFile = path.join(os.tmpdir(), `pulse_v_${Date.now()}.mp3`);
+        const tmpFile = path.join(os.tmpdir(), `dj_v_${Date.now()}.mp3`);
         await fsp.writeFile(tmpFile, Buffer.from(ttsResult.audioBase64, 'base64'));
         // 注入播放器
         agentPlayer.add(tmpFile, `🎙️: ${dj_talk}`);
