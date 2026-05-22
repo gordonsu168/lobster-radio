@@ -40,7 +40,7 @@ async function renderHeader() {
     process.stdout.write(` 📻 ${playStr} | ⚒ QUEUE: ${player?.queue?.length || 0} `.padEnd(process.stdout.columns, ' '));
 
     process.stdout.write('\x1b[3;1H\x1b[48;5;232m\x1b[38;5;244m');
-    process.stdout.write(` [${activity}] | 指令: [/next] [/pause] [/clear] `.padEnd(process.stdout.columns, ' '));
+    process.stdout.write(` [${activity}] | 指令: [/next] [/pause] [/clear] [/now] `.padEnd(process.stdout.columns, ' '));
     
     process.stdout.write('\x1b[0m\x1b[u'); // 恢复
   } catch (e) {}
