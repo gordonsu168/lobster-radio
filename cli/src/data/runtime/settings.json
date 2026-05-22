@@ -1,0 +1,14 @@
+{
+  "spotifyClientId": "",
+  "spotifyClientSecret": "",
+  "neteaseApiEnabled": true,
+  "neteaseApiUrl": "",
+  "openAiApiKey": "",
+  "elevenLabsApiKey": "",
+  "defaultVoice": "alloy",
+  "defaultTtsProvider": "openai",
+  "djStyle": "classic",
+  "enableAiNarration": true,
+  "preferredMusicSource": "auto",
+  "localMusicPath": ""
+}

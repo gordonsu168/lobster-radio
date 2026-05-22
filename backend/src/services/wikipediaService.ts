@@ -87,6 +87,7 @@ export async function searchSongInfo(
       const extract = await getWikipediaExtract(result.pageid);
       if (!extract || extract.length < 50) continue;
 
+      const extractLower = extract.toLowerCase();
       const titleLower = result.title.toLowerCase();
       const songTitleLower = songTitle.toLowerCase();
       const artistLower = artist?.toLowerCase() || "";

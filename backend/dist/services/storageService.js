@@ -4,6 +4,7 @@ import Database from "better-sqlite3";
 const dataDir = path.resolve(process.cwd(), "src/data/runtime");
 const preferencesPath = path.join(dataDir, "preferences.json");
 const settingsPath = path.join(dataDir, "settings.json");
+const dnaPath = path.join(dataDir, "dna.json");
 let db;
 async function ensureDir() {
     await fs.mkdir(dataDir, { recursive: true });
@@ -168,4 +169,11 @@ export async function getRuntimeSettings() {
 export async function saveRuntimeSettings(settings) {
     await writeJson(settingsPath, settings);
     return settings;
+}
+export async function getAestheticDna() {
+    return readJson(dnaPath, null);
+}
+export async function saveAestheticDna(dna) {
+    await writeJson(dnaPath, dna);
+    return dna;
 }

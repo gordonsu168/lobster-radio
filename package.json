@@ -5,7 +5,8 @@
   "workspaces": [
     "frontend",
     "backend",
-    "agents"
+    "agents",
+    "cli"
   ],
   "scripts": {
     "dev": "npm run build -w agents && concurrently -n frontend,backend,agents -c cyan,green,magenta \"npm run dev -w frontend\" \"npm run dev -w backend\" \"npm run dev -w agents\"",

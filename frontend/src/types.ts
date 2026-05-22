@@ -92,3 +92,34 @@ export interface SongWiki {
   tags?: string[];
 }
 
+export interface AestheticDNA {
+  spectralMap: {
+    lowEnd: number;
+    midTexture: number;
+    highAir: number;
+    analogHeat: number;
+  };
+  evolution: {
+    precision: number;
+    entropyThreshold: number;
+    autonomyLevel: number;
+    fatigueIndex: number;
+    level: number;
+  };
+  anchors: {
+    localRoots: string[];
+    phantomNodes: string[];
+    blackList: string[];
+  };
+}
+
+export type XPacketType = 'thought' | 'action' | 'message' | 'error';
+
+export interface XPacket {
+  id: string;
+  timestamp: number;
+  type: XPacketType;
+  content: string;
+  metadata?: any;
+}
+

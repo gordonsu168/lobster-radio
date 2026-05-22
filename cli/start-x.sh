@@ -1,0 +1,59 @@
+#!/bin/bash
+
+# Pulse-X: The Resonant Heart Kernel Launcher
+# --------------------------------------------------
+
+set -e
+
+# 1. 准备 Python 3.11 环境
+cd nanobot
+if [ ! -d ".venv" ]; then
+    /Users/gordon/.local/bin/python3.11 -m venv .venv
+fi
+source .venv/bin/activate
+pip install . --quiet
+
+# 2. 探测环境并提取密钥
+ENV_FILE="../../.env"
+if [ -f "$ENV_FILE" ]; then
+    DEEPSEEK_API_KEY=$(grep "DEEPSEEK_API_KEY" "$ENV_FILE" | sed -E 's/.*=[[:space:]]*//' | tr -d '"' | tr -d "'" | tr -d '[:space:]')
+    OPENAI_API_KEY=$(grep "OPENAI_API_KEY" "$ENV_FILE" | sed -E 's/.*=[[:space:]]*//' | tr -d '"' | tr -d "'" | tr -d '[:space:]')
+fi
+
+if [ ! -z "$DEEPSEEK_API_KEY" ]; then
+    PROVIDER="deepseek"
+    MODEL="deepseek-v4-pro"
+    API_KEY="$DEEPSEEK_API_KEY"
+elif [ ! -z "$OPENAI_API_KEY" ]; then
+    PROVIDER="openai"
+    MODEL="gpt-4o-mini"
+    API_KEY="$OPENAI_API_KEY"
+else
+    echo "❌ 错误: 无法获取密钥"
+    exit 1
+fi
+
+# 3. 注入 Pulse-X 配置
+CLI_DIR=$(pwd)/..
+BACKEND_MCP="$CLI_DIR/../backend/src/mcp/musicMcpServer.ts"
+
+export NANOBOT_AGENTS__DEFAULTS__BOT_NAME="Pulse-X"
+export NANOBOT_AGENTS__DEFAULTS__BOT_ICON="⚡"
+export NANOBOT_AGENTS__DEFAULTS__MODEL="$MODEL"
+export NANOBOT_AGENTS__DEFAULTS__WORKSPACE="$CLI_DIR/workspace"
+
+if [ "$PROVIDER" == "deepseek" ]; then
+    export NANOBOT_PROVIDERS__DEEPSEEK__API_KEY="$API_KEY"
+    export NANOBOT_PROVIDERS__DEEPSEEK__API_BASE="https://api.deepseek.com"
+else
+    export NANOBOT_PROVIDERS__OPENAI__API_KEY="$API_KEY"
+fi
+
+export NANOBOT_TOOLS__MCP_SERVERS='{"lobster_music": {"command": "npx", "args": ["tsx", "'$BACKEND_MCP'"], "env": {"PORT": "4000"}}}'
+export NANOBOT_CHANNELS__SHOW_REASONING="true"
+export NANOBOT_CHANNELS__SEND_PROGRESS="true"
+
+# 4. 启动仪表盘外壳
+echo "💎 正在加载 Pulse-X 仪表盘外壳..."
+cd "$CLI_DIR"
+npx tsx src/wrapper.ts

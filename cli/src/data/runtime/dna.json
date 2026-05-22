@@ -1,0 +1,20 @@
+{
+  "spectralMap": {
+    "lowEnd": 0.5,
+    "midTexture": 0.5,
+    "highAir": 0.5,
+    "analogHeat": 0.5
+  },
+  "evolution": {
+    "precision": 0,
+    "entropyThreshold": 0.3,
+    "autonomyLevel": 0.1,
+    "fatigueIndex": 0,
+    "level": 1
+  },
+  "anchors": {
+    "localRoots": [],
+    "phantomNodes": [],
+    "blackList": []
+  }
+}

@@ -1,3 +1,5 @@
+export { LobsterCoreXAgent } from "./agents/LobsterCoreXAgent.js";
+export type { AestheticDNA, XPacket, XPacketType } from "./agents/LobsterCoreXAgent.js";
 export { MoodAnalyzerAgent } from "./agents/MoodAnalyzerAgent.js";
 export { MusicCuratorAgent } from "./agents/MusicCuratorAgent.js";
 export { NarratorAgent } from "./agents/NarratorAgent.js";

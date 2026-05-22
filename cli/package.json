@@ -1,0 +1,29 @@
+{
+  "name": "lobster-radio-cli",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "lobster-x": "./dist/index.js"
+  },
+  "scripts": {
+    "dev": "tsx src/index.tsx",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "x": "tsx src/index.tsx"
+  },
+  "dependencies": {
+    "chalk": "^5.3.0",
+    "commander": "^12.1.0",
+    "ink": "^5.1.0",
+    "lobster-radio-agents": "1.0.0",
+    "node-fetch": "^3.3.2",
+    "react": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.3",
+    "@types/react": "^18.3.1",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3"
+  }
+}

@@ -59,10 +59,22 @@ export async function fetchNcmFacts(title, artist) {
             return rArtist.includes(tArtist) || tArtist.includes(rArtist);
         }));
     }
-    // 如果还是没找到，默认取第一个
+    // 严格匹配校验：如果仍然没找到，检查首个结果是否确实相关
     if (!song) {
-        console.warn(`  [ncm] 未能找到高置信度匹配，回退到首个搜索结果`);
-        song = records[0];
+        const first = records[0];
+        const rName = first.name.toLowerCase();
+        const tName = title.toLowerCase();
+        // 只有当标题有一定重合度，且不是垃圾标题时，才允许回退
+        const isJunk = tName.trim().length < 2 || tName.includes("\u3164") || tName === "未知艺术家";
+        const nameOverlap = rName.includes(tName) || tName.includes(rName);
+        if (!isJunk && nameOverlap) {
+            console.warn(`  [ncm] 未能找到完美匹配，回退到首个相关结果: ${first.name}`);
+            song = first;
+        }
+        else {
+            console.warn(`  [ncm] 搜索结果不匹配且置信度低，跳过补全: "${title}" vs "${first.name}"`);
+            return null;
+        }
     }
     const songId = song.id;
     const facts = {
@@ -100,7 +112,8 @@ export async function fetchNcmFacts(title, artist) {
     ]);
     if (lyricResult?.data?.lyric) {
         const lrc = lyricResult.data.lyric;
-        facts.lyric = lyricResult.data.txtLyric || lrc;
+        // 优先使用带时间轴的 lrc，方便前端高亮和滚动
+        facts.lyric = lrc || lyricResult.data.txtLyric;
         // 更鲁棒的正则解析
         const composerMatch = lrc.match(/(作曲|Composer)\s*[:：]\s*([^\n\r\]]+)/i);
         const lyricistMatch = lrc.match(/(作词|Lyricist)\s*[:：]\s*([^\n\r\]]+)/i);

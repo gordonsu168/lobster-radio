@@ -68,8 +68,6 @@ export async function getSongWiki(songId) {
     }
     return foundWiki;
 }
-// 异步补全队列
-const enrichmentQueue = new Set();
 export async function enrichSongWithLLM(title, artist) {
     const { createOptionalModel } = await import("lobster-radio-agents");
     const model = createOptionalModel();
@@ -104,9 +102,26 @@ export async function enrichSongWithLLM(title, artist) {
         return null;
     }
 }
+// 异步补全队列
+const enrichmentQueue = new Set();
+/**
+ * 检查是否为垃圾标题（防止对空白或占位符进行无效搜索）
+ */
+function isJunkTitle(title, artist) {
+    if (!title || title.trim().length === 0 || title.includes("\u3164"))
+        return true;
+    if (title === "未知艺术家" || title === "Unknown Artist")
+        return true;
+    return false;
+}
 export function enqueueWikiEnrichment(wiki) {
     if (enrichmentQueue.has(wiki.id))
         return;
+    // 如果是垃圾标题，直接跳过并标记，避免消耗 API 和产生错误数据
+    if (isJunkTitle(wiki.title, wiki.artist)) {
+        updateSongWiki(wiki.id, { enrichmentStatus: 'skipped' });
+        return;
+    }
     enrichmentQueue.add(wiki.id);
     // 延迟执行，不阻塞当前请求
     setTimeout(async () => {

@@ -57,6 +57,14 @@ export async function fetchNeteaseFacts(title, artist) {
         const song = searchData.result?.songs?.[0];
         if (!song)
             return null;
+        // 匹配校验：避免垃圾标题搜到无关的热门歌曲
+        const rName = (song.name || "").toLowerCase();
+        const tName = title.toLowerCase();
+        const isJunk = tName.trim().length < 2 || tName.includes("\u3164") || tName === "未知艺术家";
+        const nameOverlap = rName.includes(tName) || tName.includes(rName);
+        if (isJunk || !nameOverlap) {
+            return null;
+        }
         const songId = song.id;
         // 2. 获取歌曲详情 (包含作者信息)
         const detailUrl = `${apiBase}/song/detail?ids=${songId}`;
