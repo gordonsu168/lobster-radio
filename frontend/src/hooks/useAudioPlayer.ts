@@ -4,6 +4,7 @@ export function useAudioPlayer(onTrackEnd?: () => void) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentSrc, setCurrentSrc] = useState<string | null>(null);
+  const [currentTime, setCurrentTime] = useState(0);
 
   useEffect(() => {
     const audio = new Audio();
@@ -22,10 +23,15 @@ export function useAudioPlayer(onTrackEnd?: () => void) {
       setIsPlaying(false);
     };
     
+    const onTimeUpdate = () => {
+      setCurrentTime(audio.currentTime);
+    };
+    
     audio.addEventListener("play", onPlay);
     audio.addEventListener("pause", onPause);
     audio.addEventListener("ended", onEnded);
     audio.addEventListener("error", onError);
+    audio.addEventListener("timeupdate", onTimeUpdate);
 
     return () => {
       audio.pause();
@@ -33,6 +39,7 @@ export function useAudioPlayer(onTrackEnd?: () => void) {
       audio.removeEventListener("pause", onPause);
       audio.removeEventListener("ended", onEnded);
       audio.removeEventListener("error", onError);
+      audio.removeEventListener("timeupdate", onTimeUpdate);
     };
   }, [onTrackEnd]);
 
@@ -45,6 +52,7 @@ export function useAudioPlayer(onTrackEnd?: () => void) {
     audioRef.current.pause();
     audioRef.current.src = src;
     setCurrentSrc(src);
+    setCurrentTime(0);
     audioRef.current.load();
     
     // 忽略 AbortError，这是正常行为
@@ -63,5 +71,5 @@ export function useAudioPlayer(onTrackEnd?: () => void) {
     play(url);
   }
 
-  return { isPlaying, play, pause, playBlobUrl, currentSrc };
+  return { isPlaying, play, pause, playBlobUrl, currentSrc, currentTime, audioRef };
 }

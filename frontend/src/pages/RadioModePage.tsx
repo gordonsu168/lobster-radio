@@ -35,12 +35,14 @@ export function RadioModePage() {
   const [currentOutro, setCurrentOutro] = useState<string>("");
   const [currentTrivia, setCurrentTrivia] = useState<string>("");
   const [showLyrics, setShowLyrics] = useState(false);
+  const [currentLyricIndex, setCurrentLyricIndex] = useState(-1);
   
   const triviaTriggeredRef = useRef(false); // 是否已触发过本次插播
   const audioRef = useRef<HTMLAudioElement>(null);
   const userInteractedRef = useRef(false);
   const isLoadingNextRef = useRef(false);
   const chatPanelRef = useRef<ChatPanelRef>(null);
+  const lyricsContainerRef = useRef<HTMLDivElement>(null);
 
   const activeNarrationsRef = useRef<HTMLAudioElement[]>([]);
 
@@ -446,12 +448,46 @@ export function RadioModePage() {
 
   // 处理进度
   const handleTimeUpdate = () => {
-    if (!audioRef.current || !currentTrack || triviaTriggeredRef.current) {
+    if (!audioRef.current || !currentTrack) {
       return;
     }
 
     const duration = audioRef.current.duration;
     const currentTime = audioRef.current.currentTime;
+
+    // Find current lyric index
+    if (parsedLyrics.length > 0) {
+      let newIndex = -1;
+      for (let i = 0; i < parsedLyrics.length; i++) {
+        if (parsedLyrics[i].time !== -1 && currentTime >= parsedLyrics[i].time) {
+          newIndex = i;
+        } else if (parsedLyrics[i].time !== -1 && currentTime < parsedLyrics[i].time) {
+          break;
+        }
+      }
+      if (newIndex !== currentLyricIndex) {
+        setCurrentLyricIndex(newIndex);
+      }
+    }
+
+    // Auto-scroll lyrics to centered position
+    if (showLyrics && lyricsContainerRef.current && currentLyricIndex !== -1) {
+      // Find the active line element. 
+      // lyricsContainerRef.current has children: [h3, p, p, ...]
+      const activeLine = lyricsContainerRef.current.children[currentLyricIndex + 1] as HTMLElement;
+      if (activeLine) {
+        const containerHeight = lyricsContainerRef.current.clientHeight;
+        const lineOffset = activeLine.offsetTop;
+        const lineHeight = activeLine.clientHeight;
+        
+        lyricsContainerRef.current.scrollTo({
+          top: lineOffset - containerHeight / 2 + lineHeight / 2,
+          behavior: 'smooth'
+        });
+      }
+    }
+
+    if (triviaTriggeredRef.current) return;
 
     // 在歌曲 30% - 60% 区间触发（选大约中间位置）
     if (currentTime > duration * TRIGGER_MIN_PROGRESS && currentTime < duration * TRIGGER_MAX_PROGRESS) {
@@ -562,9 +598,37 @@ export function RadioModePage() {
     loadMoreRecommendations("Working");
   };
 
-  const lyricLines = useMemo(() => {
+  useEffect(() => {
+    setCurrentLyricIndex(-1);
+    setShowLyrics(false);
+  }, [currentTrack]);
+
+  const parsedLyrics = useMemo(() => {
     if (!currentTrack?.lyric) return [];
-    return currentTrack.lyric.split('\n').filter(line => line.trim());
+    
+    const lines = currentTrack.lyric.split('\n');
+    const result: { time: number; text: string }[] = [];
+    const timeRegex = /\[(\d+):(\d+(?:\.\d+)?)\]/;
+
+    lines.forEach(line => {
+      const match = timeRegex.exec(line);
+      if (match) {
+        const minutes = parseInt(match[1]);
+        const seconds = parseFloat(match[2]);
+        const time = minutes * 60 + seconds;
+        const text = line.replace(timeRegex, '').trim();
+        if (text) {
+          result.push({ time, text });
+        }
+      } else {
+        const text = line.trim();
+        if (text && !text.startsWith('[')) {
+          result.push({ time: -1, text });
+        }
+      }
+    });
+
+    return result.sort((a, b) => a.time - b.time);
   }, [currentTrack]);
 
   return (
@@ -652,11 +716,27 @@ export function RadioModePage() {
                       </div>
                     </div>
                   ) : (
-                    <div className="animate-in fade-in slide-in-from-left-4 duration-500 mt-4 max-h-[180px] overflow-y-auto custom-scrollbar pr-2">
-                      <h3 className="text-xs font-bold uppercase tracking-widest text-pulse mb-3 text-center md:text-left">Lyrics</h3>
-                      {lyricLines.map((line, idx) => (
-                        <p key={idx} className="text-sm text-slate-200 mb-2 leading-relaxed italic text-center md:text-left">{line}</p>
-                      ))}
+                    <div 
+                      ref={lyricsContainerRef}
+                      className="animate-in fade-in slide-in-from-left-4 duration-500 mt-4 max-h-[180px] overflow-y-auto custom-scrollbar pr-2 relative"
+                    >
+                      <h3 className="text-xs font-bold uppercase tracking-widest text-pulse mb-3 text-center md:text-left sticky top-0 bg-black/10 backdrop-blur-sm z-10 pb-1">Lyrics</h3>
+                      {parsedLyrics.length > 0 ? (
+                        parsedLyrics.map((line, idx) => (
+                          <p 
+                            key={idx} 
+                            className={`text-sm mb-2 leading-relaxed transition-all duration-300 text-center md:text-left ${
+                              idx === currentLyricIndex 
+                                ? "text-white font-bold scale-105" 
+                                : "text-slate-200/40 italic"
+                            }`}
+                          >
+                            {line.text}
+                          </p>
+                        ))
+                      ) : (
+                        <p className="text-sm text-slate-200/40 italic text-center md:text-left">No lyrics available</p>
+                      )}
                     </div>
                   )}
 

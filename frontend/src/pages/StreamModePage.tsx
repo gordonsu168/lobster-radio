@@ -42,6 +42,7 @@ export function StreamModePage() {
   const [playlist, setPlaylist] = useState<Track[]>([]);
   const [showScrollButton, setShowScrollButton] = useState(false);
   const [showLyrics, setShowLyrics] = useState(false);
+  const [currentLyricIndex, setCurrentLyricIndex] = useState(-1);
 
   const audioRef = useRef<HTMLAudioElement>(null);
   const isFetchingRef = useRef(false);
@@ -456,13 +457,29 @@ export function StreamModePage() {
   const handleTimeUpdate = () => {
     if (!audioRef.current || isNarrationPlayingRef.current) return;
 
+    const currentTime = audioRef.current.currentTime;
     const duration = audioRef.current.duration;
     if (!duration || !isFinite(duration)) return;
 
-    const progress = audioRef.current.currentTime / duration;
+    const progress = currentTime / duration;
 
     if (progress >= 0.8) {
       prefetchNextSegment();
+    }
+
+    // Find current lyric index
+    if (parsedLyrics.length > 0) {
+      let newIndex = -1;
+      for (let i = 0; i < parsedLyrics.length; i++) {
+        if (parsedLyrics[i].time !== -1 && currentTime >= parsedLyrics[i].time) {
+          newIndex = i;
+        } else if (parsedLyrics[i].time !== -1 && currentTime < parsedLyrics[i].time) {
+          break;
+        }
+      }
+      if (newIndex !== currentLyricIndex) {
+        setCurrentLyricIndex(newIndex);
+      }
     }
 
     midSongInsertsRef.current.forEach((insert, index) => {
@@ -474,14 +491,22 @@ export function StreamModePage() {
       }
     });
 
-    // Auto-scroll lyrics
-    if (showLyrics && lyricsContainerRef.current) {
-      const { scrollHeight, clientHeight } = lyricsContainerRef.current;
-      const targetScroll = (scrollHeight - clientHeight) * progress;
-      lyricsContainerRef.current.scrollTo({
-        top: targetScroll,
-        behavior: 'smooth'
-      });
+    // Auto-scroll lyrics to centered position
+    if (showLyrics && lyricsContainerRef.current && currentLyricIndex !== -1) {
+      // Find the active line element. 
+      // lyricsContainerRef.current has children: [p, p, ...]
+      const activeLine = lyricsContainerRef.current.children[currentLyricIndex] as HTMLElement;
+      if (activeLine) {
+
+        const containerHeight = lyricsContainerRef.current.clientHeight;
+        const lineOffset = activeLine.offsetTop;
+        const lineHeight = activeLine.clientHeight;
+        
+        lyricsContainerRef.current.scrollTo({
+          top: lineOffset - containerHeight / 2 + lineHeight / 2,
+          behavior: 'smooth'
+        });
+      }
     }
   };
 
@@ -528,9 +553,36 @@ export function StreamModePage() {
     }
   };
 
-  const lyricLines = useMemo(() => {
+  useEffect(() => {
+    setCurrentLyricIndex(-1);
+  }, [currentTrack]);
+
+  const parsedLyrics = useMemo(() => {
     if (!currentTrack?.lyric) return [];
-    return currentTrack.lyric.split('\n').filter(line => line.trim());
+    
+    const lines = currentTrack.lyric.split('\n');
+    const result: { time: number; text: string }[] = [];
+    const timeRegex = /\[(\d+):(\d+(?:\.\d+)?)\]/;
+
+    lines.forEach(line => {
+      const match = timeRegex.exec(line);
+      if (match) {
+        const minutes = parseInt(match[1]);
+        const seconds = parseFloat(match[2]);
+        const time = minutes * 60 + seconds;
+        const text = line.replace(timeRegex, '').trim();
+        if (text) {
+          result.push({ time, text });
+        }
+      } else {
+        const text = line.trim();
+        if (text && !text.startsWith('[')) {
+          result.push({ time: -1, text });
+        }
+      }
+    });
+
+    return result.sort((a, b) => a.time - b.time);
   }, [currentTrack]);
 
   return (
@@ -593,11 +645,24 @@ export function StreamModePage() {
                     <span className="text-[10px] font-bold uppercase tracking-wider text-pulse mb-2 block">Lyrics</span>
                     <div 
                       ref={lyricsContainerRef}
-                      className="flex-1 overflow-y-auto pr-2 custom-scrollbar text-center"
+                      className="flex-1 overflow-y-auto pr-2 custom-scrollbar text-center relative"
                     >
-                      {lyricLines.map((line, idx) => (
-                        <p key={idx} className="text-sm text-mist/80 mb-2 leading-relaxed">{line}</p>
-                      ))}
+                      {parsedLyrics.length > 0 ? (
+                        parsedLyrics.map((line, idx) => (
+                          <p 
+                            key={idx} 
+                            className={`text-sm mb-2 leading-relaxed transition-all duration-300 ${
+                              idx === currentLyricIndex 
+                                ? "text-white font-bold scale-110" 
+                                : "text-mist/40"
+                            }`}
+                          >
+                            {line.text}
+                          </p>
+                        ))
+                      ) : (
+                        <p className="text-sm text-mist/40 italic">No lyrics available</p>
+                      )}
                     </div>
                   </div>
                 )}

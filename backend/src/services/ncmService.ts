@@ -142,7 +142,8 @@ export async function fetchNcmFacts(title: string, artist: string): Promise<NcmS
 
   if (lyricResult?.data?.lyric) {
     const lrc = lyricResult.data.lyric;
-    facts.lyric = lyricResult.data.txtLyric || lrc;
+    // 优先使用带时间轴的 lrc，方便前端高亮和滚动
+    facts.lyric = lrc || lyricResult.data.txtLyric;
 
     // 更鲁棒的正则解析
     const composerMatch = lrc.match(/(作曲|Composer)\s*[:：]\s*([^\n\r\]]+)/i);
