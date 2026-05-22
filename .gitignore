@@ -11,3 +11,5 @@ backend/src/data/songs-wiki.json
 .claude/
 .superpowers/
 start-moss.sh
+.DS_Store
+cli/workspace/
