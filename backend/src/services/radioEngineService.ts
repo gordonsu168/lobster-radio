@@ -110,7 +110,7 @@ export async function fetchNextRadioSegment() {
 
   const finalPath = getLocalPathFromUrl(targetTrack.previewUrl);
   if (finalPath) {
-    agentPlayer.add(finalPath, targetTrack.title);
+    agentPlayer.add(finalPath, `${targetTrack.artist} - ${targetTrack.title}`, targetTrack.id);
   }
 
   return { track: targetTrack, dj_talk };

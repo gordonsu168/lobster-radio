@@ -5,7 +5,7 @@ import {
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import { scanMusicLibrary } from "../services/musicLibraryService.js";
-import { getPlayHistory, getAestheticDna, saveAestheticDna } from "../services/storageService.js";
+import { getPlayHistory, getAestheticDna, saveAestheticDna, updateFeedback } from "../services/storageService.js";
 import { LobsterCoreXAgent } from "lobster-radio-agents";
 import { agentPlayer } from "../services/agentPlayerService.js";
 
@@ -35,10 +35,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         try {
             const { fetchNextRadioSegment } = await import("../services/radioEngineService.js");
             agentPlayer.clear();
-            
+
+            // 注册自动补充回调，实现持续播放
+            agentPlayer.setReplenishCallback(async () => { await fetchNextRadioSegment(); });
+
             // 立即获取当前这一段的信息
             const { track, dj_talk } = await fetchNextRadioSegment();
-            
+
             const report = `
 ### [PULSE_SYNC] 📡 信号塔已对齐
 
@@ -58,6 +61,14 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         if (act === "prev") agentPlayer.prev();
         if (act === "toggle") agentPlayer.toggle();
         if (act === "clear") agentPlayer.clear();
+        if (act === "like") {
+            const id = agentPlayer.getCurrentTrackId();
+            if (id) updateFeedback(id, "like");
+        }
+        if (act === "unlike") {
+            const id = agentPlayer.getCurrentTrackId();
+            if (id) updateFeedback(id, "dislike");
+        }
         return { content: [{ type: "text", text: `[SYSTEM_OK]` }] };
     }
 

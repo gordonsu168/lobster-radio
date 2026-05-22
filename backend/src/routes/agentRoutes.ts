@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { LobsterCoreXAgent } from "lobster-radio-agents";
-import { getPlayHistory, getAestheticDna, saveAestheticDna, getRuntimeSettings } from "../services/storageService.js";
+import { getPlayHistory, getAestheticDna, saveAestheticDna, getRuntimeSettings, updateFeedback } from "../services/storageService.js";
 import { scanMusicLibrary } from "../services/musicLibraryService.js";
 import { agentPlayer } from "../services/agentPlayerService.js";
 import { resolveRuntimeSecrets } from "../services/settingsResolver.js";
@@ -56,6 +56,16 @@ lobsterCoreXRouter.post("/chat", async (req, res) => {
     if (msg === '/clear') {
       agentPlayer.clear();
       return res.json({ logs: [{ id: 'c2', timestamp: Date.now(), type: 'action', content: '[COMMAND] 序列清空。' }], dna: (await getAgent()).getDna() });
+    }
+    if (msg === '/like') {
+      const trackId = agentPlayer.getCurrentTrackId();
+      if (trackId) { updateFeedback(trackId, "like"); }
+      return res.json({ logs: [{ id: 'l1', timestamp: Date.now(), type: 'action', content: trackId ? '[LIKE] 已标记喜欢。' : '[LIKE] 没有正在播放的歌曲。' }], dna: (await getAgent()).getDna() });
+    }
+    if (msg === '/dislike') {
+      const trackId = agentPlayer.getCurrentTrackId();
+      if (trackId) { updateFeedback(trackId, "dislike"); }
+      return res.json({ logs: [{ id: 'u1', timestamp: Date.now(), type: 'action', content: trackId ? '[DISLIKE] 已标记不喜欢。' : '[DISLIKE] 没有正在播放的歌曲。' }], dna: (await getAgent()).getDna() });
     }
 
     // 2. /stream 模式 (接入全局电台引擎)

@@ -4,8 +4,8 @@ import os from "node:os";
 import fs from "node:fs";
 
 export interface PlayerState {
-  current: { title: string; path: string } | null;
-  queue: { title: string; path: string }[];
+  current: { title: string; path: string; trackId?: string } | null;
+  queue: { title: string; path: string; trackId?: string }[];
   isPaused: boolean;
   lastActivity: string;
 }
@@ -13,7 +13,7 @@ export interface PlayerState {
 type QueueLowCallback = () => Promise<void>;
 
 class AgentPlayerService {
-  private playlist: { path: string; title: string }[] = [];
+  private playlist: { path: string; title: string; trackId?: string }[] = [];
   private currentIndex: number = -1;
   private currentProcess: ChildProcess | null = null;
   private isPaused: boolean = false;
@@ -26,9 +26,9 @@ class AgentPlayerService {
     this.onQueueLow = cb;
   }
 
-  add(path: string | null | undefined, title: string = "Unknown Signal") {
+  add(path: string | null | undefined, title: string = "Unknown Signal", trackId?: string) {
     if (!path) return;
-    this.playlist.push({ path, title });
+    this.playlist.push({ path, title, trackId });
     this.lastActivity = `LOCKED: ${title.slice(0, 15)}`;
     if (!this.currentProcess && !this.downloadProcess) {
       this.play(this.currentIndex + 1);
@@ -37,7 +37,7 @@ class AgentPlayerService {
 
   async play(index: number) {
     if (index < 0 || index >= this.playlist.length) {
-      this.currentProcess = null;
+      this.stopCurrent();
       if (this.onQueueLow && !this.isReplenishing) {
         this.isReplenishing = true;
         this.lastActivity = "FETCHING_NEXT...";
@@ -105,6 +105,13 @@ class AgentPlayerService {
         this.downloadProcess.kill();
         this.downloadProcess = null;
     }
+  }
+
+  getCurrentTrackId(): string | null {
+    if (this.currentIndex >= 0 && this.currentIndex < this.playlist.length) {
+      return this.playlist[this.currentIndex].trackId || null;
+    }
+    return null;
   }
 
   clear() {

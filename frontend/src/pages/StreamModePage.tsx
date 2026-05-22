@@ -46,6 +46,7 @@ export function StreamModePage() {
 
   const audioRef = useRef<HTMLAudioElement>(null);
   const isFetchingRef = useRef(false);
+  const isRetryingRef = useRef(false);
   const isNarrationPlayingRef = useRef(false);
   const narrationUrlRef = useRef<string | null>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
@@ -182,6 +183,7 @@ export function StreamModePage() {
       if (!t || !t.previewUrl) {
         console.warn("[stream] No pending track or previewUrl, skipping...");
         setStatus("Skipping missing track");
+        pendingTrackRef.current = null;
         fetchNextSegment();
         return;
       }
@@ -204,8 +206,11 @@ export function StreamModePage() {
         })
         .catch(err => {
           console.error("[stream] ❌ Music playback blocked:", err);
-          setStatus("Playback blocked - click to fix");
+          setStatus("Playback blocked - skipping track");
           setIsPlaying(false);
+          // Skip to next track when playback fails
+          pendingTrackRef.current = null;
+          fetchNextSegment();
         });
       pendingTrackRef.current = null;
     };
@@ -386,9 +391,18 @@ export function StreamModePage() {
         data = await fetchSegmentData();
       }
       applySegmentData(data);
+      // Reset retry flag on success
+      isRetryingRef.current = false;
     } catch (e) {
       console.error("Failed to fetch stream segment:", e);
       setStatus("Error loading segment");
+      // Retry once after a short delay to recover from transient failures
+      if (!isRetryingRef.current) {
+        isRetryingRef.current = true;
+        isFetchingRef.current = false;
+        setTimeout(() => fetchNextSegment(), 2000);
+        return;
+      }
     } finally {
       isFetchingRef.current = false;
     }
@@ -425,7 +439,7 @@ export function StreamModePage() {
     if (isNarrationPlayingRef.current) {
       console.log("[stream] DJ Intro ended, switching to music...");
       isNarrationPlayingRef.current = false;
-      
+
       const t = pendingTrackRef.current;
       if (t && t.previewUrl && audioRef.current) {
         console.log("--------------------------------------------------");
@@ -434,14 +448,17 @@ export function StreamModePage() {
         console.log("[stream] Artist:", t.artist);
         console.log("[stream] SRC being set:", t.previewUrl);
         console.log("--------------------------------------------------");
-        
+
         setStatus(`Playing: ${t.title}`);
         audioRef.current.src = t.previewUrl;
         audioRef.current.volume = 1.0;
         audioRef.current.play().catch(err => {
           console.error("[stream] Auto-play music blocked after narration:", err);
-          setStatus("Music blocked - click Play");
+          setStatus("Music blocked - skipping");
           setIsPlaying(false);
+          // Skip to next track instead of stopping
+          pendingTrackRef.current = null;
+          fetchNextSegment();
         });
         pendingTrackRef.current = null;
       } else {
@@ -691,7 +708,16 @@ export function StreamModePage() {
             onTimeUpdate={handleTimeUpdate}
             onError={(e) => {
                console.error("Audio Element Error:", e);
-               setStatus("Audio Error");
+               setStatus("Audio Error - skipping track");
+               // Recover from audio errors by skipping to the next segment
+               if (!isNarrationPlayingRef.current) {
+                 fetchNextSegment();
+               } else {
+                 // If narration itself errored, skip straight to the next segment
+                 isNarrationPlayingRef.current = false;
+                 pendingTrackRef.current = null;
+                 fetchNextSegment();
+               }
             }}
           />
         </div>

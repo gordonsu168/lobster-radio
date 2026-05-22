@@ -6,6 +6,14 @@ import path from "path";
 import crypto from "crypto";
 import fetch from "node-fetch";
 import { ElevenLabsClient } from "elevenlabs";
+// 静默控制：防止 TTS 日志冲散 Pulse-X 终端界面
+const console = {
+    log: (...args) => { },
+    error: (...args) => { },
+    warn: (...args) => { },
+    info: (...args) => { },
+    debug: (...args) => { }
+};
 // ========== ElevenLabs TTS (顶级质量，支持情绪调整) ==========
 let elevenLabsClient = null;
 function getElevenLabsClient(apiKey) {

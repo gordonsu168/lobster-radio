@@ -1,8 +1,9 @@
 import { Router } from "express";
 import { StreamDJAgent } from "lobster-radio-agents";
+import { agentPlayer } from "../services/agentPlayerService.js";
 import { getSongWiki, searchWiki } from "../services/wikiService.js";
 import { synthesizeSpeech } from "../services/ttsService.js";
-import { getRuntimeSettings } from "../services/storageService.js";
+import { updateFeedback, getRuntimeSettings } from "../services/storageService.js";
 import type { Track } from "../types.js";
 import type { SongWiki } from "../services/wikiService.js";
 
@@ -163,6 +164,32 @@ function detectSongRequest(historyContext: string): string | null {
   }
   return null;
 }
+
+// ── POST /skip ──
+// CLI 快速切歌（不经 LLM 直接控制播放器）
+streamRouter.post("/skip", async (_req, res) => {
+  agentPlayer.next();
+  res.json({ ok: true });
+});
+
+// ── POST /like /unlike ──
+// 对当前正在播放的歌曲标记喜好
+function feedbackCurrentTrack(feedback: "like" | "dislike") {
+  const trackId = agentPlayer.getCurrentTrackId();
+  if (trackId) {
+    updateFeedback(trackId, feedback);
+    return { ok: true, trackId, feedback };
+  }
+  return { ok: false, error: "No track playing" };
+}
+
+streamRouter.post("/like", async (_req, res) => {
+  res.json(feedbackCurrentTrack("like"));
+});
+
+streamRouter.post("/unlike", async (_req, res) => {
+  res.json(feedbackCurrentTrack("dislike"));
+});
 
 // ── POST /init ──
 // Generates a theme + playlist, resolves all songs to actual tracks.

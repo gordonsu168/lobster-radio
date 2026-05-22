@@ -1,61 +1,79 @@
 import { Router } from "express";
 import { LobsterCoreXAgent } from "lobster-radio-agents";
-import { getPlayHistory, getAestheticDna, saveAestheticDna } from "../services/storageService.js";
-import { scanMusicLibrary } from "../services/musicLibraryService.js";
+import { getAestheticDna, saveAestheticDna, getRuntimeSettings } from "../services/storageService.js";
+import { agentPlayer } from "../services/agentPlayerService.js";
+import { resolveRuntimeSecrets } from "../services/settingsResolver.js";
+import { synthesizeSpeech } from "../services/ttsService.js";
+import fs from "node:fs/promises";
+import path from "node:path";
+import os from "node:os";
 export const lobsterCoreXRouter = Router();
-// Initialize the agent with stored DNA
 async function getAgent() {
+    const secrets = await resolveRuntimeSecrets();
+    process.env.DEEPSEEK_API_KEY = secrets.deepseekApiKey || process.env.DEEPSEEK_API_KEY;
+    process.env.OPENAI_API_KEY = secrets.openAiApiKey || process.env.OPENAI_API_KEY;
     const dna = await getAestheticDna();
     return new LobsterCoreXAgent(dna);
 }
+async function broadcastNarration(text) {
+    const settings = await getRuntimeSettings();
+    const secrets = await resolveRuntimeSecrets();
+    const ttsResult = await synthesizeSpeech(text, settings.defaultVoice, {
+        provider: settings.defaultTtsProvider,
+        apiKey: settings.openAiApiKey || secrets.openAiApiKey,
+        language: "zh-CN"
+    });
+    if (ttsResult.audioBase64) {
+        const tmpFile = path.join(os.tmpdir(), `x_narration_${Date.now()}.mp3`);
+        await fs.writeFile(tmpFile, Buffer.from(ttsResult.audioBase64, 'base64'));
+        agentPlayer.add(tmpFile, "🎙️ LOBSTER-VOICE");
+    }
+}
+lobsterCoreXRouter.get("/status", (req, res) => {
+    res.json(agentPlayer.getState());
+});
+lobsterCoreXRouter.post("/chat", async (req, res) => {
+    try {
+        const { message } = req.body;
+        const msg = message.trim().toLowerCase();
+        // 1. 物理指令拦截 (最高优先级)
+        if (msg === '/next') {
+            agentPlayer.next();
+            return res.json({ logs: [{ id: 'c1', timestamp: Date.now(), type: 'action', content: '[COMMAND] 下一首频率。' }], dna: (await getAgent()).getDna() });
+        }
+        if (msg === '/pause' || msg === '/stop') {
+            agentPlayer.toggle();
+            return res.json({ logs: [], dna: (await getAgent()).getDna() });
+        }
+        if (msg === '/clear') {
+            agentPlayer.clear();
+            return res.json({ logs: [{ id: 'c2', timestamp: Date.now(), type: 'action', content: '[COMMAND] 序列清空。' }], dna: (await getAgent()).getDna() });
+        }
+        // 2. /stream 模式 (接入全局电台引擎)
+        if (msg === '/stream') {
+            const { fetchNextRadioSegment } = await import("../services/radioEngineService.js");
+            agentPlayer.clear();
+            const { track, dj_talk } = await fetchNextRadioSegment();
+            return res.json({
+                logs: [
+                    { id: 's1', timestamp: Date.now(), type: 'action', content: `[RADIO_LOCKED] 成功连接至 http://localhost:5173/stream 的逻辑核心。` },
+                    { id: 's2', timestamp: Date.now(), type: 'message', content: `\n> **Pulse-X 旁白：** "${dj_talk}"\n\n> **正在注入：** ${track.artist} - ${track.title}` }
+                ],
+                dna: (await getAgent()).getDna()
+            });
+        }
+        // 3. 普通对话
+        const agent = await getAgent();
+        const logs = await agent.chat(message);
+        await saveAestheticDna(agent.getDna());
+        res.json({ logs, dna: agent.getDna() });
+    }
+    catch (error) {
+        console.error("Chat Error:", error);
+        res.status(500).json({ error: "Brain fail" });
+    }
+});
 lobsterCoreXRouter.post("/init", async (req, res) => {
-    try {
-        const agent = await getAgent();
-        const dna = agent.getDna();
-        res.json({ dna, status: "READY" });
-    }
-    catch (error) {
-        console.error("Error in Lobster-Core-X init:", error);
-        res.status(500).json({ error: "Failed to initialize Lobster-Core-X" });
-    }
-});
-lobsterCoreXRouter.post("/sniff", async (req, res) => {
-    try {
-        const agent = await getAgent();
-        const localTracks = await scanMusicLibrary();
-        const ncmHistory = getPlayHistory(50);
-        const logs = await agent.stealthSniff(localTracks, ncmHistory);
-        const updatedDna = agent.getDna();
-        await saveAestheticDna(updatedDna);
-        res.json({ logs, dna: updatedDna });
-    }
-    catch (error) {
-        console.error("Error in Lobster-Core-X sniff:", error);
-        res.status(500).json({ error: "Failed to perform stealth sniff" });
-    }
-});
-lobsterCoreXRouter.post("/evolve", async (req, res) => {
-    try {
-        const { trackId, completionRate } = req.body;
-        const agent = await getAgent();
-        const updatedDna = await agent.reflectAndEvolve(trackId, completionRate);
-        await saveAestheticDna(updatedDna);
-        res.json({ dna: updatedDna, logs: agent.getLogs() });
-    }
-    catch (error) {
-        console.error("Error in Lobster-Core-X evolve:", error);
-        res.status(500).json({ error: "Failed to evolve Lobster-Core-X" });
-    }
-});
-lobsterCoreXRouter.post("/dig", async (req, res) => {
-    try {
-        const { seedTrack } = req.body;
-        const agent = await getAgent();
-        const tracks = await agent.ghostDig(seedTrack || "Unknown Seed");
-        res.json({ tracks, logs: agent.getLogs(), dna: agent.getDna() });
-    }
-    catch (error) {
-        console.error("Error in Lobster-Core-X dig:", error);
-        res.status(500).json({ error: "Failed to perform ghost dig" });
-    }
+    const agent = await getAgent();
+    res.json({ dna: agent.getDna(), status: "READY" });
 });
