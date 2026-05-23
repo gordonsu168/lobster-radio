@@ -32,6 +32,57 @@ wikiRouter.get("/song/:id", async (req: Request, res: Response) => {
       res.status(404).json({ error: "Song not found" });
       return;
     }
+    // Attach previewUrl from local music library if available
+    try {
+      const { getLocalTrackById, scanMusicLibrary } = await import("../services/musicLibraryService.js");
+      const allTracks = await scanMusicLibrary();
+
+      // Helpers for fuzzy artist matching (handle "Boy'z, Twins" vs "Boy'z" etc.)
+      const artistParts = (name: string) =>
+        name.toLowerCase().split(/[,&\/、，]|\s+feat\.?\s+|\s+featuring\s+|\s+x\s+/i).map(p => p.trim()).filter(Boolean);
+      const artistsOverlap = (a: string, b: string) => {
+        const pa = artistParts(a);
+        const pb = artistParts(b);
+        return pa.some(p => pb.includes(p)) || pb.some(p => pa.includes(p));
+      };
+
+      // 1. Exact ID match
+      let track = allTracks.find(t => t.id === song.id);
+
+      // 2. Title + Artist (exact & fuzzy)
+      if (!track) {
+        track = allTracks.find(t => {
+          if (t.title.toLowerCase() !== song.title.toLowerCase()) return false;
+          if (t.artist.toLowerCase() === song.artist.toLowerCase()) return true;
+          return artistsOverlap(t.artist, song.artist);
+        });
+      }
+
+      // 3. Title-only exact match
+      if (!track) {
+        track = allTracks.find(t => t.title.toLowerCase() === song.title.toLowerCase());
+      }
+
+      // 4. Title fuzzy match (one contains the other)
+      if (!track) {
+        track = allTracks.find(
+          t => t.title.toLowerCase().includes(song.title.toLowerCase()) ||
+               song.title.toLowerCase().includes(t.title.toLowerCase())
+        );
+      }
+
+      if (track) {
+        console.log(`[wiki] preview matched: "${song.title}" -> "${track.title}" by "${track.artist}"`);
+      } else {
+        console.log(`[wiki] preview NOT matched for: "${song.title}" by "${song.artist}"`);
+      }
+      if (track?.previewUrl) {
+        (song as any).previewUrl = track.previewUrl;
+      }
+    } catch (e) {
+      console.error("[wiki] failed to resolve track for preview:", e);
+    }
+    console.log(`[wiki] GET /song/${song.id}: previewUrl=${(song as any).previewUrl || "none"}`);
     res.json(song);
   } catch (e) {
     res.status(500).json({ error: "Failed to get song wiki" });
@@ -335,7 +386,7 @@ wikiRouter.get("/trivia/:id", async (req: Request, res: Response) => {
       try {
         console.log(`[Wiki] 联网获取冷知识: ${song.artist} - ${song.title}`);
         const query = encodeURIComponent(`${song.artist} ${song.title}`);
-        const res = await fetch(`https://zh.wikipedia.org/w/api.php?action=query&list=search&srsearch=${query}&utf8=&format=json`);
+        const res = await fetch(`https://zh.wikipedia.org/w/api.php?action=query&list=search&srsearch=${query}&utf8=&format=json`, { signal: AbortSignal.timeout(10_000) });
         const data = await res.json();
         
         if (data.query?.search?.length > 0) {
@@ -394,5 +445,38 @@ wikiRouter.post("/import", async (req: Request, res: Response) => {
     res.json({ status: "ok", message: "Import completed" });
   } catch (e) {
     res.status(500).json({ error: "Failed to import songs" });
+  }
+});
+
+// 批量补全所有 pending 歌曲
+wikiRouter.post("/enrich-all", async (req: Request, res: Response) => {
+  try {
+    const { enqueueWikiEnrichment, getAllSongs } = await import("../services/wikiService.js");
+    const force = req.query.force === "true";
+    const songs = await getAllSongs();
+
+    const targets = force
+      ? songs
+      : songs.filter(s => s.enrichmentStatus !== "completed" && s.enrichmentStatus !== "skipped");
+
+    for (const song of targets) {
+      // reset to pending to trigger re-enrichment
+      const { updateSongWiki } = await import("../services/wikiService.js");
+      const reset = { ...song, enrichmentStatus: "pending" as const };
+      await updateSongWiki(song.id, { enrichmentStatus: "pending" });
+      enqueueWikiEnrichment(reset);
+    }
+
+    console.log(`[wiki] Batch enrich enqueued: ${targets.length} songs (force=${force})`);
+    res.json({
+      status: "started",
+      total: songs.length,
+      enqueued: targets.length,
+      force,
+      message: `Batch enrichment started for ${targets.length} songs. This runs in the background.`
+    });
+  } catch (e) {
+    console.error("[wiki] Batch enrich failed:", e);
+    res.status(500).json({ error: "Failed to start batch enrichment" });
   }
 });

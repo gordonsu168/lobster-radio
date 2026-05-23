@@ -21,6 +21,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       { name: "sniff_user_dna", description: "重构 DNA 审美指纹", inputSchema: { type: "object", properties: {} } },
       { name: "trigger_radio_broadcast", description: "启动电台直播模式", inputSchema: { type: "object", properties: {} } },
       { name: "control_player", description: "控制播放器 (next/prev/toggle/clear)", inputSchema: { type: "object", properties: { action: { type: "string" } } } },
+      { name: "stop_stream", description: "停止电台直播并清空播放队列", inputSchema: { type: "object", properties: {} } },
     ],
   };
 });
@@ -53,6 +54,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         } catch (e: any) {
             return { content: [{ type: "text", text: `[ERROR] 信号连接失败: ${e.message}` }], isError: true };
         }
+    }
+
+    if (name === "stop_stream") {
+        agentPlayer.clear();
+        agentPlayer.setReplenishCallback(async () => {});
+        return { content: [{ type: "text", text: "[STREAM_STOPPED] 电台直播已停止，播放队列已清空" }] };
     }
 
     if (name === "control_player") {

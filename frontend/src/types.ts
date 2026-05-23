@@ -86,6 +86,9 @@ export interface SongWiki {
   trivia?: string[];
   lyric?: string;
   
+  // --- Playback ---
+  previewUrl?: string;
+
   // --- Task Status ---
   enrichmentStatus: 'pending' | 'completed' | 'failed';
   lastUpdated: string;

@@ -59,7 +59,14 @@ const defaultSettings = {
     djStyle: "classic",
     enableAiNarration: true,
     preferredMusicSource: "auto",
-    localMusicPath: ""
+    localMusicPath: "",
+    userSchedule: {
+        workStart: "09:00",
+        workEnd: "18:00",
+        workDays: [1, 2, 3, 4, 5],
+        sleepTime: "23:00",
+        wakeTime: "07:00",
+    },
 };
 // --- SQLite Methods ---
 export function addPlayHistory(item) {

@@ -68,14 +68,18 @@ export async function getSongWiki(songId) {
     }
     return foundWiki;
 }
-export async function enrichSongWithLLM(title, artist) {
+export async function enrichSongWithLLM(title, artist, webContext // optional: scraped Baidu/Wikipedia abstract for grounding
+) {
     const { createOptionalModel } = await import("lobster-radio-agents");
     const model = createOptionalModel();
     if (!model)
         return null;
+    const contextBlock = webContext
+        ? `\n\n参考資料（来自网络百科）：\n${webContext.slice(0, 800)}\n请基于以上参考資料并结合你的知识，提供更准确的信息。`
+        : "";
     const prompt = `你是一个专业的音乐百科全书。请根据你的知识储备，提供以下歌曲的硬核事实。
 歌曲：${title}
-歌手：${artist}
+歌手：${artist}${contextBlock}
 
 请严格按 JSON 格式返回，不要包含任何额外文字：
 {
@@ -176,6 +180,34 @@ export function enqueueWikiEnrichment(wiki) {
                     updates.trivia = wikiInfo.trivia;
                 if (!updates.wikiAbstract)
                     updates.wikiAbstract = wikiInfo.wikiAbstract;
+            }
+            // 4. LLM AI 补全 — 兜底硬事实 + 生成创意冷知识/热评
+            try {
+                const webAbstract = wikiInfo?.wikiAbstract || "";
+                const llmInfo = await enrichSongWithLLM(updates.title || wiki.title, updates.artist || wiki.artist, webAbstract);
+                if (llmInfo) {
+                    if (!updates.composer && llmInfo.composer)
+                        updates.composer = llmInfo.composer;
+                    if (!updates.lyricist && llmInfo.lyricist)
+                        updates.lyricist = llmInfo.lyricist;
+                    if (!updates.arranger && llmInfo.arranger)
+                        updates.arranger = llmInfo.arranger;
+                    if (!updates.releaseYear && llmInfo.releaseYear)
+                        updates.releaseYear = llmInfo.releaseYear;
+                    if (!updates.genre && llmInfo.genre)
+                        updates.genre = llmInfo.genre;
+                    // trivia & hotComments: AI 结果始终优先（更生动）
+                    if (llmInfo.trivia && llmInfo.trivia.length > 0) {
+                        updates.trivia = [...new Set([...(updates.trivia || []), ...llmInfo.trivia])];
+                    }
+                    if (llmInfo.hotComments && llmInfo.hotComments.length > 0) {
+                        updates.hotComments = [...new Set([...(updates.hotComments || []), ...llmInfo.hotComments])];
+                    }
+                    console.log(`[wiki-worker] LLM AI 补全完成: ${wiki.title}`);
+                }
+            }
+            catch (llmErr) {
+                console.warn(`[wiki-worker] LLM 补全失败 (continuing anyway): ${wiki.title}`, llmErr);
             }
             await updateSongWiki(wiki.id, updates);
             console.log(`[wiki-worker] 补全成功: ${wiki.title}`);

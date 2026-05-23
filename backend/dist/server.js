@@ -13,6 +13,7 @@ import { lobsterCoreXRouter } from "./routes/agentRoutes.js";
 import { resolveRuntimeSecrets } from "./services/settingsResolver.js";
 import { scanMusicLibrary } from "./services/musicLibraryService.js";
 import { importSongsFromTracks } from "./services/wikiService.js";
+import { startUserStateMonitor } from "./services/userStateMonitor.js";
 const app = express();
 async function start() {
     const secrets = await resolveRuntimeSecrets();
@@ -46,6 +47,8 @@ async function start() {
     })();
     app.listen(port, () => {
         console.log(`Lobster Radio backend listening on http://localhost:${port}`);
+        startUserStateMonitor();
+        console.log("User state monitor started");
     });
 }
 start().catch((error) => {

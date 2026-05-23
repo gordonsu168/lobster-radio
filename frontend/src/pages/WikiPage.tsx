@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { SongWiki } from "../types";
 
 export function WikiPage() {
@@ -6,6 +6,77 @@ export function WikiPage() {
   const [selectedSong, setSelectedSong] = useState<SongWiki | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [playingId, setPlayingId] = useState<string | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const handlePreview = async (song: SongWiki) => {
+    console.log("[WikiPage] handlePreview called:", { songId: song.id, title: song.title, hasPreviewUrl: !!song.previewUrl, currentPlayingId: playingId });
+
+    // Toggle pause if same song is already playing
+    if (playingId === song.id) {
+      console.log("[WikiPage] same song, toggling play/pause. paused:", audioRef.current?.paused);
+      if (audioRef.current?.paused) {
+        audioRef.current?.play().then(() => console.log("[WikiPage] resumed")).catch(e => console.error("[WikiPage] resume failed:", e));
+      } else {
+        audioRef.current?.pause();
+      }
+      return;
+    }
+
+    // Fetch previewUrl if not already loaded
+    let previewUrl = song.previewUrl;
+    if (!previewUrl) {
+      console.log("[WikiPage] previewUrl not cached, fetching from API...");
+      try {
+        const res = await fetch(`/api/wiki/song/${song.id}`);
+        console.log("[WikiPage] fetch response:", { ok: res.ok, status: res.status });
+        if (res.ok) {
+          const data = await res.json();
+          console.log("[WikiPage] song data:", { id: data.id, hasPreviewUrl: !!data.previewUrl, previewUrl: data.previewUrl });
+          previewUrl = data.previewUrl;
+          // Update the song in the list
+          setSongs(prev => prev.map(s => s.id === song.id ? { ...s, previewUrl } : s));
+          if (selectedSong?.id === song.id) {
+            setSelectedSong({ ...selectedSong, previewUrl });
+          }
+        } else {
+          console.error("[WikiPage] fetch failed with status:", res.status);
+        }
+      } catch (e) {
+        console.error("[WikiPage] fetch error:", e);
+      }
+    }
+
+    if (!previewUrl) {
+      console.warn("[WikiPage] no previewUrl available for:", song.id);
+      return;
+    }
+
+    console.log("[WikiPage] creating Audio with src:", previewUrl);
+
+    // Stop current audio
+    if (audioRef.current) {
+      audioRef.current.pause();
+      console.log("[WikiPage] stopped previous audio");
+    }
+
+    const audio = new Audio(previewUrl);
+    audioRef.current = audio;
+    audio.onloadedmetadata = () => console.log("[WikiPage] audio metadata loaded, duration:", audio.duration);
+    audio.oncanplay = () => console.log("[WikiPage] audio can play");
+    audio.onplay = () => console.log("[WikiPage] audio playing");
+    audio.onended = () => { console.log("[WikiPage] audio ended"); setPlayingId(null); };
+    audio.onerror = (e) => { console.error("[WikiPage] audio error:", e, audio.error); setPlayingId(null); };
+    audio.onstalled = () => console.warn("[WikiPage] audio stalled");
+
+    setPlayingId(song.id);
+    audio.play().then(() => {
+      console.log("[WikiPage] play() succeeded");
+    }).catch((e) => {
+      console.error("[WikiPage] play() failed:", e);
+      setPlayingId(null);
+    });
+  };
 
   // 加载所有歌曲
   const loadData = () => {
@@ -73,7 +144,7 @@ export function WikiPage() {
 
       // Start polling for results
       let attempts = 0;
-      const maxAttempts = 30; // 30 seconds max
+      const maxAttempts = 120; // 2 min — 4-tier pipeline (ncm-cli → Netease → Wikipedia → LLM) can take a while
       
       const poll = async () => {
         if (attempts >= maxAttempts) {
@@ -155,10 +226,23 @@ export function WikiPage() {
                 >
                   <div className="flex w-full justify-between items-center mb-1">
                     <p className="font-semibold text-white truncate pr-2">{song.title}</p>
-                    <div className={`w-2 h-2 rounded-full shrink-0 ${
-                      song.enrichmentStatus === 'completed' ? 'bg-green-500' :
-                      song.enrichmentStatus === 'failed' ? 'bg-red-500' : 'bg-yellow-500'
-                    }`} title={`Status: ${song.enrichmentStatus}`}></div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span
+                        onClick={(e) => { e.stopPropagation(); handlePreview(song); }}
+                        className={`flex items-center justify-center w-6 h-6 rounded-full text-xs transition ${
+                          playingId === song.id && audioRef.current && !audioRef.current.paused
+                            ? "bg-pulse text-black"
+                            : "bg-white/10 text-white/60 hover:bg-white/20 hover:text-white"
+                        }`}
+                        title="试听"
+                      >
+                        {playingId === song.id && audioRef.current && !audioRef.current.paused ? "⏸" : "▶"}
+                      </span>
+                      <div className={`w-2 h-2 rounded-full ${
+                        song.enrichmentStatus === 'completed' ? 'bg-green-500' :
+                        song.enrichmentStatus === 'failed' ? 'bg-red-500' : 'bg-yellow-500'
+                      }`} title={`Status: ${song.enrichmentStatus}`}></div>
+                    </div>
                   </div>
                   <p className="text-xs text-white/60 truncate w-full">{song.artist} - {song.album}</p>
                 </button>
@@ -210,9 +294,19 @@ export function WikiPage() {
                   </div>
                 </div>
                 <div className="flex flex-col items-end gap-2 shrink-0">
+                  <button
+                    onClick={() => handlePreview(selectedSong)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                      playingId === selectedSong.id && audioRef.current && !audioRef.current.paused
+                        ? "bg-pulse text-black"
+                        : "bg-white/10 text-white/70 hover:bg-white/20 hover:text-white"
+                    }`}
+                  >
+                    {playingId === selectedSong.id && audioRef.current && !audioRef.current.paused ? "⏸ 暂停试听" : "▶ 试听"}
+                  </button>
                   <span className={`px-2 py-1 rounded text-[10px] uppercase font-bold tracking-wider ${
                     selectedSong.enrichmentStatus === 'completed' ? 'bg-green-500/20 text-green-400' :
-                    selectedSong.enrichmentStatus === 'failed' ? 'bg-red-500/20 text-red-400' : 
+                    selectedSong.enrichmentStatus === 'failed' ? 'bg-red-500/20 text-red-400' :
                     'bg-yellow-500/20 text-yellow-400'
                   }`}>
                     {selectedSong.enrichmentStatus || 'unknown'}

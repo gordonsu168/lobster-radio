@@ -1,9 +1,11 @@
 import { Router } from "express";
 import { LobsterCoreXAgent } from "lobster-radio-agents";
-import { getAestheticDna, saveAestheticDna, getRuntimeSettings } from "../services/storageService.js";
+import { getAestheticDna, saveAestheticDna, getRuntimeSettings, updateFeedback } from "../services/storageService.js";
 import { agentPlayer } from "../services/agentPlayerService.js";
 import { resolveRuntimeSecrets } from "../services/settingsResolver.js";
 import { synthesizeSpeech } from "../services/ttsService.js";
+import { getSongWiki } from "../services/wikiService.js";
+import { getUserState, getCachedUserState } from "../services/userStateMonitor.js";
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
@@ -32,6 +34,19 @@ async function broadcastNarration(text) {
 lobsterCoreXRouter.get("/status", (req, res) => {
     res.json(agentPlayer.getState());
 });
+lobsterCoreXRouter.get("/state", async (_req, res) => {
+    try {
+        const state = await getUserState();
+        res.json(state);
+    }
+    catch (error) {
+        // Return cached state on failure, or a fallback
+        const cached = getCachedUserState();
+        if (cached)
+            return res.json(cached);
+        res.status(500).json({ error: "Unable to detect user state" });
+    }
+});
 lobsterCoreXRouter.post("/chat", async (req, res) => {
     try {
         const { message } = req.body;
@@ -48,6 +63,57 @@ lobsterCoreXRouter.post("/chat", async (req, res) => {
         if (msg === '/clear') {
             agentPlayer.clear();
             return res.json({ logs: [{ id: 'c2', timestamp: Date.now(), type: 'action', content: '[COMMAND] 序列清空。' }], dna: (await getAgent()).getDna() });
+        }
+        if (msg === '/like') {
+            const trackId = agentPlayer.getCurrentTrackId();
+            if (trackId) {
+                updateFeedback(trackId, "like");
+            }
+            return res.json({ logs: [{ id: 'l1', timestamp: Date.now(), type: 'action', content: trackId ? '[LIKE] 已标记喜欢。' : '[LIKE] 没有正在播放的歌曲。' }], dna: (await getAgent()).getDna() });
+        }
+        if (msg === '/dislike') {
+            const trackId = agentPlayer.getCurrentTrackId();
+            if (trackId) {
+                updateFeedback(trackId, "dislike");
+            }
+            return res.json({ logs: [{ id: 'u1', timestamp: Date.now(), type: 'action', content: trackId ? '[DISLIKE] 已标记不喜欢。' : '[DISLIKE] 没有正在播放的歌曲。' }], dna: (await getAgent()).getDna() });
+        }
+        if (msg === '/now' || msg === '/status') {
+            const state = agentPlayer.getState();
+            if (!state.current) {
+                return res.json({ logs: [{ id: 'n1', timestamp: Date.now(), type: 'action', content: '[NOW] 当前没有播放任何曲目。' }], dna: (await getAgent()).getDna() });
+            }
+            const cur = state.current;
+            let details = `**▶ 正在播放**\n> ${cur.title}\n`;
+            if (cur.trackId) {
+                try {
+                    const wiki = await getSongWiki(cur.trackId);
+                    if (wiki) {
+                        const meta = [];
+                        if (wiki.artist)
+                            meta.push(`**歌手:** ${wiki.artist}`);
+                        if (wiki.album)
+                            meta.push(`**专辑:** ${wiki.album}`);
+                        if (wiki.releaseYear)
+                            meta.push(`**年份:** ${wiki.releaseYear}`);
+                        if (wiki.composer)
+                            meta.push(`**作曲:** ${wiki.composer}`);
+                        if (wiki.lyricist)
+                            meta.push(`**作词:** ${wiki.lyricist}`);
+                        if (meta.length > 0)
+                            details += meta.join(' | ') + '\n';
+                        if (wiki.hotComments?.length) {
+                            details += `> 💬 *"${wiki.hotComments[0]}"*\n`;
+                        }
+                        if (wiki.trivia?.length) {
+                            details += `> 📖 ${wiki.trivia[0]}\n`;
+                        }
+                    }
+                }
+                catch (e) { /* wiki lookup optional */ }
+            }
+            details += `\n队列中: ${state.queue.length} 首 | ${state.isPaused ? '⏸ 已暂停' : '▶ 播放中'}`;
+            return res.json({ logs: [{ id: 'n1', timestamp: Date.now(), type: 'message', content: details }], dna: (await getAgent()).getDna() });
         }
         // 2. /stream 模式 (接入全局电台引擎)
         if (msg === '/stream') {

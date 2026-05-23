@@ -2,7 +2,7 @@ import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { CallToolRequestSchema, ListToolsRequestSchema, } from "@modelcontextprotocol/sdk/types.js";
 import { scanMusicLibrary } from "../services/musicLibraryService.js";
-import { getPlayHistory, getAestheticDna, saveAestheticDna } from "../services/storageService.js";
+import { getPlayHistory, getAestheticDna, saveAestheticDna, updateFeedback } from "../services/storageService.js";
 import { LobsterCoreXAgent } from "lobster-radio-agents";
 import { agentPlayer } from "../services/agentPlayerService.js";
 // 强行禁音：后端严禁向终端屏幕打印任何字符
@@ -15,6 +15,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             { name: "sniff_user_dna", description: "重构 DNA 审美指纹", inputSchema: { type: "object", properties: {} } },
             { name: "trigger_radio_broadcast", description: "启动电台直播模式", inputSchema: { type: "object", properties: {} } },
             { name: "control_player", description: "控制播放器 (next/prev/toggle/clear)", inputSchema: { type: "object", properties: { action: { type: "string" } } } },
+            { name: "stop_stream", description: "停止电台直播并清空播放队列", inputSchema: { type: "object", properties: {} } },
         ],
     };
 });
@@ -28,7 +29,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                 const { fetchNextRadioSegment } = await import("../services/radioEngineService.js");
                 agentPlayer.clear();
                 // 注册自动补充回调，实现持续播放
-                agentPlayer.setReplenishCallback(fetchNextRadioSegment);
+                agentPlayer.setReplenishCallback(async () => { await fetchNextRadioSegment(); });
                 // 立即获取当前这一段的信息
                 const { track, dj_talk } = await fetchNextRadioSegment();
                 const report = `
@@ -43,6 +44,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                 return { content: [{ type: "text", text: `[ERROR] 信号连接失败: ${e.message}` }], isError: true };
             }
         }
+        if (name === "stop_stream") {
+            agentPlayer.clear();
+            agentPlayer.setReplenishCallback(async () => { });
+            return { content: [{ type: "text", text: "[STREAM_STOPPED] 电台直播已停止，播放队列已清空" }] };
+        }
         if (name === "control_player") {
             const act = args?.action;
             if (act === "next")
@@ -53,6 +59,16 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                 agentPlayer.toggle();
             if (act === "clear")
                 agentPlayer.clear();
+            if (act === "like") {
+                const id = agentPlayer.getCurrentTrackId();
+                if (id)
+                    updateFeedback(id, "like");
+            }
+            if (act === "unlike") {
+                const id = agentPlayer.getCurrentTrackId();
+                if (id)
+                    updateFeedback(id, "dislike");
+            }
             return { content: [{ type: "text", text: `[SYSTEM_OK]` }] };
         }
         if (name === "sniff_user_dna") {

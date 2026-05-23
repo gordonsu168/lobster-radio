@@ -23,6 +23,52 @@ wikiRouter.get("/song/:id", async (req, res) => {
             res.status(404).json({ error: "Song not found" });
             return;
         }
+        // Attach previewUrl from local music library if available
+        try {
+            const { getLocalTrackById, scanMusicLibrary } = await import("../services/musicLibraryService.js");
+            const allTracks = await scanMusicLibrary();
+            // Helpers for fuzzy artist matching (handle "Boy'z, Twins" vs "Boy'z" etc.)
+            const artistParts = (name) => name.toLowerCase().split(/[,&\/、，]|\s+feat\.?\s+|\s+featuring\s+|\s+x\s+/i).map(p => p.trim()).filter(Boolean);
+            const artistsOverlap = (a, b) => {
+                const pa = artistParts(a);
+                const pb = artistParts(b);
+                return pa.some(p => pb.includes(p)) || pb.some(p => pa.includes(p));
+            };
+            // 1. Exact ID match
+            let track = allTracks.find(t => t.id === song.id);
+            // 2. Title + Artist (exact & fuzzy)
+            if (!track) {
+                track = allTracks.find(t => {
+                    if (t.title.toLowerCase() !== song.title.toLowerCase())
+                        return false;
+                    if (t.artist.toLowerCase() === song.artist.toLowerCase())
+                        return true;
+                    return artistsOverlap(t.artist, song.artist);
+                });
+            }
+            // 3. Title-only exact match
+            if (!track) {
+                track = allTracks.find(t => t.title.toLowerCase() === song.title.toLowerCase());
+            }
+            // 4. Title fuzzy match (one contains the other)
+            if (!track) {
+                track = allTracks.find(t => t.title.toLowerCase().includes(song.title.toLowerCase()) ||
+                    song.title.toLowerCase().includes(t.title.toLowerCase()));
+            }
+            if (track) {
+                console.log(`[wiki] preview matched: "${song.title}" -> "${track.title}" by "${track.artist}"`);
+            }
+            else {
+                console.log(`[wiki] preview NOT matched for: "${song.title}" by "${song.artist}"`);
+            }
+            if (track?.previewUrl) {
+                song.previewUrl = track.previewUrl;
+            }
+        }
+        catch (e) {
+            console.error("[wiki] failed to resolve track for preview:", e);
+        }
+        console.log(`[wiki] GET /song/${song.id}: previewUrl=${song.previewUrl || "none"}`);
         res.json(song);
     }
     catch (e) {
@@ -289,7 +335,7 @@ wikiRouter.get("/trivia/:id", async (req, res) => {
             try {
                 console.log(`[Wiki] 联网获取冷知识: ${song.artist} - ${song.title}`);
                 const query = encodeURIComponent(`${song.artist} ${song.title}`);
-                const res = await fetch(`https://zh.wikipedia.org/w/api.php?action=query&list=search&srsearch=${query}&utf8=&format=json`);
+                const res = await fetch(`https://zh.wikipedia.org/w/api.php?action=query&list=search&srsearch=${query}&utf8=&format=json`, { signal: AbortSignal.timeout(10_000) });
                 const data = await res.json();
                 if (data.query?.search?.length > 0) {
                     const snippet = data.query.search[0].snippet.replace(/<[^>]*>?/gm, ''); // 移除HTML标签

@@ -14,10 +14,10 @@ class AgentPlayerService {
     setReplenishCallback(cb) {
         this.onQueueLow = cb;
     }
-    add(path, title = "Unknown Signal") {
+    add(path, title = "Unknown Signal", trackId) {
         if (!path)
             return;
-        this.playlist.push({ path, title });
+        this.playlist.push({ path, title, trackId });
         this.lastActivity = `LOCKED: ${title.slice(0, 15)}`;
         if (!this.currentProcess && !this.downloadProcess) {
             this.play(this.currentIndex + 1);
@@ -25,7 +25,7 @@ class AgentPlayerService {
     }
     async play(index) {
         if (index < 0 || index >= this.playlist.length) {
-            this.currentProcess = null;
+            this.stopCurrent();
             if (this.onQueueLow && !this.isReplenishing) {
                 this.isReplenishing = true;
                 this.lastActivity = "FETCHING_NEXT...";
@@ -97,6 +97,12 @@ class AgentPlayerService {
             this.downloadProcess.kill();
             this.downloadProcess = null;
         }
+    }
+    getCurrentTrackId() {
+        if (this.currentIndex >= 0 && this.currentIndex < this.playlist.length) {
+            return this.playlist[this.currentIndex].trackId || null;
+        }
+        return null;
     }
     clear() {
         this.stopCurrent();

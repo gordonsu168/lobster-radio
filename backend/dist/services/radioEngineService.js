@@ -5,6 +5,7 @@ import { synthesizeSpeech } from "./ttsService.js";
 import { resolveRuntimeSecrets } from "./settingsResolver.js";
 import { agentPlayer } from "./agentPlayerService.js";
 import { getSongWiki } from "./wikiService.js";
+import { getCachedUserState } from "./userStateMonitor.js";
 import fs from "node:fs";
 import fsp from "node:fs/promises";
 import path from "node:path";
@@ -55,7 +56,11 @@ export async function fetchNextRadioSegment() {
         .slice(0, 15);
     const candidateList = candidates.map(c => `${c.artist} - ${c.title}`).join(", ");
     // 3. 调用 StreamDJ 生成主题（强制从候选名单中选）
-    const playlistResp = await streamDJ.generatePlaylist(`候选信号列表: [${candidateList}]. 请从中选出 1 首最契合当前 DNA ${JSON.stringify(dna?.spectralMap)} 的信号。`, "zh-CN", "classic", currentThemeContext || undefined, 1);
+    const userState = getCachedUserState();
+    const userStateDesc = userState
+        ? `听众当前状态: ${userState.label}，${userState.dayOfWeek} ${userState.timeOfDay}。`
+        : "";
+    const playlistResp = await streamDJ.generatePlaylist(`${userStateDesc}候选信号列表: [${candidateList}]. 请从中选出 1 首最契合当前 DNA ${JSON.stringify(dna?.spectralMap)} 的信号。`, "zh-CN", "classic", currentThemeContext || undefined, 1);
     const selectedTitle = playlistResp.songs[0].title;
     const targetTrack = candidates.find(t => selectedTitle.includes(t.title) || t.title.includes(selectedTitle)) || candidates[0];
     recentlyPlayedIds.add(targetTrack.id);
@@ -74,8 +79,8 @@ export async function fetchNextRadioSegment() {
         trivia: wiki?.trivia?.[0]
     };
     // 5. 生成「电台级别」的旁白
-    const narrationResp = await streamDJ.generateNarrationForTrack(trackInfo, playlistResp.theme_update, "zh-CN", "night" // 强制使用深夜治愈模式，更具质感
-    );
+    const narrationResp = await streamDJ.generateNarrationForTrack(trackInfo, playlistResp.theme_update, "zh-CN", "night", // 强制使用深夜治愈模式，更具质感
+    userState ? `${userState.label}，${userState.dayOfWeek} ${userState.timeOfDay}` : undefined);
     const dj_talk = narrationResp.dj_talk;
     currentThemeContext = narrationResp.theme_update;
     // 6. TTS & 注入播放器
@@ -92,7 +97,7 @@ export async function fetchNextRadioSegment() {
     }
     const finalPath = getLocalPathFromUrl(targetTrack.previewUrl);
     if (finalPath) {
-        agentPlayer.add(finalPath, targetTrack.title);
+        agentPlayer.add(finalPath, `${targetTrack.artist} - ${targetTrack.title}`, targetTrack.id);
     }
     return { track: targetTrack, dj_talk };
 }

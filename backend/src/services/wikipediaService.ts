@@ -14,6 +14,8 @@ interface WikipediaExtractResult {
   title: string;
 }
 
+const WIKIPEDIA_TIMEOUT_MS = 10_000; // 10s timeout for Wikipedia API calls
+
 // 搜索维基百科
 export async function searchWikipedia(query: string): Promise<WikipediaSearchResult[]> {
   try {
@@ -22,6 +24,7 @@ export async function searchWikipedia(query: string): Promise<WikipediaSearchRes
     )}&srlimit=5&format=json&origin=*`;
 
     const response = await fetch(url, {
+      signal: AbortSignal.timeout(WIKIPEDIA_TIMEOUT_MS),
       headers: {
         "User-Agent": "LobsterRadio/1.0 (https://github.com/lobster-radio)"
       }
@@ -29,7 +32,11 @@ export async function searchWikipedia(query: string): Promise<WikipediaSearchRes
 
     const data: any = await response.json();
     return data?.query?.search || [];
-  } catch (e) {
+  } catch (e: any) {
+    if (e?.type === 'aborted') {
+      console.warn("Wikipedia search timed out after 10s");
+      throw e; // re-throw so caller can skip remaining Wikipedia queries
+    }
     console.warn("Wikipedia search failed:", e);
     return [];
   }
@@ -41,6 +48,7 @@ export async function getWikipediaExtract(pageId: number): Promise<string | null
     const url = `https://zh.wikipedia.org/w/api.php?action=query&pageids=${pageId}&prop=extracts&exintro=true&explaintext=true&format=json&origin=*`;
 
     const response = await fetch(url, {
+      signal: AbortSignal.timeout(WIKIPEDIA_TIMEOUT_MS),
       headers: {
         "User-Agent": "LobsterRadio/1.0 (https://github.com/lobster-radio)"
       }
@@ -52,8 +60,12 @@ export async function getWikipediaExtract(pageId: number): Promise<string | null
 
     const page = pages[Object.keys(pages)[0]];
     return page?.extract || null;
-  } catch (e) {
-    console.warn("Wikipedia extract failed:", e);
+  } catch (e: any) {
+    if (e?.type === 'aborted') {
+      console.warn("Wikipedia extract timed out after 10s");
+    } else {
+      console.warn("Wikipedia extract failed:", e);
+    }
     return null;
   }
 }
@@ -70,7 +82,62 @@ export async function searchSongInfo(
   trivia: string[];
   wikiAbstract?: string;
 } | null> {
-  // 1. Wikipedia 尝试
+  let webSource = ""; // track which source provided the data (for LLM context)
+
+  // 1. 百度百科优先（墙内可直接访问）
+  const baiduUrls = [
+    `https://baike.baidu.com/item/${encodeURIComponent(songTitle)}`,
+    artist ? `https://baike.baidu.com/item/${encodeURIComponent(artist + " " + songTitle)}` : null
+  ].filter(Boolean) as string[];
+
+  for (const baiduUrl of baiduUrls) {
+    try {
+      const response = await fetch(baiduUrl, {
+        signal: AbortSignal.timeout(15_000),
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+        }
+      });
+      const html = await response.text();
+
+      // 处理歧义页
+      if (html.includes("本词条是一个多义词") && artist) {
+        const itemMatch = html.match(new RegExp(`<a[^>]+href="(/item/[^"]+)"[^>]*>[\\s\\S]*?${artist}[\\s\\S]*?<\\/a>`, "i"));
+        if (itemMatch) {
+          const subUrl = `https://baike.baidu.com${itemMatch[1].split('?')[0]}`;
+          const subResponse = await fetch(subUrl, {
+            signal: AbortSignal.timeout(15_000),
+            headers: { "User-Agent": "Mozilla/5.0" }
+          });
+          const subHtml = await subResponse.text();
+          const subMetaDesc = subHtml.match(/<meta name="description" content="([^"]+)">/);
+          if (subMetaDesc && subMetaDesc[1].length > 50) {
+            const info = parseSongInfo(subMetaDesc[1], songTitle, artist);
+            if (info) {
+              webSource = "baidu";
+              return { ...info, wikiAbstract: subMetaDesc[1] };
+            }
+          }
+        }
+      }
+
+      // 常规提取
+      const metaDesc = html.match(/<meta name="description" content="([^"]+)">/);
+      if (metaDesc && metaDesc[1].length > 50 && !metaDesc[1].includes("百度百科是一部内容开放")) {
+        const abstract = metaDesc[1];
+        console.log(`[wiki] 百度百科摘要抓取成功: ${songTitle}`);
+        const info = parseSongInfo(abstract, songTitle, artist);
+        if (info) {
+          webSource = "baidu";
+          return { ...info, wikiAbstract: abstract };
+        }
+      }
+    } catch (e) {
+      console.warn("[wiki] 百度百科抓取失败:", e);
+    }
+  }
+
+  // 2. Wikipedia 尝试（百度无果时的后备）
   const queries = [
     artist && songTitle ? `${artist} ${songTitle}` : null,
     `${songTitle} 歌曲`,
@@ -80,7 +147,13 @@ export async function searchSongInfo(
   const skipKeywords = ["列表", "相关", "汇总", "分类", "音樂"];
 
   for (const query of queries) {
-    const results = await searchWikipedia(query);
+    let results: WikipediaSearchResult[] = [];
+    try {
+      results = await searchWikipedia(query);
+    } catch (e: any) {
+      if (e?.type === 'aborted') break; // Wikipedia unreachable
+      throw e;
+    }
     for (const result of results) {
       if (skipKeywords.some(kw => result.title.includes(kw))) continue;
 
@@ -93,10 +166,10 @@ export async function searchSongInfo(
       const artistLower = artist?.toLowerCase() || "";
 
       // 定义/列表识别
-      const isDefinitionOfCategory = extract.slice(0, 100).includes("是指") || 
+      const isDefinitionOfCategory = extract.slice(0, 100).includes("是指") ||
                                      extract.slice(0, 100).includes("是一些");
-      const isSingleSongFormat = extract.trim().startsWith("《") || 
-                                 extract.trim().startsWith("〈") || 
+      const isSingleSongFormat = extract.trim().startsWith("《") ||
+                                 extract.trim().startsWith("〈") ||
                                  extract.slice(0, 30).includes(songTitle);
 
       if (isDefinitionOfCategory && !isSingleSongFormat) continue;
@@ -105,7 +178,6 @@ export async function searchSongInfo(
       // 匹配校验
       if (artistLower && !titleLower.includes(artistLower) && !extractLower.includes(artistLower)) continue;
       if (!titleLower.includes(songTitleLower) && !extractLower.includes(songTitleLower)) {
-        // 如果摘要提到了歌手，且标题包含歌曲名的一部分（可能由于繁简差异搜到了），则尝试解析
         if (!artistLower || !extract.includes(artistLower)) continue;
       }
 
@@ -114,54 +186,9 @@ export async function searchSongInfo(
         if (artist && info.artist && !info.artist.includes(artist) && !artist.includes(info.artist)) {
           if (!extract.includes(artist)) continue;
         }
+        webSource = "wikipedia";
         return { ...info, wikiAbstract: extract };
       }
-    }
-  }
-
-  // 2. Wikipedia 没搜到，尝试百度百科
-  console.log(`[wiki] Wikipedia 无果，转向百度百科: ${artist} - ${songTitle}`);
-  const baiduUrls = [
-    `https://baike.baidu.com/item/${encodeURIComponent(songTitle)}`,
-    artist ? `https://baike.baidu.com/item/${encodeURIComponent(artist + " " + songTitle)}` : null
-  ].filter(Boolean) as string[];
-
-  for (const baiduUrl of baiduUrls) {
-    try {
-      const response = await fetch(baiduUrl, {
-        headers: {
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
-        }
-      });
-      const html = await response.text();
-      
-      // 处理歧义页
-      if (html.includes("本词条是一个多义词") && artist) {
-        const itemMatch = html.match(new RegExp(`<a[^>]+href="(/item/[^"]+)"[^>]*>[\\s\\S]*?${artist}[\\s\\S]*?<\\/a>`, "i"));
-        if (itemMatch) {
-          const subUrl = `https://baike.baidu.com${itemMatch[1].split('?')[0]}`;
-          const subResponse = await fetch(subUrl, {
-            headers: { "User-Agent": "Mozilla/5.0" }
-          });
-          const subHtml = await subResponse.text();
-          const subMetaDesc = subHtml.match(/<meta name="description" content="([^"]+)">/);
-          if (subMetaDesc && subMetaDesc[1].length > 50) {
-            const info = parseSongInfo(subMetaDesc[1], songTitle, artist);
-            if (info) return { ...info, wikiAbstract: subMetaDesc[1] };
-          }
-        }
-      }
-
-      // 常规提取
-      const metaDesc = html.match(/<meta name="description" content="([^"]+)">/);
-      if (metaDesc && metaDesc[1].length > 50 && !metaDesc[1].includes("百度百科是一部内容开放")) {
-        const abstract = metaDesc[1];
-        console.log(`[wiki] 百度百科摘要抓取成功`);
-        const info = parseSongInfo(abstract, songTitle, artist);
-        if (info) return { ...info, wikiAbstract: abstract };
-      }
-    } catch (e) {
-      console.warn("[wiki] 百度百科抓取失败:", e);
     }
   }
 
