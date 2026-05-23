@@ -7,7 +7,13 @@ import { fileURLToPath } from "node:url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 // Load wiki data for merging correct artist info
-const wikiData = JSON.parse(fsSync.readFileSync(path.join(__dirname, "../data/songs-wiki.json"), "utf8"));
+let wikiData;
+try {
+    wikiData = JSON.parse(fsSync.readFileSync(path.join(__dirname, "../data/songs-wiki.json"), "utf8"));
+}
+catch {
+    wikiData = { songs: {} };
+}
 // 支持的音频格式
 const SUPPORTED_EXTENSIONS = new Set([
     ".mp3",
@@ -99,7 +105,9 @@ async function parseTrack(filePath) {
     // 尝试从文件名解析：艺术家 - 标题
     let artist = "未知艺术家";
     let title = nameWithoutExt;
-    let album = path.basename(path.dirname(filePath));
+    const parentDir = path.basename(path.dirname(filePath));
+    const grandparentDir = path.basename(path.dirname(path.dirname(filePath)));
+    let album = parentDir;
     // 去除歌曲序号前缀，如 "01  歌名" → "歌名"
     const cleanName = nameWithoutExt.replace(/^\d+\s+/, "");
     if (cleanName.includes(" - ")) {
@@ -114,6 +122,10 @@ async function parseTrack(filePath) {
     }
     else {
         title = cleanName;
+    }
+    // 文件名未解析出艺术家时，用目录结构推断（Music/Artist/Album/Track.mp3）
+    if (artist === "未知艺术家" && grandparentDir && grandparentDir !== ".." && grandparentDir !== "/") {
+        artist = grandparentDir;
     }
     const moods = detectMood(filename + " " + artist + " " + title);
     // 简单的能量值估算

@@ -84,10 +84,10 @@ export async function searchSongInfo(
 } | null> {
   let webSource = ""; // track which source provided the data (for LLM context)
 
-  // 1. 百度百科优先（墙内可直接访问）
+  // 1. 百度百科优先（墙内可直接访问）— 带艺术家的 URL 放前面避免命中词语释义
   const baiduUrls = [
-    `https://baike.baidu.com/item/${encodeURIComponent(songTitle)}`,
-    artist ? `https://baike.baidu.com/item/${encodeURIComponent(artist + " " + songTitle)}` : null
+    artist ? `https://baike.baidu.com/item/${encodeURIComponent(artist + " " + songTitle)}` : null,
+    `https://baike.baidu.com/item/${encodeURIComponent(songTitle)}`
   ].filter(Boolean) as string[];
 
   for (const baiduUrl of baiduUrls) {
@@ -125,11 +125,16 @@ export async function searchSongInfo(
       const metaDesc = html.match(/<meta name="description" content="([^"]+)">/);
       if (metaDesc && metaDesc[1].length > 50 && !metaDesc[1].includes("百度百科是一部内容开放")) {
         const abstract = metaDesc[1];
-        console.log(`[wiki] 百度百科摘要抓取成功: ${songTitle}`);
-        const info = parseSongInfo(abstract, songTitle, artist);
-        if (info) {
-          webSource = "baidu";
-          return { ...info, wikiAbstract: abstract };
+        // 过滤掉词语释义页（如"有人"返回拼音yǒu rén、注音ㄧㄡˇㄖㄣˊ等词典内容）
+        if (abstract.includes("拼音") && /[ā-ǔㄅ-ㄩ]/.test(abstract)) {
+          console.log(`[wiki] 百度百科返回词语释义，跳过: ${songTitle}`);
+        } else {
+          console.log(`[wiki] 百度百科摘要抓取成功: ${songTitle}`);
+          const info = parseSongInfo(abstract, songTitle, artist);
+          if (info) {
+            webSource = "baidu";
+            return { ...info, wikiAbstract: abstract };
+          }
         }
       }
     } catch (e) {

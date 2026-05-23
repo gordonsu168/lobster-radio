@@ -393,3 +393,33 @@ wikiRouter.post("/import", async (req, res) => {
         res.status(500).json({ error: "Failed to import songs" });
     }
 });
+// 批量补全所有 pending 歌曲
+wikiRouter.post("/enrich-all", async (req, res) => {
+    try {
+        const { enqueueWikiEnrichment, getAllSongs } = await import("../services/wikiService.js");
+        const force = req.query.force === "true";
+        const songs = await getAllSongs();
+        const targets = force
+            ? songs
+            : songs.filter(s => s.enrichmentStatus !== "completed" && s.enrichmentStatus !== "skipped");
+        for (const song of targets) {
+            // reset to pending to trigger re-enrichment
+            const { updateSongWiki } = await import("../services/wikiService.js");
+            const reset = { ...song, enrichmentStatus: "pending" };
+            await updateSongWiki(song.id, { enrichmentStatus: "pending" });
+            enqueueWikiEnrichment(reset);
+        }
+        console.log(`[wiki] Batch enrich enqueued: ${targets.length} songs (force=${force})`);
+        res.json({
+            status: "started",
+            total: songs.length,
+            enqueued: targets.length,
+            force,
+            message: `Batch enrichment started for ${targets.length} songs. This runs in the background.`
+        });
+    }
+    catch (e) {
+        console.error("[wiki] Batch enrich failed:", e);
+        res.status(500).json({ error: "Failed to start batch enrichment" });
+    }
+});

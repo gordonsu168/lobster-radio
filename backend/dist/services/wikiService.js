@@ -118,6 +118,14 @@ function isJunkTitle(title, artist) {
         return true;
     return false;
 }
+function isGarbledArtist(artist) {
+    if (!artist || artist === "未知艺术家" || artist === "Unknown Artist")
+        return true;
+    // 乱码检测：组合变音符混搭（如 Âó¿£Áú），是 UTF-8 被当 Latin-1 解释的典型特征
+    if (/[̀-ͯ]/.test(artist) && /[¿£¤]/.test(artist))
+        return true;
+    return false;
+}
 export function enqueueWikiEnrichment(wiki) {
     if (enrichmentQueue.has(wiki.id))
         return;
@@ -142,18 +150,32 @@ export function enqueueWikiEnrichment(wiki) {
             const ncmFacts = await fetchNcmFacts(wiki.title, wiki.artist);
             if (ncmFacts) {
                 console.log(`[wiki-worker] ncm-cli命中标准数据: ${ncmFacts.title} - ${ncmFacts.artist}`);
-                Object.assign(updates, {
-                    title: ncmFacts.title,
-                    artist: ncmFacts.artist,
-                    album: ncmFacts.album,
-                    composer: ncmFacts.composer,
-                    lyricist: ncmFacts.lyricist,
-                    arranger: ncmFacts.arranger,
-                    releaseYear: ncmFacts.releaseYear,
-                    hotComments: ncmFacts.hotComments,
-                    neteaseId: ncmFacts.neteaseId,
-                    lyric: ncmFacts.lyric
-                });
+                // 身份字段由本地音乐扫描确定，但本地数据为乱码或"未知艺术家"时允许补全覆写
+                const ncmUpdates = {};
+                if (isGarbledArtist(wiki.artist) && ncmFacts.artist && !isGarbledArtist(ncmFacts.artist)) {
+                    ncmUpdates.artist = ncmFacts.artist;
+                    console.log(`[wiki-worker] 修正乱码艺术家: "${wiki.artist}" -> "${ncmFacts.artist}"`);
+                }
+                if (isJunkTitle(wiki.title, wiki.artist) && ncmFacts.title && !isJunkTitle(ncmFacts.title, ncmFacts.artist)) {
+                    ncmUpdates.title = ncmFacts.title;
+                }
+                if (ncmFacts.album)
+                    ncmUpdates.album = ncmFacts.album;
+                if (ncmFacts.composer)
+                    ncmUpdates.composer = ncmFacts.composer;
+                if (ncmFacts.lyricist)
+                    ncmUpdates.lyricist = ncmFacts.lyricist;
+                if (ncmFacts.arranger)
+                    ncmUpdates.arranger = ncmFacts.arranger;
+                if (ncmFacts.releaseYear)
+                    ncmUpdates.releaseYear = ncmFacts.releaseYear;
+                if (ncmFacts.hotComments)
+                    ncmUpdates.hotComments = ncmFacts.hotComments;
+                if (ncmFacts.neteaseId)
+                    ncmUpdates.neteaseId = ncmFacts.neteaseId;
+                if (ncmFacts.lyric)
+                    ncmUpdates.lyric = ncmFacts.lyric;
+                Object.assign(updates, ncmUpdates);
             }
             // 2. 尝试网易云 HTTP API (仅在 ncm-cli 没拿到年份/热评时补充)
             if (!updates.releaseYear || !updates.hotComments) {
@@ -167,8 +189,9 @@ export function enqueueWikiEnrichment(wiki) {
                         updates.neteaseId = neteaseFacts.neteaseId;
                 }
             }
-            // 3. Wikipedia 补全 (仅补充缺失字段)
-            const wikiInfo = await searchSongInfo(wiki.title, wiki.artist);
+            // 3. Wikipedia 补全 (仅补充缺失字段) — 优先使用 ncm 已修正的 artist
+            const searchArtist = updates.artist || wiki.artist;
+            const wikiInfo = await searchSongInfo(updates.title || wiki.title, searchArtist);
             if (wikiInfo) {
                 if (!updates.composer)
                     updates.composer = wikiInfo.composer;
@@ -180,6 +203,11 @@ export function enqueueWikiEnrichment(wiki) {
                     updates.trivia = wikiInfo.trivia;
                 if (!updates.wikiAbstract)
                     updates.wikiAbstract = wikiInfo.wikiAbstract;
+            }
+            // 搜索结果为空但旧摘要疑似词语释义（含拼音/注音），主动清空
+            if (!updates.wikiAbstract && wiki.wikiAbstract && wiki.wikiAbstract.includes("拼音") && /[ā-ǔㄅ-ㄩ]/.test(wiki.wikiAbstract)) {
+                updates.wikiAbstract = "";
+                console.log(`[wiki-worker] 清除疑似词语释义摘要: ${wiki.title}`);
             }
             // 4. LLM AI 补全 — 兜底硬事实 + 生成创意冷知识/热评
             try {
@@ -236,10 +264,16 @@ export async function updateSongWiki(songId, data) {
         };
     }
     else {
+        const prev = wiki.songs[songId];
         wiki.songs[songId] = {
-            ...wiki.songs[songId],
+            ...prev,
             ...data
         };
+        // 安全网：禁止补全流程将身份字段清空
+        if (!wiki.songs[songId].title && prev.title)
+            wiki.songs[songId].title = prev.title;
+        if (!wiki.songs[songId].artist && prev.artist)
+            wiki.songs[songId].artist = prev.artist;
     }
     await saveWiki(wiki);
     return wiki.songs[songId];
