@@ -90,7 +90,7 @@ export interface SongWiki {
   previewUrl?: string;
 
   // --- Task Status ---
-  enrichmentStatus: 'pending' | 'completed' | 'failed';
+  enrichmentStatus: 'pending' | 'completed' | 'failed' | 'skipped';
   lastUpdated: string;
 
   // --- Deprecated ---

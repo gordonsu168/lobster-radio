@@ -115,6 +115,23 @@ export function WikiPage() {
     }
   };
 
+  const batchEnrichAll = async () => {
+    const pending = songs.filter(s => s.enrichmentStatus !== 'completed' && s.enrichmentStatus !== 'skipped');
+    if (pending.length === 0) {
+      alert("All songs are already completed!");
+      return;
+    }
+    if (!confirm(`Start batch enrichment for ${pending.length} pending songs? This runs in the background and may take a while.`)) return;
+    try {
+      const res = await fetch(`/api/wiki/enrich-all`, { method: "POST" });
+      const data = await res.json();
+      alert(`Started! Enqueued ${data.enqueued} songs. Check back in a few minutes.`);
+      loadData();
+    } catch (e) {
+      console.error("Batch enrich failed:", e);
+    }
+  };
+
   const forceEnrich = async (id: string) => {
     try {
       await fetch(`/api/wiki/song/${id}`, {
@@ -186,9 +203,17 @@ export function WikiPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="font-display text-3xl font-bold text-white">🎵 歌曲 Wiki 数据库</h1>
-        <span className="rounded-full bg-white/10 px-4 py-2 text-white text-sm font-medium">
-          {songs.length} 首歌曲
-        </span>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={batchEnrichAll}
+            className="rounded-full bg-pulse/80 px-4 py-2 text-black text-sm font-bold hover:bg-pulse transition active:scale-95"
+          >
+            🔄 批量补全
+          </button>
+          <span className="rounded-full bg-white/10 px-4 py-2 text-white text-sm font-medium">
+            {songs.length} 首歌曲
+          </span>
+        </div>
       </div>
 
       {/* 搜索框 */}
