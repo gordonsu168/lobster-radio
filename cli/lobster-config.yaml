@@ -3,18 +3,18 @@ agents:
     bot_name: "Lobster-Core-X"
     bot_icon: "🦞"
     model: "deepseek/deepseek-chat"
-    workspace: "/Users/gordon/.openclaw/workspace/lobster-radio/cli/nanobot/../workspace"
+    workspace: "./workspace"
 
 providers:
   deepseek:
-    api_key: "sk-0080b8d731224c9cb55d617bb11b2744"
+    api_key: ""
     api_base: "https://api.deepseek.com"
 
 tools:
   mcp_servers:
     lobster_music:
       command: "npx"
-      args: ["tsx", "/Users/gordon/.openclaw/workspace/lobster-radio/cli/nanobot/../../backend/src/mcp/musicMcpServer.ts"]
+      args: ["tsx", "../../backend/src/mcp/musicMcpServer.ts"]
       env:
         PORT: "4000"
 

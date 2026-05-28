@@ -13,7 +13,7 @@
 ### Task 1: Update the sorting logic to a scoring algorithm
 
 **Files:**
-- Modify: `/Users/huya/Documents/github/lobster-radio/agents/src/agents/MusicCuratorAgent.ts`
+- Modify: `agents/src/agents/MusicCuratorAgent.ts`
 
 *(Note: There is no test suite configured for the `agents` project, so we will skip test file steps and verify via build).*
 

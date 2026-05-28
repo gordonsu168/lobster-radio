@@ -10,8 +10,8 @@ if result is "NOT_RUNNING" then
     display dialog "⚠️ 后端服务未启动！" & return & return & "正在自动启动龙虾电台服务..." buttons {"确定"} default button 1 giving up after 2
     
     -- 启动后端服务
-    do shell script "cd /Users/gordon/.openclaw/workspace/lobster-radio && npm run dev > /tmp/lobster-radio.log 2>&1 &"
-    
+    set scriptDir to POSIX path of (container of (container of (path to me) as alias) as alias)
+    do shell script "cd " & quoted form of scriptDir & " && npm run dev > /tmp/lobster-radio.log 2>&1 &"    
     -- 等待服务启动
     delay 4
 end if

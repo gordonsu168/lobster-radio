@@ -19,6 +19,7 @@ if isRunning then
 end if
 
 -- 使用 Node 启动 Electron 悬浮窗
-do shell script "cd /Users/gordon/.openclaw/workspace/lobster-radio/desktop && /opt/homebrew/bin/node start-electron.js &> /dev/null &"
+set scriptDir to POSIX path of (container of (path to me) as alias)
+do shell script "cd " & quoted form of scriptDir & " && /opt/homebrew/bin/node start-electron.js &> /dev/null &"
 
 display dialog "🦞 龙虾电台悬浮窗已启动！" & return & return & "✅ 自动悬浮置顶" & return & "✅ 点击托盘图标控制" & return & "✅ 快捷键 Cmd+Shift+L 显示/隐藏" buttons {"好的"} default button 1 with icon note giving up after 3
