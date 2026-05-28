@@ -115,8 +115,15 @@ export async function getSongWiki(songId: string): Promise<SongWiki | null> {
     // 尝试在本地库中查找
     const localTrack = await getLocalTrackById(songId);
     if (localTrack) {
-      const key = `${localTrack.title} - ${localTrack.artist}`.toLowerCase();
-      const existing = Object.values(wiki.songs).find(s => `${s.title} - ${s.artist}`.toLowerCase() === key);
+      const isUnknownArtist = !localTrack.artist || localTrack.artist === "未知艺术家" || localTrack.artist === "Unknown Artist";
+      let existing = null;
+      
+      // 只有当艺术家已知时，才尝试复用现有的 Wiki 条目
+      if (!isUnknownArtist) {
+        const key = `${localTrack.title} - ${localTrack.artist}`.toLowerCase();
+        existing = Object.values(wiki.songs).find(s => `${s.title} - ${s.artist}`.toLowerCase() === key);
+      }
+      
       foundWiki = existing || generateDefaultWiki(localTrack);
     }
   }

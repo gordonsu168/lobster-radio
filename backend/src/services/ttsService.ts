@@ -8,14 +8,7 @@ import crypto from "crypto";
 import fetch from "node-fetch";
 import { ElevenLabsClient } from "elevenlabs";
 
-// 静默控制：防止 TTS 日志冲散 DJ-X 终端界面
-const console = {
-  log: (...args: any[]) => {},
-  error: (...args: any[]) => {},
-  warn: (...args: any[]) => {},
-  info: (...args: any[]) => {},
-  debug: (...args: any[]) => {}
-};
+// 移除静默控制，允许日志通过 console.error 输出到 stderr
 
 // ========== ElevenLabs TTS (顶级质量，支持情绪调整) ==========
 let elevenLabsClient: ElevenLabsClient | null = null;

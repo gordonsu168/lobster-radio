@@ -88,15 +88,16 @@ export async function fetchNcmFacts(title: string, artist: string): Promise<NcmS
     const rName = first.name.toLowerCase();
     const tName = title.toLowerCase();
     
-    // 只有当标题有一定重合度，且不是垃圾标题时，才允许回退
+    // 只有当原艺术家未知，或者标题有一定重合度且不是垃圾标题时，才允许回退
+    const isUnknownArtist = !artist || artist === "未知艺术家" || artist === "Unknown Artist";
     const isJunk = tName.trim().length < 2 || tName.includes("\u3164") || tName === "未知艺术家";
     const nameOverlap = rName.includes(tName) || tName.includes(rName);
 
-    if (!isJunk && nameOverlap) {
-      console.warn(`  [ncm] 未能找到完美匹配，回退到首个相关结果: ${first.name}`);
+    if (isUnknownArtist && !isJunk && nameOverlap) {
+      console.warn(`  [ncm] 未能找到完美匹配，且原艺术家未知，回退到首个相关结果: ${first.name}`);
       song = first;
     } else {
-      console.warn(`  [ncm] 搜索结果不匹配且置信度低，跳过补全: "${title}" vs "${first.name}"`);
+      console.warn(`  [ncm] 搜索结果与指定艺术家 "${artist}" 不匹配，跳过补全。`);
       return null;
     }
   }

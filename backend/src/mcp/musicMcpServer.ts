@@ -4,14 +4,15 @@ import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
-import { scanMusicLibrary } from "../services/musicLibraryService.js";
+import { scanMusicLibrary, searchTracks } from "../services/musicLibraryService.js";
 import { getPlayHistory, getAestheticDna, saveAestheticDna, updateFeedback } from "../services/storageService.js";
 import { LobsterCoreXAgent } from "lobster-radio-agents";
 import { agentPlayer } from "../services/agentPlayerService.js";
 
-// 强行禁音：后端严禁向终端屏幕打印任何字符
-console.log = (...args) => {};
-console.error = (...args) => {};
+// 强行禁音：后端严禁向终端屏幕打印任何字符 (stdout)，以免干扰 MCP 协议
+// 我们将所有日志重定向到 stderr，这样 CLI wrapper 可以捕获并显示
+console.log = (...args) => { console.error(...args); };
+// console.error 保持可用，输出到 stderr
 
 const server = new Server({ name: "lobster-music-core", version: "1.0.0" }, { capabilities: { tools: {} } });
 
@@ -22,6 +23,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       { name: "trigger_radio_broadcast", description: "启动电台直播模式", inputSchema: { type: "object", properties: {} } },
       { name: "control_player", description: "控制播放器 (next/prev/toggle/clear)", inputSchema: { type: "object", properties: { action: { type: "string" } } } },
       { name: "stop_stream", description: "停止电台直播并清空播放队列", inputSchema: { type: "object", properties: {} } },
+      { name: "play_song", description: "点歌并播放。输入歌曲名或歌手名。", inputSchema: { type: "object", properties: { query: { type: "string", description: "歌曲名或歌手名" } }, required: ["query"] } },
     ],
   };
 });
@@ -31,6 +33,30 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   try {
     const dna = await getAestheticDna();
     const agent = new LobsterCoreXAgent(dna);
+
+    if (name === "play_song") {
+        const query = args?.query as string;
+        const results = await searchTracks(query);
+        if (results.length === 0) {
+            return { content: [{ type: "text", text: `[SEARCH_FAIL] 抱歉，在库里没找到关于 "${query}" 的信号。` }] };
+        }
+        
+        const track = results[0];
+        const { getSongWiki } = await import("../services/wikiService.js");
+        const wiki = await getSongWiki(track.id);
+        
+        // 停止当前，清空，插入新歌
+        agentPlayer.clear();
+        // 不再清除 ReplenishCallback，以便点播结束后电台能自动恢复
+
+        const b64 = track.previewUrl.split("/stream/")[1];
+        const finalPath = b64 ? Buffer.from(b64, "base64url").toString() : track.previewUrl;
+        
+        agentPlayer.add(finalPath, `${track.artist} - ${track.title}`, track.id);
+        
+        const info = `[PLAYING] 已锁定信号: ${track.artist} - ${track.title}${wiki?.releaseYear ? ` (${wiki.releaseYear})` : ""}`;
+        return { content: [{ type: "text", text: info }] };
+    }
 
     if (name === "trigger_radio_broadcast") {
         try {

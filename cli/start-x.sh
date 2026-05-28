@@ -5,11 +5,39 @@
 
 set -e
 
-# 1. 准备 Python 3.11 环境
+# 1. 准备 Python 环境 (需要 >= 3.11)
 cd nanobot
+
 if [ ! -d ".venv" ]; then
-    /Users/huya/.local/bin/python3.11 -m venv .venv
+    echo "🔍 正在寻找合适的 Python 3.11+ 环境..."
+    PYTHON_EXE=""
+    for cmd in "python3.12" "python3.11" "python3"; do
+        if command -v $cmd >/dev/null 2>&1; then
+            VERSION=$($cmd -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
+            if [[ $(echo "$VERSION >= 3.11" | bc -l) -eq 1 ]]; then
+                PYTHON_EXE=$(command -v $cmd)
+                break
+            fi
+        fi
+    done
+
+    if [ -z "$PYTHON_EXE" ]; then
+        if [ -f "/opt/homebrew/bin/python3.12" ]; then
+            PYTHON_EXE="/opt/homebrew/bin/python3.12"
+        elif [ -f "/usr/local/bin/python3.12" ]; then
+            PYTHON_EXE="/usr/local/bin/python3.12"
+        fi
+    fi
+
+    if [ -z "$PYTHON_EXE" ]; then
+        echo "❌ 错误: 未找到 Python 3.11+。请运行 'brew install python@3.12'"
+        exit 1
+    fi
+
+    echo "📦 使用 $PYTHON_EXE 创建虚拟环境..."
+    $PYTHON_EXE -m venv .venv
 fi
+
 source .venv/bin/activate
 pip install . --quiet
 

@@ -3,6 +3,7 @@ import { spawn } from 'node:child_process';
 const API_BASE = 'http://localhost:4000/api/agent/x';
 
 let lastUserState = 'DETECTING...';
+let lastTrackTitle = '';
 
 async function fetchUserState() {
   try {
@@ -39,6 +40,19 @@ async function renderHeader() {
         } else {
             playStr = `${player.isPaused ? '⏸' : '▶'} ${title.slice(0, 45)}`;
         }
+
+        // 探测切歌并输出到控制台
+        if (title !== lastTrackTitle) {
+            process.stdout.write('\x1b[s'); // 保存光标
+            if (title.startsWith('🎙️:')) {
+                const text = title.slice(3).trim();
+                process.stdout.write(`\n\x1b[38;5;11m【DJ-X 旁白】\x1b[0m ${text}\n\n`);
+            } else {
+                process.stdout.write(`\n\x1b[38;5;82m【正在播放】\x1b[0m ${title}\n`);
+            }
+            process.stdout.write('\x1b[u'); // 恢复光标
+            lastTrackTitle = title;
+        }
     }
 
     const heartbeat = Math.floor(Date.now() / 1000) % 2 === 0 ? '⚡' : '  ';
@@ -59,16 +73,26 @@ async function renderHeader() {
     process.stdout.write(` 👤 Gordon: ${lastUserState} `.padEnd(process.stdout.columns, ' '));
 
     process.stdout.write('\x1b[0m\x1b[u');
-  } catch (e) {}
+  } catch (e) {
+    if (e instanceof Error && !e.message.includes('ECONNREFUSED')) {
+      console.error('\r\x1b[KHeader Render Error:', e.message);
+    }
+  }
 }
 
 function start() {
   process.stdout.write('\x1b[2J\x1b[H\x1b[5;r\x1b[5;1H');
 
-  const nanobot = spawn('nanobot', ['agent'], {
-    stdio: ['inherit', 'inherit', 'ignore'],
-    env: process.env,
-    shell: true
+  const venvPath = process.env.VIRTUAL_ENV;
+  const nanobotCmd = venvPath ? `${venvPath}/bin/nanobot` : 'nanobot';
+
+  const nanobot = spawn(nanobotCmd, ['agent'], {
+    stdio: ['inherit', 'inherit', 'inherit'],
+    env: process.env
+  });
+
+  nanobot.on('error', (err) => {
+    console.error('\r\x1b[KFailed to start nanobot:', err.message);
   });
 
   // Fetch user state every 15 seconds

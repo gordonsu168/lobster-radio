@@ -59,6 +59,23 @@ lobsterCoreXRouter.post("/chat", async (req, res) => {
     const msg = message.trim().toLowerCase();
 
     // 1. 物理指令拦截 (最高优先级)
+    if (msg.startsWith('/play ')) {
+      const query = message.slice(6).trim();
+      const { searchTracks } = await import("../services/musicLibraryService.js");
+      const results = await searchTracks(query);
+      if (results.length === 0) {
+        return res.json({ logs: [{ id: 'p1', timestamp: Date.now(), type: 'action', content: `[SEARCH_FAIL] 没找到关于 "${query}" 的信号。` }], dna: (await getAgent()).getDna() });
+      }
+      const track = results[0];
+      agentPlayer.clear();
+
+      const b64 = track.previewUrl.split("/stream/")[1];
+      const finalPath = b64 ? Buffer.from(b64, "base64url").toString() : track.previewUrl;
+      agentPlayer.add(finalPath, `${track.artist} - ${track.title}`, track.id);
+
+      return res.json({ logs: [{ id: 'p2', timestamp: Date.now(), type: 'action', content: `[PLAYING] 锁定信号: ${track.artist} - ${track.title}` }], dna: (await getAgent()).getDna() });
+    }
+
     if (msg === '/next') {
       agentPlayer.next();
       return res.json({ logs: [{ id: 'c1', timestamp: Date.now(), type: 'action', content: '[COMMAND] 下一首频率。' }], dna: (await getAgent()).getDna() });
