@@ -26,38 +26,44 @@ class AgentPlayerService {
     this.onQueueLow = cb;
   }
 
-  add(path: string | null | undefined, title: string = "Unknown Signal", trackId?: string) {
-    if (!path) return;
-    this.playlist.push({ path, title, trackId });
-    console.error(`[PLAYER] ADDED: ${title} (Queue: ${this.playlist.length})`);
-    this.lastActivity = `LOCKED: ${title.slice(0, 15)}`;
-    if (!this.currentProcess && !this.downloadProcess) {
-      this.play(this.currentIndex + 1);
-    }
+  private isLooping = false;
+
+  add(path: string, title: string, trackId?: string) {
+      if (!path) return;
+      this.playlist.push({ path, title, trackId });
+      console.error(`[PLAYER] ADDED: ${title} (Queue: ${this.playlist.length})`);
+      this.lastActivity = `LOCKED: ${title.slice(0, 15)}`;
+      if (!this.currentProcess && !this.downloadProcess) {
+          this.play(this.currentIndex + 1);
+      }
   }
 
-  async play(index: number) {
-    console.error(`[PLAYER] TRY_PLAY Index: ${index}, PlaylistSize: ${this.playlist.length}`);
-    if (index < 0 || index >= this.playlist.length) {
-      this.stopCurrent();
-      if (this.onQueueLow && !this.isReplenishing) {
-        console.error(`[PLAYER] QUEUE_LOW triggered replenish`);
-        this.isReplenishing = true;
-        this.lastActivity = "FETCHING_NEXT...";
-        this.onQueueLow().finally(() => {
-          setTimeout(() => { this.isReplenishing = false; }, 3000);
-        });
-      }
-      return;
-    }
-    
-    this.stopCurrent();
-    this.currentIndex = index;
-    this.isPaused = false;
-    const item = this.playlist[index];
-    console.error(`[PLAYER] PLAYING: ${item.title}`);
+  /**
+   * 进入 BGM 模式：清空当前队列，播放指定文件并循环
+   */
+  playBGM(path: string, title: string) {
+      this.clear();
+      this.isLooping = true;
+      this.add(path, title);
+      console.error(`[PLAYER] BGM_MODE_START: ${title}`);
+  }
 
-    if (item.path.startsWith('http')) {
+  async play(index: number): Promise<void> {
+      if (index < 0 || index >= this.playlist.length) {
+          if (this.isLooping && this.playlist.length > 0) {
+              return this.play(0);
+          }
+          this.stopCurrent();
+          return;
+      }
+
+      this.currentIndex = index;
+      this.isPaused = false;
+      const item = this.playlist[index];
+
+      console.error(`[PLAYER] PREPARING: ${item.title} | PATH: ${item.path}`);
+
+      if (item.path.startsWith('http')) {
       const tempPath = path.join(os.tmpdir(), `dj_s_${Date.now()}.mp3`);
       this.lastActivity = `SYNCING: ${item.title.slice(0, 20)}`;
       
@@ -74,20 +80,34 @@ class AgentPlayerService {
       });
     } else {
       if (!fs.existsSync(item.path)) {
+          console.error(`[PLAYER] ❌ File Not Found: ${item.path}`);
           this.lastActivity = `ERR: FILE_NOT_FOUND`;
-          setTimeout(() => this.next(), 1000);
+          this.isLooping = false; // 关键：停止循环，防止死锁
           return;
       }
       this.executeAfplay(item.path, item.title);
-    }
-  }
+    }  }
 
   private executeAfplay(source: string, title: string) {
+    if (!fs.existsSync(source)) {
+        console.error(`[PLAYER] ❌ ERROR: File not found at ${source}`);
+        this.lastActivity = "ERR: FILE_MISSING";
+        this.isLooping = false; 
+        return;
+    }
     this.lastActivity = `INJECTING: ${title.slice(0, 15)} | SRC: ${source}`;
-    this.currentProcess = exec(`afplay "${source}"`);
-    this.currentProcess.on("exit", () => {
-      if (!this.isPaused) this.next();
-    });
+    
+    // 增加 100ms 延迟，给音频设备一点“呼吸时间”
+    setTimeout(() => {
+        this.currentProcess = exec(`afplay "${source}"`, (error, stdout, stderr) => {
+            if (error && !this.isPaused) {
+                console.error(`[PLAYER] afplay exit info: ${error.message}`);
+            }
+        });
+        this.currentProcess.on("exit", () => {
+          if (!this.isPaused) setTimeout(() => this.next(), 500);
+        });
+    }, 100);
   }
 
   next() { this.play(this.currentIndex + 1); }
@@ -123,6 +143,7 @@ class AgentPlayerService {
     this.playlist = [];
     this.currentIndex = -1;
     this.isPaused = false;
+    this.isLooping = false;
     this.lastActivity = "SIGNAL_CLEARED";
   }
 

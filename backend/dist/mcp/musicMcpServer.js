@@ -1,5 +1,8 @@
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import path from "node:path";
+import fs from "node:fs";
+import { fileURLToPath } from "node:url";
 import { CallToolRequestSchema, ListToolsRequestSchema, } from "@modelcontextprotocol/sdk/types.js";
 import { scanMusicLibrary, searchTracks } from "../services/musicLibraryService.js";
 import { getPlayHistory, getAestheticDna, saveAestheticDna, updateFeedback } from "../services/storageService.js";
@@ -18,6 +21,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             { name: "get_player_status", description: "获取当前播放状态和歌曲信息", inputSchema: { type: "object", properties: {} } },
             { name: "control_player", description: "控制播放器 (next/prev/toggle/clear)", inputSchema: { type: "object", properties: { action: { type: "string" } } } },
             { name: "stop_stream", description: "停止电台直播并清空播放队列", inputSchema: { type: "object", properties: {} } },
+            { name: "enter_chat_mode", description: "【关键】当用户输入 /talk 或要求闲聊时调用。启动背景音乐并进入陪伴模式。", inputSchema: { type: "object", properties: {} } },
             { name: "play_song", description: "点歌并播放。输入歌曲名或歌手名。", inputSchema: { type: "object", properties: { query: { type: "string", description: "歌曲名或歌手名" } }, required: ["query"] } },
         ],
     };
@@ -27,6 +31,43 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     try {
         const dna = await getAestheticDna();
         const agent = new LobsterCoreXAgent(dna);
+        if (name === "enter_chat_mode") {
+            const __filename = fileURLToPath(import.meta.url);
+            let currentDir = path.dirname(__filename);
+            let finalPath = "";
+            // 向上寻找 5 层，直到找到 data/bgm/chat_bgm.mp3
+            for (let i = 0; i < 5; i++) {
+                const probe = path.join(currentDir, "data/bgm/chat_bgm.mp3");
+                if (fs.existsSync(probe)) {
+                    finalPath = probe;
+                    break;
+                }
+                // 同时也检查当前目录下的根级 data
+                const probeRoot = path.join(currentDir, "..", "data/bgm/chat_bgm.mp3");
+                if (fs.existsSync(probeRoot)) {
+                    finalPath = probeRoot;
+                    break;
+                }
+                currentDir = path.dirname(currentDir);
+            }
+            // 如果还没找到，尝试从 process.cwd 向上找
+            if (!finalPath) {
+                let cwd = process.cwd();
+                for (let i = 0; i < 3; i++) {
+                    const probe = path.join(cwd, "data/bgm/chat_bgm.mp3");
+                    if (fs.existsSync(probe)) {
+                        finalPath = probe;
+                        break;
+                    }
+                    cwd = path.dirname(cwd);
+                }
+            }
+            if (!finalPath) {
+                return { content: [{ type: "text", text: `[ERR] 彻底找不到音源。请检查 data/bgm/chat_bgm.mp3 是否存在。` }], isError: true };
+            }
+            agentPlayer.playBGM(finalPath, "Beautiful Lady - Daydream");
+            return { content: [{ type: "text", text: `[CHAT_MODE_ON] 📡 信号已对焦。音源: ${finalPath}` }] };
+        }
         if (name === "get_player_status") {
             const status = agentPlayer.getState();
             if (!status.current) {
@@ -48,6 +89,11 @@ ${wiki?.hotComments?.length ? `**💬 听众在说：**\n${wiki.hotComments.slic
 *输入 /next 切换下一首，或输入 /pause 暂停。*
         `.trim();
             return { content: [{ type: "text", text: info }] };
+        }
+        if (name === "enter_chat_mode") {
+            const bgmPath = path.resolve(process.cwd(), "data/bgm/chat_bgm.mp3");
+            agentPlayer.playBGM(bgmPath, "Beautiful Lady - Daydream");
+            return { content: [{ type: "text", text: "[CHAT_MODE_READY] 背景音乐已就绪。DJ-X 正在对焦你的情绪... 请直接发起话题或等待 DJ 引导。" }] };
         }
         if (name === "play_song") {
             const query = args?.query;
@@ -108,6 +154,10 @@ ${wiki?.hotComments?.length ? `**💬 听众在说：**\n${wiki.hotComments.slic
                 agentPlayer.toggle();
             if (act === "clear")
                 agentPlayer.clear();
+            if (act === "talk") {
+                const bgmPath = path.resolve(process.cwd(), "data/bgm/chat_bgm.mp3");
+                agentPlayer.playBGM(bgmPath, "Beautiful Lady - Daydream");
+            }
             if (act === "like") {
                 const id = agentPlayer.getCurrentTrackId();
                 if (id)

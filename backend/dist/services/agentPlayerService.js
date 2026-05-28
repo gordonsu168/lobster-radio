@@ -14,7 +14,8 @@ class AgentPlayerService {
     setReplenishCallback(cb) {
         this.onQueueLow = cb;
     }
-    add(path, title = "Unknown Signal", trackId) {
+    isLooping = false;
+    add(path, title, trackId) {
         if (!path)
             return;
         this.playlist.push({ path, title, trackId });
@@ -24,25 +25,27 @@ class AgentPlayerService {
             this.play(this.currentIndex + 1);
         }
     }
+    /**
+     * 进入 BGM 模式：清空当前队列，播放指定文件并循环
+     */
+    playBGM(path, title) {
+        this.clear();
+        this.isLooping = true;
+        this.add(path, title);
+        console.error(`[PLAYER] BGM_MODE_START: ${title}`);
+    }
     async play(index) {
-        console.error(`[PLAYER] TRY_PLAY Index: ${index}, PlaylistSize: ${this.playlist.length}`);
         if (index < 0 || index >= this.playlist.length) {
-            this.stopCurrent();
-            if (this.onQueueLow && !this.isReplenishing) {
-                console.error(`[PLAYER] QUEUE_LOW triggered replenish`);
-                this.isReplenishing = true;
-                this.lastActivity = "FETCHING_NEXT...";
-                this.onQueueLow().finally(() => {
-                    setTimeout(() => { this.isReplenishing = false; }, 3000);
-                });
+            if (this.isLooping && this.playlist.length > 0) {
+                return this.play(0);
             }
+            this.stopCurrent();
             return;
         }
-        this.stopCurrent();
         this.currentIndex = index;
         this.isPaused = false;
         const item = this.playlist[index];
-        console.error(`[PLAYER] PLAYING: ${item.title}`);
+        console.error(`[PLAYER] PREPARING: ${item.title} | PATH: ${item.path}`);
         if (item.path.startsWith('http')) {
             const tempPath = path.join(os.tmpdir(), `dj_s_${Date.now()}.mp3`);
             this.lastActivity = `SYNCING: ${item.title.slice(0, 20)}`;
@@ -61,19 +64,32 @@ class AgentPlayerService {
         }
         else {
             if (!fs.existsSync(item.path)) {
+                console.error(`[PLAYER] ❌ File Not Found: ${item.path}`);
                 this.lastActivity = `ERR: FILE_NOT_FOUND`;
-                setTimeout(() => this.next(), 1000);
+                this.isLooping = false; // 关键：停止循环，防止死锁
                 return;
             }
             this.executeAfplay(item.path, item.title);
         }
     }
     executeAfplay(source, title) {
+        if (!fs.existsSync(source)) {
+            console.error(`[PLAYER] ❌ ERROR: File not found at ${source}`);
+            this.lastActivity = "ERR: FILE_MISSING";
+            this.isLooping = false; // 发生错误时停止循环，防止死锁
+            return;
+        }
         this.lastActivity = `INJECTING: ${title.slice(0, 15)} | SRC: ${source}`;
-        this.currentProcess = exec(`afplay "${source}"`);
+        this.currentProcess = exec(`afplay "${source}"`, (error, stdout, stderr) => {
+            if (error) {
+                console.error(`[PLAYER] afplay error: ${error.message}`);
+                console.error(`[PLAYER] stderr: ${stderr}`);
+            }
+        });
         this.currentProcess.on("exit", () => {
+            // 增加 500ms 延迟，防止播放失败时死循环导致 CPU 飙升
             if (!this.isPaused)
-                this.next();
+                setTimeout(() => this.next(), 500);
         });
     }
     next() { this.play(this.currentIndex + 1); }
@@ -113,6 +129,7 @@ class AgentPlayerService {
         this.playlist = [];
         this.currentIndex = -1;
         this.isPaused = false;
+        this.isLooping = false;
         this.lastActivity = "SIGNAL_CLEARED";
     }
     getState() {

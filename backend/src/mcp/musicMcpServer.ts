@@ -1,13 +1,20 @@
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import path from "node:path";
+import fs from "node:fs";
+import { fileURLToPath } from "node:url";
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import { scanMusicLibrary, searchTracks } from "../services/musicLibraryService.js";
-import { getPlayHistory, getAestheticDna, saveAestheticDna, updateFeedback } from "../services/storageService.js";
+import { getPlayHistory, getAestheticDna, saveAestheticDna, updateFeedback, getRuntimeSettings } from "../services/storageService.js";
 import { LobsterCoreXAgent } from "lobster-radio-agents";
 import { agentPlayer } from "../services/agentPlayerService.js";
+import { synthesizeSpeech } from "../services/ttsService.js";
+import { resolveRuntimeSecrets } from "../services/settingsResolver.js";
+import os from "node:os";
+import fsp from "node:fs/promises";
 
 // 强行禁音：后端严禁向终端屏幕打印任何字符 (stdout)，以免干扰 MCP 协议
 // 我们将所有日志重定向到 stderr，这样 CLI wrapper 可以捕获并显示
@@ -24,6 +31,8 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       { name: "get_player_status", description: "获取当前播放状态和歌曲信息", inputSchema: { type: "object", properties: {} } },
       { name: "control_player", description: "控制播放器 (next/prev/toggle/clear)", inputSchema: { type: "object", properties: { action: { type: "string" } } } },
       { name: "stop_stream", description: "停止电台直播并清空播放队列", inputSchema: { type: "object", properties: {} } },
+      { name: "enter_chat_mode", description: "【关键】当用户输入 /talk 或要求闲聊时调用。启动背景音乐并进入陪伴模式。", inputSchema: { type: "object", properties: {} } },
+      { name: "narrate", description: "将文字转为 DJ 语音并播放。在闲聊模式下，请务必使用此工具来‘说’出你的回复，而不仅仅是回复文字。", inputSchema: { type: "object", properties: { text: { type: "string", description: "要播报的文字内容" } }, required: ["text"] } },
       { name: "play_song", description: "点歌并播放。输入歌曲名或歌手名。", inputSchema: { type: "object", properties: { query: { type: "string", description: "歌曲名或歌手名" } }, required: ["query"] } },
     ],
   };
@@ -34,6 +43,88 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   try {
     const dna = await getAestheticDna();
     const agent = new LobsterCoreXAgent(dna);
+
+    if (name === "enter_chat_mode") {
+        const __filename = fileURLToPath(import.meta.url);
+        let currentDir = path.dirname(__filename);
+        let finalPath = "";
+
+        // 向上寻找 5 层，直到找到 data/bgm/chat_bgm.mp3
+        for (let i = 0; i < 5; i++) {
+            const probe = path.join(currentDir, "data/bgm/chat_bgm.mp3");
+            if (fs.existsSync(probe)) {
+                finalPath = probe;
+                break;
+            }
+            // 同时也检查当前目录下的根级 data
+            const probeRoot = path.join(currentDir, "..", "data/bgm/chat_bgm.mp3");
+            if (fs.existsSync(probeRoot)) {
+                finalPath = probeRoot;
+                break;
+            }
+            currentDir = path.dirname(currentDir);
+        }
+
+        // 如果还没找到，尝试从 process.cwd 向上找
+        if (!finalPath) {
+            let cwd = process.cwd();
+            for (let i = 0; i < 3; i++) {
+                const probe = path.join(cwd, "data/bgm/chat_bgm.mp3");
+                if (fs.existsSync(probe)) {
+                    finalPath = probe;
+                    break;
+                }
+                cwd = path.dirname(cwd);
+            }
+        }
+
+        if (!finalPath) {
+            return { content: [{ type: "text", text: `[ERR] 彻底找不到音源。请检查 data/bgm/chat_bgm.mp3 是否存在。` }], isError: true };
+        }
+
+        agentPlayer.playBGM(finalPath, "Beautiful Lady - Daydream");
+        return { 
+            content: [{ 
+                type: "text", 
+                text: `[SYSTEM_ALERT] 闲聊模式已启动。背景音源: ${finalPath}\n\n【重要指令】当前处于深夜电台直播中。从现在起，你的所有回复都必须通过调用 'narrate' 工具来发出，否则听众（Gordon）将只能看到冰冷的文字而听不到你的声音。请立刻调用 'narrate' 来进行开场引导。` 
+            }] 
+        };
+    }
+
+    if (name === "narrate") {
+        const text = args?.text as string;
+        const settings = await getRuntimeSettings();
+        const secrets = await resolveRuntimeSecrets();
+        const ttsResult: any = await synthesizeSpeech(text, settings.defaultVoice, {
+            provider: settings.defaultTtsProvider,
+            apiKey: settings.openAiApiKey || secrets.openAiApiKey,
+            language: "zh-CN"
+        });
+
+        if (ttsResult.audioBase64) {
+            const tmpFile = path.join(os.tmpdir(), `dj_narrate_${Date.now()}.mp3`);
+            await fsp.writeFile(tmpFile, Buffer.from(ttsResult.audioBase64, 'base64'));
+
+            const playerState = agentPlayer.getState();
+            const isChatMode = (agentPlayer as any).isLooping && (playerState.current?.title.includes("Beautiful Lady") || playerState.queue.some(q => q.title.includes("Beautiful Lady")));
+            
+            if (isChatMode) {
+                // 闲聊模式：插播旁白并恢复 BGM
+                let root = process.cwd();
+                while (root !== "/" && !fs.existsSync(path.join(root, ".git"))) { root = path.dirname(root); }
+                const bgmPath = path.join(root, "data/bgm/chat_bgm.mp3");
+
+                agentPlayer.clear();
+                agentPlayer.add(tmpFile, `🎙️: ${text}`);
+                agentPlayer.add(bgmPath, "Beautiful Lady - Daydream");
+                (agentPlayer as any).isLooping = true;
+            } else {
+                agentPlayer.add(tmpFile, `🎙️: ${text}`);
+            }
+            return { content: [{ type: "text", text: `[NARRATING] ${text}` }] };
+        }
+        return { content: [{ type: "text", text: `[TTS_FAIL] 无法生成语音。` }], isError: true };
+    }
 
     if (name === "get_player_status") {
         const status = agentPlayer.getState();
@@ -59,6 +150,13 @@ ${wiki?.hotComments?.length ? `**💬 听众在说：**\n${wiki.hotComments.slic
         `.trim();
         
         return { content: [{ type: "text", text: info }] };
+    }
+
+    if (name === "enter_chat_mode") {
+        const bgmPath = path.resolve(process.cwd(), "data/bgm/chat_bgm.mp3");
+        agentPlayer.playBGM(bgmPath, "Beautiful Lady - Daydream");
+        
+        return { content: [{ type: "text", text: "[CHAT_MODE_READY] 背景音乐已就绪。DJ-X 正在对焦你的情绪... 请直接发起话题或等待 DJ 引导。" }] };
     }
 
     if (name === "play_song") {
@@ -128,6 +226,10 @@ ${wiki?.hotComments?.length ? `**💬 听众在说：**\n${wiki.hotComments.slic
         if (act === "prev") agentPlayer.prev();
         if (act === "toggle") agentPlayer.toggle();
         if (act === "clear") agentPlayer.clear();
+        if (act === "talk") {
+            const bgmPath = path.resolve(process.cwd(), "data/bgm/chat_bgm.mp3");
+            agentPlayer.playBGM(bgmPath, "Beautiful Lady - Daydream");
+        }
         if (act === "like") {
             const id = agentPlayer.getCurrentTrackId();
             if (id) updateFeedback(id, "like");

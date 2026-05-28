@@ -7,8 +7,10 @@ import { resolveRuntimeSecrets } from "../services/settingsResolver.js";
 import { synthesizeSpeech } from "../services/ttsService.js";
 import { getSongWiki } from "../services/wikiService.js";
 import { getUserState, getCachedUserState } from "../services/userStateMonitor.js";
-import fs from "node:fs/promises";
+import fsp from "node:fs/promises";
+import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import os from "node:os";
 
 export const lobsterCoreXRouter = Router();
@@ -32,8 +34,24 @@ async function broadcastNarration(text: string) {
 
   if (ttsResult.audioBase64) {
     const tmpFile = path.join(os.tmpdir(), `x_narration_${Date.now()}.mp3`);
-    await fs.writeFile(tmpFile, Buffer.from(ttsResult.audioBase64, 'base64'));
-    agentPlayer.add(tmpFile, "🎙️ LOBSTER-VOICE");
+    await fsp.writeFile(tmpFile, Buffer.from(ttsResult.audioBase64, 'base64'));
+
+    // 如果处于闲聊模式，需要先清空队列，插入旁白，再补回 BGM
+    const playerState = agentPlayer.getState();
+    const isChatMode = (agentPlayer as any).isLooping && (playerState.current?.title.includes("Beautiful Lady") || playerState.queue.some(q => q.title.includes("Beautiful Lady")));
+    
+    if (isChatMode) {
+      let root = process.cwd();
+      while (root !== "/" && !fs.existsSync(path.join(root, ".git"))) { root = path.dirname(root); }
+      const bgmPath = path.join(root, "data/bgm/chat_bgm.mp3");
+
+      agentPlayer.clear();
+      agentPlayer.add(tmpFile, `🎙️: ${text}`);
+      agentPlayer.add(bgmPath, "Beautiful Lady - Daydream");
+      (agentPlayer as any).isLooping = true;
+    } else {
+      agentPlayer.add(tmpFile, `🎙️: ${text}`);
+    }
   }
 }
 
@@ -59,8 +77,59 @@ lobsterCoreXRouter.post("/chat", async (req, res) => {
     const msg = message.trim().toLowerCase();
 
     // 1. 物理指令拦截 (最高优先级)
-    if (msg.startsWith('/play ')) {
-      const query = message.slice(6).trim();
+    if (msg === '/talk' || msg === '/chat') {
+        const __filename = fileURLToPath(import.meta.url);
+        let currentDir = path.dirname(__filename);
+        let bgmPath = "";
+
+        for (let i = 0; i < 5; i++) {
+            const probe = path.join(currentDir, "data/bgm/chat_bgm.mp3");
+            if (fs.existsSync(probe)) {
+                bgmPath = probe;
+                break;
+            }
+            currentDir = path.dirname(currentDir);
+        }
+
+        if (!bgmPath) {
+            bgmPath = path.resolve(process.cwd(), "..", "data/bgm/chat_bgm.mp3");
+        }
+        
+        agentPlayer.playBGM(bgmPath, "Beautiful Lady - Daydream");
+
+        // 触发 Agent 的主动引导
+        const agent = await getAgent();
+        const prompt = "现在进入【闲聊模式 (Chit-Chat Mode)】。背景正播放着舒缓的《Beautiful Lady》。请根据 DJ_PERSONA 中的‘闲聊模式逻辑’，主动发起一个深度的话题来引导听众，表现得像一个深夜电台 DJ。请直接输出你的开场白。";
+        const responsePackets = await agent.chat(prompt);
+        const aiMessage = responsePackets.find(p => p.type === 'message')?.content || "信号微弱，我正在对焦氛围...";
+
+        // --- 新增：旁白语音化 ---
+        const settings = await getRuntimeSettings();
+        const secrets = await resolveRuntimeSecrets();
+        const ttsResult = await synthesizeSpeech(aiMessage, settings.defaultVoice, {
+            provider: settings.defaultTtsProvider,
+            apiKey: secrets.openAiApiKey,
+            language: "zh-CN"
+        });
+
+        if (ttsResult.audioBase64) {
+            const tmpFile = path.join(os.tmpdir(), `dj_chat_v_${Date.now()}.mp3`);
+            await fsp.writeFile(tmpFile, Buffer.from(ttsResult.audioBase64, 'base64'));
+            // 顺序：先加旁白，再加 BGM (BGM 会在后面循环)
+            agentPlayer.clear();
+            agentPlayer.add(tmpFile, `🎙️: ${aiMessage}`);
+            agentPlayer.add(bgmPath, "Beautiful Lady - Daydream");
+            (agentPlayer as any).isLooping = true; // 保持循环
+        }
+
+        return res.json({ 
+            logs: [
+                { id: 't1', timestamp: Date.now(), type: 'action', content: `[MODE_SWITCH] 📡 已切换至：闲聊陪伴模式。音源: ${bgmPath}` },
+                { id: 't2', timestamp: Date.now(), type: 'message', content: `\n${aiMessage}` }
+            ], 
+            dna: agent.getDna() 
+        });
+    }    if (msg.startsWith('/play ')) {      const query = message.slice(6).trim();
       const { searchTracks } = await import("../services/musicLibraryService.js");
       const results = await searchTracks(query);
       if (results.length === 0) {
@@ -149,6 +218,18 @@ lobsterCoreXRouter.post("/chat", async (req, res) => {
     // 3. 普通对话
     const agent = await getAgent();
     const logs = await agent.chat(message);
+    
+    // 如果处于闲聊模式，自动为 assistant 的消息生成旁白
+    const playerState = agentPlayer.getState();
+    const isChatMode = (agentPlayer as any).isLooping && (playerState.current?.title.includes("Beautiful Lady") || playerState.queue.some(q => q.title.includes("Beautiful Lady")));
+    
+    if (isChatMode) {
+      const aiMessage = logs.find(p => p.type === 'message')?.content;
+      if (aiMessage) {
+        broadcastNarration(aiMessage); // 异步调用，不阻塞 API 响应
+      }
+    }
+
     await saveAestheticDna(agent.getDna());
     res.json({ logs, dna: agent.getDna() });
 
