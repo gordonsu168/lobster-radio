@@ -3,6 +3,13 @@ import { searchSongInfo } from "../services/wikipediaService.js";
 import { fetchNeteaseFacts } from "../services/neteaseService.js";
 import { fetchNcmFacts } from "../services/ncmService.js";
 import { resolveRuntimeSecrets } from "../services/settingsResolver.js";
+function isGarbledArtist(artist) {
+    if (!artist || artist === "未知艺术家" || artist === "Unknown Artist")
+        return true;
+    if (/[̀-ͯ]/.test(artist) && /[¿£¤]/.test(artist))
+        return true;
+    return false;
+}
 async function delay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
@@ -56,9 +63,14 @@ async function processSingleSong(song) {
         lastUpdated: new Date().toISOString()
     };
     let foundSomething = false;
-    // ncm-cli 作为标准数据源（title/artist 为身份字段，禁止覆盖）
+    // ncm-cli 作为标准数据源
     if (ncmFacts) {
         console.log(`  ✅ ncm-cli 命中标准数据: ${ncmFacts.title} - ${ncmFacts.artist} (年份=${ncmFacts.releaseYear || '未知'})`);
+        // 身份字段由本地扫描确定，但本地为乱码/"未知艺术家"时允许覆写
+        if (isGarbledArtist(song.artist) && ncmFacts.artist && !isGarbledArtist(ncmFacts.artist)) {
+            finalUpdates.artist = ncmFacts.artist;
+            console.log(`  🔧 修正艺术家: "${song.artist}" -> "${ncmFacts.artist}"`);
+        }
         finalUpdates.album = ncmFacts.album;
         finalUpdates.composer = ncmFacts.composer;
         finalUpdates.lyricist = ncmFacts.lyricist;
@@ -98,6 +110,31 @@ async function processSingleSong(song) {
         if (!finalUpdates.wikiAbstract)
             finalUpdates.wikiAbstract = wikiInfo.wikiAbstract;
         foundSomething = true;
+    }
+    // 如果 ncm 修正了艺术家但百科搜索用的是旧名字，用新名字再搜一次
+    let wikiInfoRetry = null;
+    if (!wikiInfo && finalUpdates.artist && finalUpdates.artist !== song.artist && !isGarbledArtist(finalUpdates.artist)) {
+        console.log(`  🔄 用修正后艺术家 "${finalUpdates.artist}" 重新搜索百科...`);
+        wikiInfoRetry = await searchSongInfo(finalUpdates.title || song.title, finalUpdates.artist).catch(() => null);
+        if (wikiInfoRetry) {
+            console.log(`  ✅ 百科重试命中`);
+            if (!finalUpdates.composer)
+                finalUpdates.composer = wikiInfoRetry.composer;
+            if (!finalUpdates.lyricist)
+                finalUpdates.lyricist = wikiInfoRetry.lyricist;
+            if (!finalUpdates.releaseYear)
+                finalUpdates.releaseYear = wikiInfoRetry.releaseYear;
+            if (!finalUpdates.trivia || finalUpdates.trivia.length === 0)
+                finalUpdates.trivia = wikiInfoRetry.trivia;
+            if (!finalUpdates.wikiAbstract)
+                finalUpdates.wikiAbstract = wikiInfoRetry.wikiAbstract;
+            foundSomething = true;
+        }
+    }
+    // 清理旧的词语释义摘要
+    if (!finalUpdates.wikiAbstract && song.wikiAbstract && song.wikiAbstract.includes("拼音") && /[ā-ǔㄅ-ㄩ]/.test(song.wikiAbstract)) {
+        finalUpdates.wikiAbstract = "";
+        console.log(`  🧹 清除疑似词语释义摘要`);
     }
     // 2. LLM AI 补全 — 传入百科摘要作为上下文
     const webAbstract = wikiInfo?.wikiAbstract || "";

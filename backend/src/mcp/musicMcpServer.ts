@@ -20,7 +20,8 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
   return {
     tools: [
       { name: "sniff_user_dna", description: "重构 DNA 审美指纹", inputSchema: { type: "object", properties: {} } },
-      { name: "trigger_radio_broadcast", description: "启动电台直播模式", inputSchema: { type: "object", properties: {} } },
+      { name: "trigger_radio_broadcast", description: "启动/同步电台直播模式", inputSchema: { type: "object", properties: {} } },
+      { name: "get_player_status", description: "获取当前播放状态和歌曲信息", inputSchema: { type: "object", properties: {} } },
       { name: "control_player", description: "控制播放器 (next/prev/toggle/clear)", inputSchema: { type: "object", properties: { action: { type: "string" } } } },
       { name: "stop_stream", description: "停止电台直播并清空播放队列", inputSchema: { type: "object", properties: {} } },
       { name: "play_song", description: "点歌并播放。输入歌曲名或歌手名。", inputSchema: { type: "object", properties: { query: { type: "string", description: "歌曲名或歌手名" } }, required: ["query"] } },
@@ -33,6 +34,32 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   try {
     const dna = await getAestheticDna();
     const agent = new LobsterCoreXAgent(dna);
+
+    if (name === "get_player_status") {
+        const status = agentPlayer.getState();
+        if (!status.current) {
+            return { content: [{ type: "text", text: "📭 当前没有正在播放的歌曲。你可以输入 /stream 启动电台。" }] };
+        }
+        
+        const { getSongWiki } = await import("../services/wikiService.js");
+        const wiki = status.current.trackId ? await getSongWiki(status.current.trackId) : null;
+        
+        const info = `
+### 📻 正在播放
+
+> **歌曲：** ${status.current.title}
+> **来源：** ${status.current.trackId ? "本地曲库" : "外部流媒体"}
+${wiki?.releaseYear ? `> **年份：** ${wiki.releaseYear}` : ""}
+
+${wiki?.wikiAbstract ? `**💡 背景介绍：**\n${wiki.wikiAbstract}\n` : ""}
+${wiki?.trivia?.length ? `**✨ 你知道吗？**\n${wiki.trivia.map(t => `• ${t}`).join('\n')}\n` : ""}
+${wiki?.hotComments?.length ? `**💬 听众在说：**\n${wiki.hotComments.slice(0, 2).map(c => `> "${c}"`).join('\n')}\n` : ""}
+
+*输入 /next 切换下一首，或输入 /pause 暂停。*
+        `.trim();
+        
+        return { content: [{ type: "text", text: info }] };
+    }
 
     if (name === "play_song") {
         const query = args?.query as string;
@@ -49,8 +76,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         agentPlayer.clear();
         // 不再清除 ReplenishCallback，以便点播结束后电台能自动恢复
 
-        const b64 = track.previewUrl.split("/stream/")[1];
-        const finalPath = b64 ? Buffer.from(b64, "base64url").toString() : track.previewUrl;
+        const previewUrl = track.previewUrl || "";
+        const b64 = previewUrl.split("/stream/")[1];
+        const finalPath = b64 ? Buffer.from(b64, "base64url").toString() : previewUrl;
         
         agentPlayer.add(finalPath, `${track.artist} - ${track.title}`, track.id);
         
@@ -61,8 +89,14 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     if (name === "trigger_radio_broadcast") {
         try {
             const { fetchNextRadioSegment } = await import("../services/radioEngineService.js");
-            agentPlayer.clear();
+            
+            const currentStatus = agentPlayer.getState();
+            // 如果已经在播放且有队列，不要清空，直接返回当前状态
+            if (currentStatus.current && currentStatus.queue.length > 0) {
+                return { content: [{ type: "text", text: `[ALREADY_LIVE] 📡 信号已处于对齐状态，正在播放: ${currentStatus.current.title}` }] };
+            }
 
+            agentPlayer.clear();
             // 注册自动补充回调，实现持续播放
             agentPlayer.setReplenishCallback(async () => { await fetchNextRadioSegment(); });
 
@@ -73,7 +107,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 ### [DJ_SYNC] 📡 信号塔已对齐
 
 > **DJ-X 旁白：** "${dj_talk}"
-> **正在注入：** ${track.artist} - ${track.title}
+> **正在注入：** ${track?.artist || "未知歌手"} - ${track?.title || "未知曲目"}
             `.trim();
 
             return { content: [{ type: "text", text: report }] };

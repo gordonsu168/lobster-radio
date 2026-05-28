@@ -104,7 +104,10 @@ export async function fetchNextRadioSegment() {
     if (!targetTrack) targetTrack = finalCandidates[0];
 
     recentlyPlayedIds.add(targetTrack.id);
-    if (recentlyPlayedIds.size > 50) recentlyPlayedIds.delete(recentlyPlayedIds.values().next().value);
+    if (recentlyPlayedIds.size > 50) {
+      const first = recentlyPlayedIds.values().next().value;
+      if (first !== undefined) recentlyPlayedIds.delete(first);
+    }
 
     // 4. 获取 Wiki 深度素材
     const wiki = await getSongWiki(targetTrack.id);
@@ -122,7 +125,7 @@ export async function fetchNextRadioSegment() {
     // 5. 生成「电台级别」的旁白
     const narrationResp = await streamDJ.generateNarrationForTrack(
       trackInfo,
-      playlistResp.theme_update,
+      playlistResp.theme_update as any,
       "zh-CN",
       "night", // 强制使用深夜治愈模式，更具质感
       userState ? `${userState.label}，${userState.dayOfWeek} ${userState.timeOfDay}` : undefined
@@ -148,7 +151,7 @@ export async function fetchNextRadioSegment() {
       await fsp.writeFile(narrationFile, Buffer.from(ttsResult.audioBase64, 'base64'));
     }
 
-    const finalPath = getLocalPathFromUrl(targetTrack.previewUrl);
+    const finalPath = getLocalPathFromUrl(targetTrack.previewUrl || "");
     
     // 【关键】同步连续注入，确保旁白和歌曲紧邻，中间不被其他并发请求插入
     if (narrationFile) {

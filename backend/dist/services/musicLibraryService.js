@@ -153,11 +153,17 @@ async function parseTrack(filePath) {
         source: "local"
     };
     // Merge with wiki data if it exists - use correct artist/title/album from wiki
+    // 仅当本地解析结果为“未知”时，才允许 Wiki 数据覆写身份字段，防止误匹配导致的身份篡改
     const wikiEntry = wikiData.songs[trackId];
     if (wikiEntry) {
-        result.title = wikiEntry.title || result.title;
-        result.artist = wikiEntry.artist || result.artist;
-        result.album = wikiEntry.album || result.album;
+        const isArtistUnknown = artist === "未知艺术家" || artist === "Unknown Artist";
+        const isTitleUnknown = title === nameWithoutExt || title === "未知曲目";
+        if (isTitleUnknown && wikiEntry.title)
+            result.title = wikiEntry.title;
+        if (isArtistUnknown && wikiEntry.artist)
+            result.artist = wikiEntry.artist;
+        if (wikiEntry.album)
+            result.album = wikiEntry.album;
     }
     return result;
 }
@@ -205,6 +211,14 @@ export async function getLocalTrackById(id) {
 export async function getLocalTracksByMood(mood) {
     const library = await scanMusicLibrary();
     return library.filter((track) => track.moodTags.includes(mood));
+}
+// 按关键词搜索本地歌曲
+export async function searchTracks(query) {
+    const library = await scanMusicLibrary();
+    const q = query.toLowerCase();
+    return library.filter((t) => t.title.toLowerCase().includes(q) ||
+        t.artist.toLowerCase().includes(q) ||
+        (t.album && t.album.toLowerCase().includes(q)));
 }
 // 获取音频流
 export function getAudioStream(filePath) {

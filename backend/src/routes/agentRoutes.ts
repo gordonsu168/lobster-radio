@@ -69,8 +69,9 @@ lobsterCoreXRouter.post("/chat", async (req, res) => {
       const track = results[0];
       agentPlayer.clear();
 
-      const b64 = track.previewUrl.split("/stream/")[1];
-      const finalPath = b64 ? Buffer.from(b64, "base64url").toString() : track.previewUrl;
+      const previewUrl = track.previewUrl || "";
+      const b64 = previewUrl.split("/stream/")[1];
+      const finalPath = b64 ? Buffer.from(b64, "base64url").toString() : previewUrl;
       agentPlayer.add(finalPath, `${track.artist} - ${track.title}`, track.id);
 
       return res.json({ logs: [{ id: 'p2', timestamp: Date.now(), type: 'action', content: `[PLAYING] 锁定信号: ${track.artist} - ${track.title}` }], dna: (await getAgent()).getDna() });
@@ -139,7 +140,7 @@ lobsterCoreXRouter.post("/chat", async (req, res) => {
       return res.json({ 
         logs: [
             { id: 's1', timestamp: Date.now(), type: 'action', content: `[RADIO_LOCKED] 成功连接至 http://localhost:5173/stream 的逻辑核心。` },
-            { id: 's2', timestamp: Date.now(), type: 'message', content: `\n> **DJ-X 旁白：** "${dj_talk}"\n\n> **正在注入：** ${track.artist} - ${track.title}` }
+            { id: 's2', timestamp: Date.now(), type: 'message', content: `\n> **DJ-X 旁白：** "${dj_talk}"\n\n> **正在注入：** ${track?.artist || "未知歌手"} - ${track?.title || "未知曲目"}` }
         ],
         dna: (await getAgent()).getDna() 
       });

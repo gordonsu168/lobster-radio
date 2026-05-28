@@ -52,6 +52,21 @@ lobsterCoreXRouter.post("/chat", async (req, res) => {
         const { message } = req.body;
         const msg = message.trim().toLowerCase();
         // 1. 物理指令拦截 (最高优先级)
+        if (msg.startsWith('/play ')) {
+            const query = message.slice(6).trim();
+            const { searchTracks } = await import("../services/musicLibraryService.js");
+            const results = await searchTracks(query);
+            if (results.length === 0) {
+                return res.json({ logs: [{ id: 'p1', timestamp: Date.now(), type: 'action', content: `[SEARCH_FAIL] 没找到关于 "${query}" 的信号。` }], dna: (await getAgent()).getDna() });
+            }
+            const track = results[0];
+            agentPlayer.clear();
+            const previewUrl = track.previewUrl || "";
+            const b64 = previewUrl.split("/stream/")[1];
+            const finalPath = b64 ? Buffer.from(b64, "base64url").toString() : previewUrl;
+            agentPlayer.add(finalPath, `${track.artist} - ${track.title}`, track.id);
+            return res.json({ logs: [{ id: 'p2', timestamp: Date.now(), type: 'action', content: `[PLAYING] 锁定信号: ${track.artist} - ${track.title}` }], dna: (await getAgent()).getDna() });
+        }
         if (msg === '/next') {
             agentPlayer.next();
             return res.json({ logs: [{ id: 'c1', timestamp: Date.now(), type: 'action', content: '[COMMAND] 下一首频率。' }], dna: (await getAgent()).getDna() });
@@ -123,7 +138,7 @@ lobsterCoreXRouter.post("/chat", async (req, res) => {
             return res.json({
                 logs: [
                     { id: 's1', timestamp: Date.now(), type: 'action', content: `[RADIO_LOCKED] 成功连接至 http://localhost:5173/stream 的逻辑核心。` },
-                    { id: 's2', timestamp: Date.now(), type: 'message', content: `\n> **DJ-X 旁白：** "${dj_talk}"\n\n> **正在注入：** ${track.artist} - ${track.title}` }
+                    { id: 's2', timestamp: Date.now(), type: 'message', content: `\n> **DJ-X 旁白：** "${dj_talk}"\n\n> **正在注入：** ${track?.artist || "未知歌手"} - ${track?.title || "未知曲目"}` }
                 ],
                 dna: (await getAgent()).getDna()
             });

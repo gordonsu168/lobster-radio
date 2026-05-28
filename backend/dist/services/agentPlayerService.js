@@ -18,15 +18,18 @@ class AgentPlayerService {
         if (!path)
             return;
         this.playlist.push({ path, title, trackId });
+        console.error(`[PLAYER] ADDED: ${title} (Queue: ${this.playlist.length})`);
         this.lastActivity = `LOCKED: ${title.slice(0, 15)}`;
         if (!this.currentProcess && !this.downloadProcess) {
             this.play(this.currentIndex + 1);
         }
     }
     async play(index) {
+        console.error(`[PLAYER] TRY_PLAY Index: ${index}, PlaylistSize: ${this.playlist.length}`);
         if (index < 0 || index >= this.playlist.length) {
             this.stopCurrent();
             if (this.onQueueLow && !this.isReplenishing) {
+                console.error(`[PLAYER] QUEUE_LOW triggered replenish`);
                 this.isReplenishing = true;
                 this.lastActivity = "FETCHING_NEXT...";
                 this.onQueueLow().finally(() => {
@@ -39,6 +42,7 @@ class AgentPlayerService {
         this.currentIndex = index;
         this.isPaused = false;
         const item = this.playlist[index];
+        console.error(`[PLAYER] PLAYING: ${item.title}`);
         if (item.path.startsWith('http')) {
             const tempPath = path.join(os.tmpdir(), `dj_s_${Date.now()}.mp3`);
             this.lastActivity = `SYNCING: ${item.title.slice(0, 20)}`;

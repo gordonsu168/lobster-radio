@@ -7,7 +7,7 @@ agents:
 
 providers:
   deepseek:
-    api_key: ""
+    api_key: "sk-708d492ec0124323b0f5c06445411982"
     api_base: "https://api.deepseek.com"
 
 tools:

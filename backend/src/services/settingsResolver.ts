@@ -11,6 +11,7 @@ export async function resolveRuntimeSecrets() {
     neteaseApiEnabled: (process.env.NETEASE_API_ENABLED === "true") || stored.neteaseApiEnabled || false,
     neteaseApiUrl: process.env.NETEASE_API_URL || stored.neteaseApiUrl || "",
     openAiApiKey: process.env.OPENAI_API_KEY || stored.openAiApiKey,
+    deepseekApiKey: process.env.DEEPSEEK_API_KEY || (stored as any).deepseekApiKey,
     elevenLabsApiKey: process.env.ELEVENLABS_API_KEY || stored.elevenLabsApiKey,
     defaultVoice: process.env.DEFAULT_TTS_VOICE || stored.defaultVoice,
     defaultTtsProvider: (process.env.DEFAULT_TTS_PROVIDER as "openai" | "elevenlabs" | "edge" | "gemini" | "macsay" | "moss" | "cosyvoice" | undefined) || stored.defaultTtsProvider,

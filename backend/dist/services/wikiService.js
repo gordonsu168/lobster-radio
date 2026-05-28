@@ -57,8 +57,13 @@ export async function getSongWiki(songId) {
         // 尝试在本地库中查找
         const localTrack = await getLocalTrackById(songId);
         if (localTrack) {
-            const key = `${localTrack.title} - ${localTrack.artist}`.toLowerCase();
-            const existing = Object.values(wiki.songs).find(s => `${s.title} - ${s.artist}`.toLowerCase() === key);
+            const isUnknownArtist = !localTrack.artist || localTrack.artist === "未知艺术家" || localTrack.artist === "Unknown Artist";
+            let existing = null;
+            // 只有当艺术家已知时，才尝试复用现有的 Wiki 条目
+            if (!isUnknownArtist) {
+                const key = `${localTrack.title} - ${localTrack.artist}`.toLowerCase();
+                existing = Object.values(wiki.songs).find(s => `${s.title} - ${s.artist}`.toLowerCase() === key);
+            }
             foundWiki = existing || generateDefaultWiki(localTrack);
         }
     }
@@ -204,7 +209,7 @@ export function enqueueWikiEnrichment(wiki) {
                 if (!updates.wikiAbstract)
                     updates.wikiAbstract = wikiInfo.wikiAbstract;
             }
-            // 搜索结果为空但旧摘要疑似词语释义（含拼音/注音），主动清空
+            // 搜索结果为空但旧摘要疑似词语释义（含拼音/注音），主动清空避免展示错误信息
             if (!updates.wikiAbstract && wiki.wikiAbstract && wiki.wikiAbstract.includes("拼音") && /[ā-ǔㄅ-ㄩ]/.test(wiki.wikiAbstract)) {
                 updates.wikiAbstract = "";
                 console.log(`[wiki-worker] 清除疑似词语释义摘要: ${wiki.title}`);

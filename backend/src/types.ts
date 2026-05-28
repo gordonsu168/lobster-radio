@@ -51,6 +51,7 @@ export interface RuntimeSettings {
   neteaseApiEnabled: boolean;
   neteaseApiUrl: string;
   openAiApiKey: string;
+  deepseekApiKey?: string;
   elevenLabsApiKey: string;
   defaultVoice: string;
   defaultTtsProvider: "openai" | "elevenlabs" | "edge" | "gemini" | "macsay" | "moss" | "cosyvoice";
