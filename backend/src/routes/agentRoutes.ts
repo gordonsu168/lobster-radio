@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { LobsterCoreXAgent } from "lobster-radio-agents";
-import { getPlayHistory, getAestheticDna, saveAestheticDna, getRuntimeSettings, updateFeedback } from "../services/storageService.js";
+import { getPlayHistory, getAestheticDna, saveAestheticDna, getRuntimeSettings } from "../services/storageService.js";
 import { scanMusicLibrary } from "../services/musicLibraryService.js";
 import { agentPlayer } from "../services/agentPlayerService.js";
 import { resolveRuntimeSecrets } from "../services/settingsResolver.js";
@@ -35,10 +35,7 @@ async function broadcastNarration(text: string) {
   if (ttsResult.audioBase64) {
     const tmpFile = path.join(os.tmpdir(), `x_narration_${Date.now()}.mp3`);
     await fsp.writeFile(tmpFile, Buffer.from(ttsResult.audioBase64, 'base64'));
-
-    // 无论是否闲聊模式，直接插播旁白（不停止主队列，除非是闲聊模式需要停止上一个旁白）
-    agentPlayer.stopCurrent();
-    agentPlayer.add(tmpFile, `🎙️: ${text}`);
+    agentPlayer.addVoice(tmpFile, text);
   }
 }
 
@@ -51,10 +48,9 @@ lobsterCoreXRouter.get("/state", async (_req, res) => {
     const state = await getUserState();
     res.json(state);
   } catch (error) {
-    // Return cached state on failure, or a fallback
     const cached = getCachedUserState();
     if (cached) return res.json(cached);
-    res.status(500).json({ error: "Unable to detect user state" });
+    res.status(500).json({ error: "Offline" });
   }
 });
 
@@ -63,193 +59,55 @@ lobsterCoreXRouter.post("/chat", async (req, res) => {
     const { message } = req.body;
     const msg = message.trim().toLowerCase();
 
-    // 1. 物理指令拦截 (最高优先级)
     if (msg === '/talk' || msg === '/chat') {
         const __filename = fileURLToPath(import.meta.url);
-        let currentDir = path.dirname(__filename);
+        let root = path.dirname(__filename);
         let bgmPath = "";
-
         for (let i = 0; i < 5; i++) {
-            const probe = path.join(currentDir, "data/bgm/chat_bgm.mp3");
-            if (fs.existsSync(probe)) {
-                bgmPath = probe;
-                break;
-            }
-            currentDir = path.dirname(currentDir);
+            const probe = path.join(root, "data/bgm/chat_bgm.mp3");
+            if (fs.existsSync(probe)) { bgmPath = probe; break; }
+            root = path.dirname(root);
         }
-
-        if (!bgmPath) {
-            bgmPath = path.resolve(process.cwd(), "..", "data/bgm/chat_bgm.mp3");
-        }
+        if (!bgmPath) bgmPath = path.resolve(process.cwd(), "data/bgm/chat_bgm.mp3");
         
         agentPlayer.playBGM(bgmPath, "Beautiful Lady - Daydream");
+        return res.json({ logs: [{ id: 't1', timestamp: Date.now(), type: 'action', content: `[OK] 闲聊模式已启动。` }], dna: (await getAgent()).getDna() });
+    }
 
-        // 触发 Agent 的主动引导
-        const agent = await getAgent();
-        const prompt = "现在进入【闲聊模式 (Chit-Chat Mode)】。背景正播放着舒缓的《Beautiful Lady》。请根据 DJ_PERSONA 中的‘闲聊模式逻辑’，主动发起一个深度的话题来引导听众，表现得像一个深夜电台 DJ。请直接输出你的开场白。";
-        const responsePackets = await agent.chat(prompt);
-        const aiMessage = responsePackets.find(p => p.type === 'message')?.content || "信号微弱，我正在对焦氛围...";
-
-        // --- 新增：旁白语音化 ---
-        const settings = await getRuntimeSettings();
-        const secrets = await resolveRuntimeSecrets();
-        const ttsResult = await synthesizeSpeech(aiMessage, settings.defaultVoice, {
-            provider: settings.defaultTtsProvider,
-            apiKey: secrets.openAiApiKey,
-            language: "zh-CN"
-        });
-
-        if (ttsResult.audioBase64) {
-            const tmpFile = path.join(os.tmpdir(), `dj_chat_v_${Date.now()}.mp3`);
-            await fsp.writeFile(tmpFile, Buffer.from(ttsResult.audioBase64, 'base64'));
-            
-            // 混音模式：直接播放旁白，BGM 在后台并行
-            agentPlayer.stopCurrent();
-            agentPlayer.add(tmpFile, `🎙️: ${aiMessage}`);
-        }
-
-        return res.json({ 
-            logs: [
-                { id: 't1', timestamp: Date.now(), type: 'action', content: `[MODE_SWITCH] 📡 已切换至：闲聊陪伴模式。音源: ${bgmPath}` },
-                { id: 't2', timestamp: Date.now(), type: 'message', content: `\n${aiMessage}` }
-            ], 
-            dna: agent.getDna() 
-        });
-    }    if (msg.startsWith('/play ')) {      const query = message.slice(6).trim();
+    if (msg.startsWith('/play ')) {
+      const query = message.slice(6).trim();
       const { searchTracks } = await import("../services/musicLibraryService.js");
       const results = await searchTracks(query);
-      if (results.length === 0) {
-        return res.json({ logs: [{ id: 'p1', timestamp: Date.now(), type: 'action', content: `[SEARCH_FAIL] 没找到关于 "${query}" 的信号。` }], dna: (await getAgent()).getDna() });
-      }
+      if (results.length === 0) return res.json({ logs: [{ id: 'p1', timestamp: Date.now(), type: 'action', content: `[FAIL]` }], dna: (await getAgent()).getDna() });
+      
       const track = results[0];
       agentPlayer.clear();
-
+      
       const previewUrl = track.previewUrl || "";
       const b64 = previewUrl.split("/stream/")[1];
       const finalPath = b64 ? Buffer.from(b64, "base64url").toString() : previewUrl;
-      agentPlayer.add(finalPath, `${track.artist} - ${track.title}`, track.id);
+      agentPlayer.addMusic(finalPath, track.title, track.id);
 
-      return res.json({ logs: [{ id: 'p2', timestamp: Date.now(), type: 'action', content: `[PLAYING] 锁定信号: ${track.artist} - ${track.title}` }], dna: (await getAgent()).getDna() });
-    }
-
-    if (msg === '/next') {
-      agentPlayer.next();
-      return res.json({ logs: [{ id: 'c1', timestamp: Date.now(), type: 'action', content: '[COMMAND] 下一首频率。' }], dna: (await getAgent()).getDna() });
-    }
-    if (msg === '/pause' || msg === '/stop') {
-      agentPlayer.toggle();
-      return res.json({ logs: [], dna: (await getAgent()).getDna() });
-    }
-    if (msg === '/clear') {
-      agentPlayer.clear();
-      return res.json({ logs: [{ id: 'c2', timestamp: Date.now(), type: 'action', content: '[COMMAND] 序列清空。' }], dna: (await getAgent()).getDna() });
-    }
-    if (msg === '/like') {
-      const trackId = agentPlayer.getCurrentTrackId();
-      if (trackId) { updateFeedback(trackId, "like"); }
-      return res.json({ logs: [{ id: 'l1', timestamp: Date.now(), type: 'action', content: trackId ? '[LIKE] 已标记喜欢。' : '[LIKE] 没有正在播放的歌曲。' }], dna: (await getAgent()).getDna() });
-    }
-    if (msg === '/dislike') {
-      const trackId = agentPlayer.getCurrentTrackId();
-      if (trackId) { updateFeedback(trackId, "dislike"); }
-      return res.json({ logs: [{ id: 'u1', timestamp: Date.now(), type: 'action', content: trackId ? '[DISLIKE] 已标记不喜欢。' : '[DISLIKE] 没有正在播放的歌曲。' }], dna: (await getAgent()).getDna() });
-    }
-    if (msg === '/now' || msg === '/status') {
-      const state = agentPlayer.getState();
-      if (!state.current) {
-        return res.json({ logs: [{ id: 'n1', timestamp: Date.now(), type: 'action', content: '[NOW] 当前没有播放任何曲目。' }], dna: (await getAgent()).getDna() });
-      }
-      const cur = state.current;
-      let details = `**▶ 正在播放**\n> ${cur.title}\n`;
-      if (cur.trackId) {
-        try {
-          const wiki = await getSongWiki(cur.trackId);
-          if (wiki) {
-            const meta: string[] = [];
-            if (wiki.artist) meta.push(`**歌手:** ${wiki.artist}`);
-            if (wiki.album) meta.push(`**专辑:** ${wiki.album}`);
-            if (wiki.releaseYear) meta.push(`**年份:** ${wiki.releaseYear}`);
-            if (wiki.composer) meta.push(`**作曲:** ${wiki.composer}`);
-            if (wiki.lyricist) meta.push(`**作词:** ${wiki.lyricist}`);
-            if (meta.length > 0) details += meta.join(' | ') + '\n';
-            if (wiki.hotComments?.length) {
-              details += `> 💬 *"${wiki.hotComments[0]}"*\n`;
-            }
-            if (wiki.trivia?.length) {
-              details += `> 📖 ${wiki.trivia[0]}\n`;
-            }
-          }
-        } catch (e) { /* wiki lookup optional */ }
-      }
-      details += `\n队列中: ${state.queue.length} 首 | ${state.isPaused ? '⏸ 已暂停' : '▶ 播放中'}`;
-      return res.json({ logs: [{ id: 'n1', timestamp: Date.now(), type: 'message', content: details }], dna: (await getAgent()).getDna() });
+      return res.json({ logs: [{ id: 'p2', timestamp: Date.now(), type: 'action', content: `[PLAYING] ${track.title}` }], dna: (await getAgent()).getDna() });
     }
 
-    // 2. /stream 模式 (接入全局电台引擎)
     if (msg === '/stream') {
       const { fetchNextRadioSegment } = await import("../services/radioEngineService.js");
       agentPlayer.clear();
-      
-      // 注册自动补充回调
-      agentPlayer.setReplenishCallback(async () => { await fetchNextRadioSegment(); });
+      await fetchNextRadioSegment();
+      return res.json({ logs: [{ id: 's1', timestamp: Date.now(), type: 'action', content: `[OK] 电台已开启。` }], dna: (await getAgent()).getDna() });
+    }
 
-      // 获取首个片段
-      const { track, dj_talk } = await fetchNextRadioSegment();
-      
-      // 构造播放逻辑
-      const playSequence = async () => {
-          // 1. 如果有旁白，先播旁白
-          if (dj_talk) {
-              const settings = await getRuntimeSettings();
-              const secrets = await resolveRuntimeSecrets();
-              const ttsResult: any = await synthesizeSpeech(dj_talk, settings.defaultVoice, {
-                  provider: settings.defaultTtsProvider,
-                  apiKey: settings.openAiApiKey || secrets.openAiApiKey,
-                  language: "zh-CN"
-              });
-
-              if (ttsResult.audioBase64) {
-                  const tmpFile = path.join(os.tmpdir(), `dj_stream_v_${Date.now()}.mp3`);
-                  await fsp.writeFile(tmpFile, Buffer.from(ttsResult.audioBase64, 'base64'));
-                  agentPlayer.add(tmpFile, `🎙️: ${dj_talk}`);
-              }
-          }
-
-          // 2. 紧接着播歌曲
-          if (track) {
-              const previewUrl = track.previewUrl || "";
-              const b64 = previewUrl.split("/stream/")[1];
-              const finalPath = b64 ? Buffer.from(b64, "base64url").toString() : previewUrl;
-              agentPlayer.add(finalPath, `${track.artist} - ${track.title}`, track.id);
-          }
-      };
-
-      playSequence();
-
-      return res.json({ 
-        logs: [
-            { id: 's1', timestamp: Date.now(), type: 'action', content: `[RADIO_LOCKED] 📡 信号已对焦。` },
-            { id: 's2', timestamp: Date.now(), type: 'message', content: `\n> **DJ-X 旁白：** "${dj_talk}"\n\n> **正在播放：** ${track?.artist || "未知歌手"} - ${track?.title || "未知曲目"}` },
-            { id: 's3', timestamp: Date.now(), type: 'thought', content: `【系统提示】电台已成功启动并自带旁白。DJ 请保持安静，不要再调用 narrate 重复播报开台信息。` }
-        ],
-        dna: (await getAgent()).getDna() 
-      });
+    if (msg === '/now') {
+        const state = agentPlayer.getState();
+        return res.json({ logs: [{ id: 'n1', timestamp: Date.now(), type: 'message', content: state.currentMusic?.title || "空闲" }], dna: (await getAgent()).getDna() });
     }
 
     // 3. 普通对话
     const agent = await getAgent();
     const logs = await agent.chat(message);
-    
-    // 如果处于闲聊模式，自动为 assistant 的消息生成旁白
-    const playerState = agentPlayer.getState();
-    const isChatMode = (agentPlayer as any).isLooping && (playerState.current?.title.includes("Beautiful Lady") || playerState.queue.some(q => q.title.includes("Beautiful Lady")));
-    
-    if (isChatMode) {
-      const aiMessage = logs.find(p => p.type === 'message')?.content;
-      if (aiMessage) {
-        broadcastNarration(aiMessage); // 异步调用，不阻塞 API 响应
-      }
-    }
+    const aiMessage = logs.find(p => p.type === 'message')?.content;
+    if (aiMessage) await broadcastNarration(aiMessage);
 
     await saveAestheticDna(agent.getDna());
     res.json({ logs, dna: agent.getDna() });
