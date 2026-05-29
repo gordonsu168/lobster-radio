@@ -27,12 +27,12 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
   return {
     tools: [
       { name: "sniff_user_dna", description: "重构 DNA 审美指纹", inputSchema: { type: "object", properties: {} } },
-      { name: "trigger_radio_broadcast", description: "启动/同步电台直播模式", inputSchema: { type: "object", properties: {} } },
+      { name: "trigger_radio_broadcast", description: "【电台模式】循环播放完整歌曲并带 DJ 串场。仅在用户想听歌时使用。不要在闲聊模式下误用。", inputSchema: { type: "object", properties: {} } },
       { name: "get_player_status", description: "获取当前播放状态和歌曲信息", inputSchema: { type: "object", properties: {} } },
       { name: "control_player", description: "控制播放器 (next/prev/toggle/clear)", inputSchema: { type: "object", properties: { action: { type: "string" } } } },
-      { name: "stop_stream", description: "停止电台直播并清空播放队列", inputSchema: { type: "object", properties: {} } },
-      { name: "enter_chat_mode", description: "【关键】当用户输入 /talk 或要求闲聊时调用。启动背景音乐并进入陪伴模式。", inputSchema: { type: "object", properties: {} } },
-      { name: "narrate", description: "将文字转为 DJ 语音并播放。在闲聊模式下，请务必使用此工具来‘说’出你的回复，而不仅仅是回复文字。", inputSchema: { type: "object", properties: { text: { type: "string", description: "要播报的文字内容" } }, required: ["text"] } },
+      { name: "stop_stream", description: "停止所有音乐（包括电台和背景音乐）", inputSchema: { type: "object", properties: {} } },
+      { name: "enter_chat_mode", description: "【闲聊模式】仅启动背景音乐 (BGM)，并由 DJ 语音陪伴。禁止播完整歌曲。这是深夜深度聊天的专属模式。", inputSchema: { type: "object", properties: {} } },
+      { name: "narrate", description: "【重要】闲聊模式下必须调用。将你的回复转为 DJ 语音。注意：严禁重复播报已经由系统启动的 /stream 或 /play 结果。如果电台已经开始播放，请保持沉默或仅在后续对话中使用此工具。", inputSchema: { type: "object", properties: { text: { type: "string", description: "要播报的文字内容" } }, required: ["text"] } },
       { name: "play_song", description: "点歌并播放。输入歌曲名或歌手名。", inputSchema: { type: "object", properties: { query: { type: "string", description: "歌曲名或歌手名" } }, required: ["query"] } },
     ],
   };
@@ -105,25 +105,17 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             const tmpFile = path.join(os.tmpdir(), `dj_narrate_${Date.now()}.mp3`);
             await fsp.writeFile(tmpFile, Buffer.from(ttsResult.audioBase64, 'base64'));
 
-            const playerState = agentPlayer.getState();
-            const isChatMode = (agentPlayer as any).isLooping && (playerState.current?.title.includes("Beautiful Lady") || playerState.queue.some(q => q.title.includes("Beautiful Lady")));
-            
-            if (isChatMode) {
-                // 闲聊模式：插播旁白并恢复 BGM
-                let root = process.cwd();
-                while (root !== "/" && !fs.existsSync(path.join(root, ".git"))) { root = path.dirname(root); }
-                const bgmPath = path.join(root, "data/bgm/chat_bgm.mp3");
-
-                agentPlayer.clear();
-                agentPlayer.add(tmpFile, `🎙️: ${text}`);
-                agentPlayer.add(bgmPath, "Beautiful Lady - Daydream");
-                (agentPlayer as any).isLooping = true;
-            } else {
-                agentPlayer.add(tmpFile, `🎙️: ${text}`);
+            // 智能抢占逻辑：
+            // 如果当前正在播【旁白】，则掐断旧的播新的（防止多重人声重叠）
+            // 如果当前正在播【歌曲】，则不掐断，直接 add 到队列，等歌播完再说
+            if (agentPlayer.isNarrating()) {
+                agentPlayer.stopCurrent(); 
             }
+            agentPlayer.add(tmpFile, `🎙️: ${text}`);
+
             return { content: [{ type: "text", text: `[NARRATING] ${text}` }] };
         }
-        return { content: [{ type: "text", text: `[TTS_FAIL] 无法生成语音。` }], isError: true };
+        return { content: [{ type: "text", text: `[TTS_FAIL] 无法生成语音信号。` }], isError: true };
     }
 
     if (name === "get_player_status") {
@@ -153,10 +145,39 @@ ${wiki?.hotComments?.length ? `**💬 听众在说：**\n${wiki.hotComments.slic
     }
 
     if (name === "enter_chat_mode") {
-        const bgmPath = path.resolve(process.cwd(), "data/bgm/chat_bgm.mp3");
-        agentPlayer.playBGM(bgmPath, "Beautiful Lady - Daydream");
-        
-        return { content: [{ type: "text", text: "[CHAT_MODE_READY] 背景音乐已就绪。DJ-X 正在对焦你的情绪... 请直接发起话题或等待 DJ 引导。" }] };
+        const __filename = fileURLToPath(import.meta.url);
+        let currentDir = path.dirname(__filename);
+        let finalPath = "";
+
+        // 向上寻找，直到找到 data/bgm/chat_bgm.mp3
+        for (let i = 0; i < 5; i++) {
+            const probe = path.join(currentDir, "data/bgm/chat_bgm.mp3");
+            if (fs.existsSync(probe)) {
+                finalPath = probe;
+                break;
+            }
+            currentDir = path.dirname(currentDir);
+        }
+
+        if (!finalPath) {
+            // 最后尝试从项目根目录兜底
+            finalPath = path.resolve(process.cwd(), "..", "data/bgm/chat_bgm.mp3");
+            if (!fs.existsSync(finalPath)) {
+                finalPath = path.resolve(process.cwd(), "data/bgm/chat_bgm.mp3");
+            }
+        }
+
+        if (!fs.existsSync(finalPath)) {
+            throw new Error(`找不到背景音乐文件: ${finalPath}`);
+        }
+
+        agentPlayer.playBGM(finalPath, "Beautiful Lady - Daydream");
+        return { 
+            content: [{ 
+                type: "text", 
+                text: `[CHAT_MODE_ON] 📡 信号已对焦。音源: ${finalPath}\n\n【重要指令】当前处于深夜电台直播中。从现在起，你的所有回复都必须通过调用 'narrate' 工具来发出。请立刻调用 'narrate' 来进行开场引导。` 
+            }] 
+        };
     }
 
     if (name === "play_song") {
@@ -216,8 +237,9 @@ ${wiki?.hotComments?.length ? `**💬 听众在说：**\n${wiki.hotComments.slic
 
     if (name === "stop_stream") {
         agentPlayer.clear();
+        agentPlayer.stopAmbient();
         agentPlayer.setReplenishCallback(async () => {});
-        return { content: [{ type: "text", text: "[STREAM_STOPPED] 电台直播已停止，播放队列已清空" }] };
+        return { content: [{ type: "text", text: "[STOPPED] 所有信号（电台与背景音）已切断。" }] };
     }
 
     if (name === "control_player") {
@@ -249,7 +271,8 @@ ${wiki?.hotComments?.length ? `**💬 听众在说：**\n${wiki.hotComments.slic
 
     throw new Error(`Unknown tool: ${name}`);
   } catch (error: any) {
-    return { content: [{ type: "text", text: `Error` }], isError: true };
+    console.error(`[MCP_ERROR] ${error.stack || error.message}`);
+    return { content: [{ type: "text", text: `Error: ${error.message}` }], isError: true };
   }
 });
 

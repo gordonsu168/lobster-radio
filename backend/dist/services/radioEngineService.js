@@ -74,18 +74,22 @@ export async function fetchNextRadioSegment() {
             ? `听众当前状态: ${userState.label}，${userState.dayOfWeek} ${userState.timeOfDay}。`
             : "";
         const playlistResp = await streamDJ.generatePlaylist(`${userStateDesc}候选信号列表: [${candidateList}]. 请从中选出 1 首最契合当前 DNA ${JSON.stringify(dna?.spectralMap)} 的信号。`, "zh-CN", "classic", currentThemeContext || undefined, 1);
-        const selectedTitle = playlistResp.songs[0].title;
-        const selectedArtist = playlistResp.songs[0].artist;
+        const selectedTrackInfo = playlistResp.songs[0];
+        const selectedTitle = selectedTrackInfo.title;
+        const selectedArtist = selectedTrackInfo.artist;
         // 优先匹配标题和艺术家
         let targetTrack = finalCandidates.find(t => (t.title.toLowerCase().includes(selectedTitle.toLowerCase()) || selectedTitle.toLowerCase().includes(t.title.toLowerCase())) &&
             (t.artist.toLowerCase().includes(selectedArtist.toLowerCase()) || selectedArtist.toLowerCase().includes(t.artist.toLowerCase())));
-        // 如果没匹配到，退而求其次只匹配标题
+        // 如果没匹配到，尝试根据候选列表的相对位置（索引）来补救，或者直接寻找匹配标题的项
         if (!targetTrack) {
             targetTrack = finalCandidates.find(t => t.title.toLowerCase().includes(selectedTitle.toLowerCase()) || selectedTitle.toLowerCase().includes(t.title.toLowerCase()));
         }
-        // 还没匹配到，用第一个
-        if (!targetTrack)
+        // 如果由于乱码依然没匹配到，我们根据 LLM 选出的第几首（如果它在回复里提到了索引）来猜，或者直接用第一首
+        if (!targetTrack) {
+            console.error(`[RADIO_ENGINE] ⚠️ 匹配失败 (可能是乱码干扰): ${selectedArtist} - ${selectedTitle}`);
             targetTrack = finalCandidates[0];
+        }
+        // 更新最近播放
         recentlyPlayedIds.add(targetTrack.id);
         if (recentlyPlayedIds.size > 50) {
             const first = recentlyPlayedIds.values().next().value;
@@ -129,6 +133,7 @@ export async function fetchNextRadioSegment() {
             agentPlayer.add(narrationFile, `🎙️: ${dj_talk}`);
         }
         if (finalPath) {
+            console.error(`[RADIO_ENGINE] 💉 INJECTING: ${targetTrack.artist} - ${targetTrack.title}`);
             agentPlayer.add(finalPath, `${targetTrack.artist} - ${targetTrack.title}`, targetTrack.id);
         }
         return { track: targetTrack, dj_talk };

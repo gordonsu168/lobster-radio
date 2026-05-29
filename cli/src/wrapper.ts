@@ -56,7 +56,6 @@ async function renderHeader() {
     }
 
     const heartbeat = Math.floor(Date.now() / 1000) % 2 === 0 ? '⚡' : '  ';
-    const activity = player?.lastActivity || 'READY';
 
     // 绘制 UI
     process.stdout.write('\x1b[s');
@@ -64,12 +63,18 @@ async function renderHeader() {
     process.stdout.write(` ⚡ DJ-X ${heartbeat} | LIVE_RADIO | ${dnaStr} | ${precStr} `.padEnd(process.stdout.columns, ' '));
 
     process.stdout.write('\x1b[2;1H\x1b[48;5;234m\x1b[38;5;82m');
-    process.stdout.write(` 📻 ${playStr} | ⚒ QUEUE: ${player?.queue?.length || 0} `.padEnd(process.stdout.columns, ' '));
+    const activity = player?.lastActivity || 'READY';
+    process.stdout.write(` PLAY: ${playStr} | QUEUE: ${player?.queue?.length || 0} | STATUS: ${activity} `.padEnd(process.stdout.columns, ' '));
 
-    process.stdout.write('\x1b[3;1H\x1b[48;5;232m\x1b[38;5;244m');
-    process.stdout.write(` [${activity}] | 指令: [/next] [/pause] [/clear] [/now] `.padEnd(process.stdout.columns, ' '));
+    process.stdout.write('\x1b[3;1H\x1b[48;5;232m\x1b[38;5;250m');
+    const modes = ' [模式] /stream /chat ';
+    process.stdout.write(modes.padEnd(process.stdout.columns, ' '));
 
-    process.stdout.write('\x1b[4;1H\x1b[48;5;233m\x1b[38;5;111m');
+    process.stdout.write('\x1b[4;1H\x1b[48;5;232m\x1b[38;5;244m');
+    const controls = ' [控制] /play /next /pause /clear /now ';
+    process.stdout.write(controls.padEnd(process.stdout.columns, ' '));
+
+    process.stdout.write('\x1b[5;1H\x1b[48;5;233m\x1b[38;5;111m');
     process.stdout.write(` 👤 Gordon: ${lastUserState} `.padEnd(process.stdout.columns, ' '));
 
     process.stdout.write('\x1b[0m\x1b[u');
@@ -81,7 +86,7 @@ async function renderHeader() {
 }
 
 function start() {
-  process.stdout.write('\x1b[2J\x1b[H\x1b[5;r\x1b[5;1H');
+  process.stdout.write('\x1b[2J\x1b[H\x1b[6;r\x1b[6;1H');
 
   const venvPath = process.env.VIRTUAL_ENV;
   const nanobotCmd = venvPath ? `${venvPath}/bin/nanobot` : 'nanobot';

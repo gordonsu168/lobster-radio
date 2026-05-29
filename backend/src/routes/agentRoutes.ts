@@ -36,22 +36,9 @@ async function broadcastNarration(text: string) {
     const tmpFile = path.join(os.tmpdir(), `x_narration_${Date.now()}.mp3`);
     await fsp.writeFile(tmpFile, Buffer.from(ttsResult.audioBase64, 'base64'));
 
-    // 如果处于闲聊模式，需要先清空队列，插入旁白，再补回 BGM
-    const playerState = agentPlayer.getState();
-    const isChatMode = (agentPlayer as any).isLooping && (playerState.current?.title.includes("Beautiful Lady") || playerState.queue.some(q => q.title.includes("Beautiful Lady")));
-    
-    if (isChatMode) {
-      let root = process.cwd();
-      while (root !== "/" && !fs.existsSync(path.join(root, ".git"))) { root = path.dirname(root); }
-      const bgmPath = path.join(root, "data/bgm/chat_bgm.mp3");
-
-      agentPlayer.clear();
-      agentPlayer.add(tmpFile, `🎙️: ${text}`);
-      agentPlayer.add(bgmPath, "Beautiful Lady - Daydream");
-      (agentPlayer as any).isLooping = true;
-    } else {
-      agentPlayer.add(tmpFile, `🎙️: ${text}`);
-    }
+    // 无论是否闲聊模式，直接插播旁白（不停止主队列，除非是闲聊模式需要停止上一个旁白）
+    agentPlayer.stopCurrent();
+    agentPlayer.add(tmpFile, `🎙️: ${text}`);
   }
 }
 
@@ -115,11 +102,10 @@ lobsterCoreXRouter.post("/chat", async (req, res) => {
         if (ttsResult.audioBase64) {
             const tmpFile = path.join(os.tmpdir(), `dj_chat_v_${Date.now()}.mp3`);
             await fsp.writeFile(tmpFile, Buffer.from(ttsResult.audioBase64, 'base64'));
-            // 顺序：先加旁白，再加 BGM (BGM 会在后面循环)
-            agentPlayer.clear();
+            
+            // 混音模式：直接播放旁白，BGM 在后台并行
+            agentPlayer.stopCurrent();
             agentPlayer.add(tmpFile, `🎙️: ${aiMessage}`);
-            agentPlayer.add(bgmPath, "Beautiful Lady - Daydream");
-            (agentPlayer as any).isLooping = true; // 保持循环
         }
 
         return res.json({ 
@@ -204,12 +190,47 @@ lobsterCoreXRouter.post("/chat", async (req, res) => {
       const { fetchNextRadioSegment } = await import("../services/radioEngineService.js");
       agentPlayer.clear();
       
+      // 注册自动补充回调
+      agentPlayer.setReplenishCallback(async () => { await fetchNextRadioSegment(); });
+
+      // 获取首个片段
       const { track, dj_talk } = await fetchNextRadioSegment();
+      
+      // 构造播放逻辑
+      const playSequence = async () => {
+          // 1. 如果有旁白，先播旁白
+          if (dj_talk) {
+              const settings = await getRuntimeSettings();
+              const secrets = await resolveRuntimeSecrets();
+              const ttsResult: any = await synthesizeSpeech(dj_talk, settings.defaultVoice, {
+                  provider: settings.defaultTtsProvider,
+                  apiKey: settings.openAiApiKey || secrets.openAiApiKey,
+                  language: "zh-CN"
+              });
+
+              if (ttsResult.audioBase64) {
+                  const tmpFile = path.join(os.tmpdir(), `dj_stream_v_${Date.now()}.mp3`);
+                  await fsp.writeFile(tmpFile, Buffer.from(ttsResult.audioBase64, 'base64'));
+                  agentPlayer.add(tmpFile, `🎙️: ${dj_talk}`);
+              }
+          }
+
+          // 2. 紧接着播歌曲
+          if (track) {
+              const previewUrl = track.previewUrl || "";
+              const b64 = previewUrl.split("/stream/")[1];
+              const finalPath = b64 ? Buffer.from(b64, "base64url").toString() : previewUrl;
+              agentPlayer.add(finalPath, `${track.artist} - ${track.title}`, track.id);
+          }
+      };
+
+      playSequence();
 
       return res.json({ 
         logs: [
-            { id: 's1', timestamp: Date.now(), type: 'action', content: `[RADIO_LOCKED] 成功连接至 http://localhost:5173/stream 的逻辑核心。` },
-            { id: 's2', timestamp: Date.now(), type: 'message', content: `\n> **DJ-X 旁白：** "${dj_talk}"\n\n> **正在注入：** ${track?.artist || "未知歌手"} - ${track?.title || "未知曲目"}` }
+            { id: 's1', timestamp: Date.now(), type: 'action', content: `[RADIO_LOCKED] 📡 信号已对焦。` },
+            { id: 's2', timestamp: Date.now(), type: 'message', content: `\n> **DJ-X 旁白：** "${dj_talk}"\n\n> **正在播放：** ${track?.artist || "未知歌手"} - ${track?.title || "未知曲目"}` },
+            { id: 's3', timestamp: Date.now(), type: 'thought', content: `【系统提示】电台已成功启动并自带旁白。DJ 请保持安静，不要再调用 narrate 重复播报开台信息。` }
         ],
         dna: (await getAgent()).getDna() 
       });
