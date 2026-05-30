@@ -62,6 +62,13 @@ export interface RuntimeSettings {
   preferredMusicSource: "local" | "netease" | "spotify" | "auto";
   localMusicPath: string;
   userSchedule?: UserSchedule;
+  // 小米音响
+  xiaomiSpeaker?: {
+    enabled: boolean;
+    apiUrl: string;
+    deviceId: string;
+    lanHost?: string;
+  };
 }
 
 export interface RecommendationResponse {

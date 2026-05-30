@@ -7,6 +7,13 @@ export const settingsRouter = Router();
 
 settingsRouter.get("/", async (_req, res) => {
   const settings = await getRuntimeSettings();
+  // 合并环境变量中的小米音响配置
+  (settings as any).xiaomiSpeaker = {
+    enabled: process.env.XIAOMI_SPEAKER_ENABLED === "true" || (settings as any).xiaomiSpeaker?.enabled || false,
+    apiUrl: process.env.XIAOMI_SPEAKER_API_URL || (settings as any).xiaomiSpeaker?.apiUrl || "http://localhost:8090",
+    deviceId: process.env.XIAOMI_SPEAKER_DEVICE_ID || (settings as any).xiaomiSpeaker?.deviceId || "",
+    lanHost: process.env.XIAOMI_SPEAKER_LAN_HOST || (settings as any).xiaomiSpeaker?.lanHost || "",
+  };
   res.json(settings);
 });
 

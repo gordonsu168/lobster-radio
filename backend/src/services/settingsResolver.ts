@@ -20,6 +20,12 @@ export async function resolveRuntimeSecrets() {
     preferredMusicSource: (process.env.PREFERRED_MUSIC_SOURCE as "local" | "netease" | "spotify" | "auto" | undefined) || stored.preferredMusicSource || "auto",
     localMusicPath: process.env.LOCAL_MUSIC_PATH || stored.localMusicPath || "",
     weatherApiKey: process.env.WEATHER_API_KEY || "",
-    frontendUrl: process.env.FRONTEND_URL || "http://localhost:5173"
+    frontendUrl: process.env.FRONTEND_URL || "http://localhost:5173",
+    xiaomiSpeaker: {
+      enabled: process.env.XIAOMI_SPEAKER_ENABLED === "true" || (stored as any).xiaomiSpeaker?.enabled || false,
+      apiUrl: process.env.XIAOMI_SPEAKER_API_URL || (stored as any).xiaomiSpeaker?.apiUrl || "http://localhost:8090",
+      deviceId: process.env.XIAOMI_SPEAKER_DEVICE_ID || (stored as any).xiaomiSpeaker?.deviceId || "",
+      lanHost: process.env.XIAOMI_SPEAKER_LAN_HOST || (stored as any).xiaomiSpeaker?.lanHost || "",
+    },
   };
 }

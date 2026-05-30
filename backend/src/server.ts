@@ -10,7 +10,9 @@ import { wikipediaRouter } from "./routes/wikipediaRoutes.js";
 import { chatRouter } from "./routes/chatRoutes.js";
 import { streamRouter } from "./routes/streamRoutes.js";
 import { lobsterCoreXRouter } from "./routes/agentRoutes.js";
+import { speakerRouter } from "./routes/speakerRoutes.js";
 import { resolveRuntimeSecrets } from "./services/settingsResolver.js";
+import { updateXiaomiConfig } from "./services/xiaomiSpeakerService.js";
 import { scanMusicLibrary } from "./services/musicLibraryService.js";
 import { importSongsFromTracks } from "./services/wikiService.js";
 import { startUserStateMonitor } from "./services/userStateMonitor.js";
@@ -39,6 +41,14 @@ async function start() {
   app.use("/api/chat", chatRouter);
   app.use("/api/stream", streamRouter);
   app.use("/api/agent/x", lobsterCoreXRouter);
+  app.use("/api/speaker", speakerRouter);
+
+  // 初始化小米音响配置
+  const xiaomiCfg = (secrets as any).xiaomiSpeaker;
+  if (xiaomiCfg?.enabled) {
+    updateXiaomiConfig(xiaomiCfg);
+    console.log(`🔊 小米音响已启用: ${xiaomiCfg.apiUrl} → 设备: ${xiaomiCfg.deviceId || "(未选择)"}`);
+  }
 
   // 启动时自动导入歌曲到 Wiki
   (async () => {

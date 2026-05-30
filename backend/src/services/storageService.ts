@@ -74,6 +74,11 @@ const defaultSettings: RuntimeSettings = {
     sleepTime: "23:00",
     wakeTime: "07:00",
   },
+  xiaomiSpeaker: {
+    enabled: false,
+    apiUrl: "http://localhost:8090",
+    deviceId: "",
+  },
 };
 
 // --- SQLite Methods ---

@@ -1,8 +1,12 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { 
-  getSettings, saveSettings, getVoices, API_BASE, 
+import {
+  getSettings, saveSettings, getVoices, API_BASE,
   getDJIdentity, saveDJIdentity, getDJPersona, saveDJPersona,
-  type DJIdentity 
+  type DJIdentity,
+  testXiaomiConnection,
+  getXiaomiDevices,
+  saveXiaomiConfig,
+  type XiaomiDevice,
 } from "../lib/api";
 import type { RuntimeSettings } from "../types";
 import type { VoiceInfo } from "../lib/api";
@@ -27,6 +31,11 @@ const initialSettings: RuntimeSettings = {
     sleepTime: "23:00",
     wakeTime: "07:00",
   },
+  xiaomiSpeaker: {
+    enabled: false,
+    apiUrl: "http://localhost:8090",
+    deviceId: "",
+  },
 };
 
 const initialIdentity: DJIdentity = {
@@ -47,6 +56,11 @@ export function SettingsPage() {
   const [availableVoices, setAvailableVoices] = useState<VoiceInfo[]>([]);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewAudio, setPreviewAudio] = useState<HTMLAudioElement | null>(null);
+
+  // 小米音响
+  const [xiaomiDevices, setXiaomiDevices] = useState<XiaomiDevice[]>([]);
+  const [xiaomiLoading, setXiaomiLoading] = useState(false);
+  const [xiaomiTestResult, setXiaomiTestResult] = useState<string>("");
 
   useEffect(() => {
     void getSettings()
@@ -422,6 +436,127 @@ export function SettingsPage() {
             {status ? <p className="mt-4 text-center text-sm font-medium text-pulse animate-pulse">{status}</p> : null}
           </div>
         </form>
+      </div>
+
+      {/* ---- 小米音响（独立卡片）---- */}
+      <div className="rounded-[32px] border border-white/10 bg-white/5 p-8">
+        <h2 className="font-display text-2xl font-bold text-white">🔊 小米音响</h2>
+        <p className="mt-2 text-sm text-slate-400">
+          通过 <a href="https://github.com/hanxi/xiaomusic" target="_blank" rel="noopener noreferrer" className="text-pulse underline">xiaomusic</a> 将音频推送到小米 AI 音箱。
+        </p>
+
+        <div className="mt-6 space-y-4">
+          <label className="flex cursor-pointer items-center gap-3">
+            <input
+              type="checkbox"
+              checked={settings.xiaomiSpeaker?.enabled ?? false}
+              onChange={(e) => setSettings((c) => ({
+                ...c,
+                xiaomiSpeaker: { ...(c.xiaomiSpeaker || { enabled: false, apiUrl: "http://localhost:8090", deviceId: "" }), enabled: e.target.checked },
+              }))}
+              className="h-5 w-5 accent-pulse"
+            />
+            <span className="text-white">启用小米音响输出</span>
+          </label>
+
+          {settings.xiaomiSpeaker?.enabled && (
+            <div className="space-y-4 pl-8">
+              <Field
+                label="xiaomusic API 地址"
+                value={settings.xiaomiSpeaker?.apiUrl || "http://localhost:8090"}
+                onChange={(v) => setSettings((c) => ({
+                  ...c,
+                  xiaomiSpeaker: { ...(c.xiaomiSpeaker || { enabled: true, apiUrl: "", deviceId: "" }), apiUrl: v },
+                }))}
+              />
+
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setXiaomiLoading(true);
+                    setXiaomiTestResult("");
+                    try {
+                      const res = await testXiaomiConnection();
+                      setXiaomiTestResult(res.ok ? `✅ 连接成功 (v${res.version})` : `❌ ${res.error}`);
+                    } catch (err: any) {
+                      setXiaomiTestResult(`❌ ${err.message}`);
+                    } finally { setXiaomiLoading(false); }
+                  }}
+                  disabled={xiaomiLoading}
+                  className="rounded-full bg-pulse px-4 py-2 text-sm font-semibold text-white transition hover:scale-[1.02] disabled:opacity-50"
+                >
+                  {xiaomiLoading ? "测试中..." : "🔍 测试连接"}
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setXiaomiLoading(true);
+                    try {
+                      const res = await getXiaomiDevices();
+                      setXiaomiDevices(res.devices);
+                    } catch (err: any) {
+                      setXiaomiTestResult(`❌ ${err.message}`);
+                    } finally { setXiaomiLoading(false); }
+                  }}
+                  disabled={xiaomiLoading}
+                  className="rounded-full bg-pulse px-4 py-2 text-sm font-semibold text-white transition hover:scale-[1.02] disabled:opacity-50"
+                >
+                  📱 获取设备列表
+                </button>
+              </div>
+
+              {xiaomiTestResult && (
+                <p className="text-sm font-medium text-pulse">{xiaomiTestResult}</p>
+              )}
+
+              {xiaomiDevices.length > 0 ? (
+                <div>
+                  <label className="mb-1 block text-sm font-semibold text-white">选择设备</label>
+                  <select
+                    value={settings.xiaomiSpeaker?.deviceId || ""}
+                    onChange={(e) => setSettings((c) => ({
+                      ...c,
+                      xiaomiSpeaker: { ...(c.xiaomiSpeaker || { enabled: true, apiUrl: "", deviceId: "" }), deviceId: e.target.value },
+                    }))}
+                    className="w-full rounded-2xl border border-white/15 bg-slate-950/80 px-4 py-3 text-white outline-none"
+                  >
+                    <option value="">-- 选择设备 --</option>
+                    {xiaomiDevices.map((d) => (
+                      <option key={d.did} value={d.did}>{d.name} ({d.hardware})</option>
+                    ))}
+                  </select>
+                </div>
+              ) : (
+                <Field
+                  label="设备 ID (DID)"
+                  value={settings.xiaomiSpeaker?.deviceId || ""}
+                  onChange={(v) => setSettings((c) => ({
+                    ...c,
+                    xiaomiSpeaker: { ...(c.xiaomiSpeaker || { enabled: true, apiUrl: "", deviceId: "" }), deviceId: v },
+                  }))}
+                />
+              )}
+            </div>
+          )}
+
+          <div className="pt-4">
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  await saveXiaomiConfig(settings.xiaomiSpeaker || { enabled: false, apiUrl: "http://localhost:8090", deviceId: "" });
+                  setXiaomiTestResult("✅ 小米音响配置已保存");
+                } catch (err: any) {
+                  setXiaomiTestResult(`❌ 保存失败: ${err.message}`);
+                }
+              }}
+              className="w-full rounded-full bg-white px-5 py-4 text-lg font-bold text-slate-950 shadow-xl transition hover:scale-[1.01] hover:bg-slate-100 active:scale-95"
+            >
+              保存音响配置
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );

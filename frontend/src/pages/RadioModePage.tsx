@@ -10,6 +10,9 @@ import {
   getTrivia,
   synthesizeNarration,
   submitFeedback,
+  playSequenceOnXiaomi,
+  stopXiaomi,
+  type XiaomiSpeakerConfig,
 } from "../lib/api";
 import { createNarrationAudio, cleanupNarrationAudio } from "../lib/audioUtils";
 import type { MoodOption, PreferencesSnapshot, Track, DJStyle } from "../types";
@@ -36,6 +39,10 @@ export function RadioModePage() {
   const [currentTrivia, setCurrentTrivia] = useState<string>("");
   const [showLyrics, setShowLyrics] = useState(false);
   const [currentLyricIndex, setCurrentLyricIndex] = useState(-1);
+
+  // 小米音响
+  const [xiaomiConfig, setXiaomiConfig] = useState<XiaomiSpeakerConfig>({ enabled: false, apiUrl: "", deviceId: "" });
+  const [speakerOutput, setSpeakerOutput] = useState<"browser" | "xiaomi">("browser");
   
   const triviaTriggeredRef = useRef(false); // 是否已触发过本次插播
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -162,6 +169,11 @@ export function RadioModePage() {
       }
       if (settings.djLanguage) {
         setDjLanguage(settings.djLanguage as any);
+      }
+      // 加载小米音响配置
+      if (settings.xiaomiSpeaker?.enabled) {
+        setXiaomiConfig(settings.xiaomiSpeaker);
+        setSpeakerOutput("xiaomi");
       }
     }).catch(() => {});
 
@@ -337,16 +349,45 @@ export function RadioModePage() {
     }
   };
 
-  // 播放旁白然后音乐 - 旁白使用独立 audio 实例
+  // 播放旁白然后音乐 - 支持浏览器和小米音响双模式
   const playNarrationThenMusic = async (narrationText: string, track: Track): Promise<void> => {
+    // Add DJ narration to chat panel
+    chatPanelRef.current?.addAssistantMessage(narrationText);
+
+    // ---- 小米音响模式 ----
+    if (speakerOutput === "xiaomi" && xiaomiConfig.enabled && xiaomiConfig.deviceId) {
+      return new Promise((resolve) => {
+        userInteractedRef.current = true;
+        setIsPlaying(true);
+
+        synthesizeNarration(narrationText, voice, { provider: ttsProvider, emotion: djEmotion, language: djLanguage })
+          .then(async (response) => {
+            if (!response.audioBase64 || !track.previewUrl) {
+              resolve();
+              return;
+            }
+            // 将相对路径转为绝对 URL（小米音响需要可访问的完整 URL）
+            const musicUrl = track.previewUrl.startsWith("http")
+              ? track.previewUrl
+              : `${window.location.origin}${track.previewUrl}`;
+
+            try {
+              await playSequenceOnXiaomi(response.audioBase64, musicUrl, xiaomiConfig.deviceId);
+            } catch (err) {
+              console.warn("Xiaomi play failed:", err);
+            }
+            resolve();
+          })
+          .catch(() => resolve());
+      });
+    }
+
+    // ---- 浏览器模式（原有逻辑）----
     return new Promise((resolve) => {
       if (!audioRef.current || !track.previewUrl) {
         resolve();
         return;
       }
-
-      // Add DJ narration to chat panel
-      chatPanelRef.current?.addAssistantMessage(narrationText);
 
       userInteractedRef.current = true;
       audioRef.current.pause();
@@ -377,21 +418,16 @@ export function RadioModePage() {
               }
             );
 
-            // Sync volume with main audio and boost slightly
             if (audioRef.current) {
               narrationAudio.volume = Math.min(1.0, audioRef.current.volume * 2.5);
             }
             addNarration(narrationAudio);
-            narrationAudio.play().catch(() => {
-              // Error already handled in the callback
-            });
+            narrationAudio.play().catch(() => {});
           } else {
-            // No narration, play music directly
             playMusicAfterNarration();
           }
         })
         .catch(() => {
-          // Error playing narration, skip directly to music
           if (audioRef.current && track.previewUrl) {
             audioRef.current.src = track.previewUrl;
             audioRef.current.load();
@@ -527,8 +563,22 @@ export function RadioModePage() {
     });
   };
 
-  // 播放暂停 - 同步作用于音乐和所有正在播放的旁白
+  // 播放暂停
   const handlePlayPause = () => {
+    if (speakerOutput === "xiaomi") {
+      // 小米模式：简化暂停（停止播放）
+      if (isPlaying) {
+        stopXiaomi(xiaomiConfig.deviceId).catch(() => {});
+        setIsPlaying(false);
+      } else {
+        // 重新播放当前曲目
+        if (currentTrack?.previewUrl) {
+          playNarrationThenMusic(currentNarration || "", currentTrack);
+        }
+      }
+      return;
+    }
+
     if (!audioRef.current || !currentTrack?.previewUrl) return;
 
     if (isPlaying) {
@@ -536,12 +586,10 @@ export function RadioModePage() {
       if ("speechSynthesis" in window) {
         speechSynthesis.cancel();
       }
-      // Pause all active narrations
       forEachNarration(audio => audio.pause());
       setIsPlaying(false);
     } else {
       audioRef.current.play().catch(e => console.warn("Play error:", e));
-      // Resume all active narrations
       forEachNarration(audio => audio.play().catch(() => {}));
       setIsPlaying(true);
     }
@@ -557,14 +605,15 @@ export function RadioModePage() {
   const onSkipRequested = async () => {
     if (isLoadingNextRef.current) return;
 
+    if (speakerOutput === "xiaomi") {
+      stopXiaomi(xiaomiConfig.deviceId).catch(() => {});
+    }
+
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.src = "";
       audioRef.current.load();
     }
-
-    // Music stops immediately, active narrations continue playing
-    // Narrations are not interrupted - this is the whole point of the refactor!
 
     isLoadingNextRef.current = true;
     try {
@@ -767,6 +816,33 @@ export function RadioModePage() {
                       👎 Dislike
                     </button>
                   </div>
+
+                  {/* 输出设备切换 */}
+                  {xiaomiConfig.enabled && (
+                    <div className="mt-4 flex items-center gap-2 text-xs text-mist">
+                      <span>输出:</span>
+                      <button
+                        onClick={() => setSpeakerOutput("browser")}
+                        className={`rounded-full px-3 py-1 transition ${
+                          speakerOutput === "browser"
+                            ? "bg-white/20 text-white"
+                            : "text-mist hover:text-white"
+                        }`}
+                      >
+                        💻 浏览器
+                      </button>
+                      <button
+                        onClick={() => setSpeakerOutput("xiaomi")}
+                        className={`rounded-full px-3 py-1 transition ${
+                          speakerOutput === "xiaomi"
+                            ? "bg-pulse/20 text-pulse border border-pulse/40"
+                            : "text-mist hover:text-white"
+                        }`}
+                      >
+                        🔊 小米音响
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
 

@@ -186,3 +186,109 @@ export function sendChatMessage(message: string, history: ChatMessage[], current
     body: JSON.stringify({ message, history, currentTrack })
   });
 }
+
+// ---- 小米音响 API ----
+
+export interface XiaomiSpeakerConfig {
+  enabled: boolean;
+  apiUrl: string;
+  deviceId: string;
+  lanHost?: string;
+}
+
+export interface XiaomiDevice {
+  name: string;
+  did: string;
+  hardware: string;
+  miotDID?: string;
+}
+
+export interface XiaomiPlaybackStatus {
+  isPlaying: boolean;
+  volume: number;
+  currentTitle?: string;
+}
+
+export function getXiaomiConfig() {
+  return request<XiaomiSpeakerConfig>("/api/speaker/xiaomi/config");
+}
+
+export function saveXiaomiConfig(config: XiaomiSpeakerConfig) {
+  return request<{ success: boolean; config: XiaomiSpeakerConfig }>("/api/speaker/xiaomi/config", {
+    method: "PUT",
+    body: JSON.stringify(config),
+  });
+}
+
+export function testXiaomiConnection() {
+  return request<{ ok: boolean; error?: string; version?: string }>("/api/speaker/xiaomi/test");
+}
+
+export function getXiaomiDevices() {
+  return request<{ devices: XiaomiDevice[] }>("/api/speaker/xiaomi/devices");
+}
+
+export function getXiaomiStatus(did?: string) {
+  const params = did ? `?did=${encodeURIComponent(did)}` : "";
+  return request<XiaomiPlaybackStatus>(`/api/speaker/xiaomi/status${params}`);
+}
+
+export function playUrlOnXiaomi(url: string, did?: string) {
+  return request<{ success: boolean }>("/api/speaker/xiaomi/play-url", {
+    method: "POST",
+    body: JSON.stringify({ url, did }),
+  });
+}
+
+export function stopXiaomi(did?: string) {
+  return request<{ success: boolean }>("/api/speaker/xiaomi/stop", {
+    method: "POST",
+    body: JSON.stringify({ did }),
+  });
+}
+
+export function setXiaomiVolume(volume: number, did?: string) {
+  return request<{ success: boolean; volume: number }>("/api/speaker/xiaomi/volume", {
+    method: "POST",
+    body: JSON.stringify({ volume, did }),
+  });
+}
+
+/**
+ * 在小米音响上播放"旁白 → 音乐"序列
+ */
+export function playSequenceOnXiaomi(
+  narrationBase64: string,
+  musicUrl: string,
+  did?: string
+) {
+  return request<{ success: boolean; narrationUrl: string; musicUrl: string }>(
+    "/api/speaker/xiaomi/play-sequence",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        narrationBase64,
+        musicUrl,
+        did,
+        host: window.location.origin || undefined,
+      }),
+    }
+  );
+}
+
+/**
+ * 仅在小米音响上播放旁白（返回时长）
+ */
+export function playNarrationOnXiaomi(base64Audio: string, did?: string) {
+  return request<{ success: boolean; audioUrl: string; duration: number }>(
+    "/api/speaker/xiaomi/play-narration",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        base64Audio,
+        did,
+        host: window.location.origin || undefined,
+      }),
+    }
+  );
+}
