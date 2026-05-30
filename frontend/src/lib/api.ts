@@ -270,7 +270,7 @@ export function playSequenceOnXiaomi(
         narrationBase64,
         musicUrl,
         did,
-        host: window.location.origin || undefined,
+        // 不传 host，让后端自动检测 LAN IP（小米音响无法访问 localhost）
       }),
     }
   );

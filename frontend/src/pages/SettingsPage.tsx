@@ -556,6 +556,37 @@ export function SettingsPage() {
               保存音响配置
             </button>
           </div>
+
+          {/* ---- 语音指令 ---- */}
+          {settings.xiaomiSpeaker?.enabled && settings.xiaomiSpeaker?.deviceId && (
+            <div className="mt-6 border-t border-white/10 pt-6">
+              <h3 className="font-display text-xl font-bold text-white">🎤 语音指令控制</h3>
+              <p className="mt-1 text-sm text-slate-400">
+                对着小米音响说以下指令控制播放。首次使用请在保存设置后重启后端以自动初始化。
+              </p>
+
+              <div className="mt-4 grid grid-cols-2 gap-3">
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+                  <p className="text-xs text-slate-400">🔍 点歌</p>
+                  <p className="mt-1 text-sm text-white">来首 歌名</p>
+                  <p className="text-sm text-white">点歌 歌名</p>
+                  <p className="text-sm text-white">我想听 歌名</p>
+                  <p className="text-sm text-white">播放歌曲 歌名</p>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+                  <p className="text-xs text-slate-400">🎮 控制</p>
+                  <p className="mt-1 text-sm text-white">下一首</p>
+                  <p className="text-sm text-white">停止播放</p>
+                  <p className="text-sm text-white">关机</p>
+                </div>
+              </div>
+
+              <p className="mt-3 text-xs text-slate-500">
+                💡 提示：语音指令通过 xiaomusic 的 lobster_radio 插件转发到龙虾电台。
+                初始化在后台自动完成，无需手动操作。
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </div>

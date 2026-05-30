@@ -48,7 +48,9 @@ export function RadioModePage() {
   const audioRef = useRef<HTMLAudioElement>(null);
   const userInteractedRef = useRef(false);
   const isLoadingNextRef = useRef(false);
+  const pendingSkipRef = useRef(false); // 正在加载中收到语音 skip 时置 true，加载完成后自动切
   const chatPanelRef = useRef<ChatPanelRef>(null);
+  const onSkipRequestedRef = useRef<() => void>(() => {});
   const lyricsContainerRef = useRef<HTMLDivElement>(null);
 
   const activeNarrationsRef = useRef<HTMLAudioElement[]>([]);
@@ -211,6 +213,62 @@ export function RadioModePage() {
       loadMoreRecommendations("Working");
     }
   }, []);
+
+  // 监听语音指令 SSE 事件（小米音响模式下同步播放状态到 UI）
+  useEffect(() => {
+    if (speakerOutput !== "xiaomi" || !xiaomiConfig.enabled) return;
+
+    console.log("[VOICE-SSE] 连接中...");
+    const es = new EventSource(`${window.location.origin}/api/voice/events`);
+
+    es.addEventListener("message", (msg) => {
+      try {
+        const event = JSON.parse(msg.data);
+        console.log("[VOICE-SSE] 收到事件:", event.type, event.track?.title || "");
+
+        if (event.type === "track_changed" && event.track) {
+          // 语音指令改变了播放 → 同步 UI
+          // 先停止当前的加载状态，防止覆盖
+          isLoadingNextRef.current = false;
+          pendingSkipRef.current = false;
+
+          setCurrentTrack({
+            id: event.track.id || `voice-${Date.now()}`,
+            title: event.track.title || "未知歌曲",
+            artist: event.track.artist || "未知歌手",
+            album: event.track.album || "",
+            previewUrl: event.track.previewUrl || null,
+            artwork: "",
+            moodTags: [],
+            energy: 0.5,
+            explanation: "",
+            source: "local" as const,
+          });
+          setIsPlaying(true);
+          setCurrentNarration(event.message || "");
+        } else if (event.type === "playback_stopped") {
+          setIsPlaying(false);
+          isLoadingNextRef.current = false;
+          pendingSkipRef.current = false;
+        }
+      } catch {
+        // 忽略解析错误
+      }
+    });
+
+    es.addEventListener("open", () => {
+      console.log("[VOICE-SSE] ✅ 已连接");
+    });
+
+    es.addEventListener("error", () => {
+      console.log("[VOICE-SSE] ⚠️ 连接错误（后端可能重启中）");
+    });
+
+    return () => {
+      console.log("[VOICE-SSE] 断开连接");
+      es.close();
+    };
+  }, [speakerOutput, xiaomiConfig.enabled]);
 
   // 注意：播放现在完全由 playNextTrack 手动启动，不需要 useEffect 自动触发
   // 这避免了因为多次状态更新导致的重复调用问题
@@ -603,7 +661,12 @@ export function RadioModePage() {
 
   // AI DJ 请求切歌 - 实际执行切歌操作
   const onSkipRequested = async () => {
-    if (isLoadingNextRef.current) return;
+    // 如果正在加载中，标记 pending，加载完成后自动切
+    if (isLoadingNextRef.current) {
+      console.log("[VOICE-SSE] 正在加载中，标记 pending skip");
+      pendingSkipRef.current = true;
+      return;
+    }
 
     if (speakerOutput === "xiaomi") {
       stopXiaomi(xiaomiConfig.deviceId).catch(() => {});
@@ -616,12 +679,23 @@ export function RadioModePage() {
     }
 
     isLoadingNextRef.current = true;
+    pendingSkipRef.current = false;
     try {
       await playNextTrack();
     } finally {
       isLoadingNextRef.current = false;
+      // 如果在加载期间又有语音 skip 请求，立即再切一次
+      if (pendingSkipRef.current) {
+        pendingSkipRef.current = false;
+        console.log("[VOICE-SSE] 执行 pending skip");
+        // 小延迟避免竞态
+        setTimeout(() => onSkipRequested(), 100);
+      }
     }
   };
+
+  // 保持 ref 同步，供 SSE 回调使用
+  onSkipRequestedRef.current = onSkipRequested;
 
   // 处理点赞
   const handleLike = async () => {
