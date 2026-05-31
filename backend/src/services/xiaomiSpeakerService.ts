@@ -332,46 +332,59 @@ export function estimateAudioDuration(filePath: string): number {
 // ---- High-level API: 旁白 + 音乐播放序列 ----
 
 /**
+ * 估算音乐 URL 对应的本地文件时长（秒）
+ */
+export function estimateMusicDuration(url: string): number {
+  try {
+    // 解码 /api/library/stream/<base64path> 格式的 URL
+    const match = url.match(/\/api\/library\/stream\/(.+?)(?:\?|$)/);
+    if (match) {
+      const localPath = Buffer.from(match[1], "base64url").toString();
+      return estimateAudioDuration(localPath);
+    }
+  } catch {
+    // fall through
+  }
+  // 无法解码，使用默认估算（3.5 分钟一首歌）
+  return 210;
+}
+
+/**
  * 播放完整的"旁白 → 音乐"序列
  *
- * 1. 将 base64 TTS 音频保存为临时文件
- * 2. 通过 xiaomusic 在小米音响上播放旁白 URL
- * 3. 等待旁白播完后，自动播放音乐 URL
- *
- * @param narrationBase64 TTS 旁白 base64 MP3
- * @param musicUrl 音乐文件的可访问 URL
- * @param narrationAudioUrl 旁白音频的 HTTP 访问 URL（由调用方提供，如 http://host:4000/api/speaker/temp-audio/fileName）
- * @param did 设备 ID
+ * @returns { narrationDuration, musicDuration } 估算的时长（秒），供前端自动切歌
  */
 export async function playNarrationThenMusic(
   narrationBase64: string,
   narrationAudioUrl: string,
   musicUrl: string,
   did?: string
-): Promise<void> {
+): Promise<{ narrationDuration: number; musicDuration: number }> {
   const deviceId = did || config.deviceId;
   if (!deviceId) throw new Error("未指定小米设备");
   if (!config.enabled) throw new Error("小米音响未启用");
 
-  // 保存旁白为临时文件并估算时长
+  // 估算时长
   const { filePath } = saveTempAudio(narrationBase64);
-  const duration = estimateAudioDuration(filePath);
+  const narrationDuration = estimateAudioDuration(filePath);
+  const musicDuration = estimateMusicDuration(musicUrl);
 
   console.log(
-    `[XIAOMI] 🎬 播放序列: 旁白(${duration.toFixed(1)}s) → 音乐`
+    `[XIAOMI] 🎬 播放序列: 旁白(${narrationDuration.toFixed(1)}s) → 音乐(${musicDuration.toFixed(1)}s) 总计 ${(narrationDuration + musicDuration).toFixed(1)}s`
   );
 
   // 播放旁白
   await playUrl(narrationAudioUrl, deviceId);
 
   // 等待旁白播完后播放音乐
-  // 额外加 0.5 秒缓冲
-  const waitMs = Math.max(1000, (duration + 0.5) * 1000);
+  const waitMs = Math.max(1000, (narrationDuration + 0.5) * 1000);
   setTimeout(() => {
     playUrl(musicUrl, deviceId).catch((err) =>
       console.error("[XIAOMI] ❌ 音乐播放失败:", err)
     );
   }, waitMs);
+
+  return { narrationDuration, musicDuration };
 }
 
 /**

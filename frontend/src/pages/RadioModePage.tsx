@@ -49,6 +49,7 @@ export function RadioModePage() {
   const userInteractedRef = useRef(false);
   const isLoadingNextRef = useRef(false);
   const pendingSkipRef = useRef(false); // 正在加载中收到语音 skip 时置 true，加载完成后自动切
+  const autoAdvanceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const chatPanelRef = useRef<ChatPanelRef>(null);
   const onSkipRequestedRef = useRef<() => void>(() => {});
   const lyricsContainerRef = useRef<HTMLDivElement>(null);
@@ -212,6 +213,15 @@ export function RadioModePage() {
     if (queue.length === 0) {
       loadMoreRecommendations("Working");
     }
+  }, []);
+
+  // 组件卸载时清理自动切歌定时器
+  useEffect(() => {
+    return () => {
+      if (autoAdvanceTimeoutRef.current) {
+        clearTimeout(autoAdvanceTimeoutRef.current);
+      }
+    };
   }, []);
 
   // 监听语音指令 SSE 事件（小米音响模式下同步播放状态到 UI）
@@ -415,6 +425,11 @@ export function RadioModePage() {
     // ---- 小米音响模式 ----
     if (speakerOutput === "xiaomi" && xiaomiConfig.enabled && xiaomiConfig.deviceId) {
       return new Promise((resolve) => {
+        // 清除之前的自动切歌定时器
+        if (autoAdvanceTimeoutRef.current) {
+          clearTimeout(autoAdvanceTimeoutRef.current);
+        }
+
         userInteractedRef.current = true;
         setIsPlaying(true);
 
@@ -424,13 +439,19 @@ export function RadioModePage() {
               resolve();
               return;
             }
-            // 将相对路径转为绝对 URL（小米音响需要可访问的完整 URL）
             const musicUrl = track.previewUrl.startsWith("http")
               ? track.previewUrl
               : `${window.location.origin}${track.previewUrl}`;
 
             try {
-              await playSequenceOnXiaomi(response.audioBase64, musicUrl, xiaomiConfig.deviceId);
+              const result = await playSequenceOnXiaomi(response.audioBase64, musicUrl, xiaomiConfig.deviceId);
+              // 估算总时长 + 1 秒缓冲，到时自动切下一首
+              const totalSec = (result.totalDuration || 240) + 1;
+              console.log(`[AUTO-ADVANCE] 预计 ${totalSec.toFixed(0)}s 后自动切歌`);
+              autoAdvanceTimeoutRef.current = setTimeout(() => {
+                console.log("[AUTO-ADVANCE] ⏭️ 自动切歌");
+                onSkipRequestedRef.current();
+              }, totalSec * 1000);
             } catch (err) {
               console.warn("Xiaomi play failed:", err);
             }
@@ -627,6 +648,10 @@ export function RadioModePage() {
       // 小米模式：简化暂停（停止播放）
       if (isPlaying) {
         stopXiaomi(xiaomiConfig.deviceId).catch(() => {});
+        if (autoAdvanceTimeoutRef.current) {
+          clearTimeout(autoAdvanceTimeoutRef.current);
+          autoAdvanceTimeoutRef.current = null;
+        }
         setIsPlaying(false);
       } else {
         // 重新播放当前曲目
@@ -661,6 +686,12 @@ export function RadioModePage() {
 
   // AI DJ 请求切歌 - 实际执行切歌操作
   const onSkipRequested = async () => {
+    // 清除自动切歌定时器
+    if (autoAdvanceTimeoutRef.current) {
+      clearTimeout(autoAdvanceTimeoutRef.current);
+      autoAdvanceTimeoutRef.current = null;
+    }
+
     // 如果正在加载中，标记 pending，加载完成后自动切
     if (isLoadingNextRef.current) {
       console.log("[VOICE-SSE] 正在加载中，标记 pending skip");

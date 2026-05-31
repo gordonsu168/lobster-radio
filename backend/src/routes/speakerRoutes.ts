@@ -200,12 +200,17 @@ speakerRouter.post("/xiaomi/play-sequence", async (req, res) => {
     const narrationUrl = `${baseHost}/api/speaker/temp-audio/${fileName}`;
 
     // 播放序列
-    await playNarrationThenMusic(narrationBase64, narrationUrl, musicUrl, did);
+    const { narrationDuration, musicDuration } = await playNarrationThenMusic(
+      narrationBase64, narrationUrl, musicUrl, did
+    );
 
     res.json({
       success: true,
       narrationUrl,
       musicUrl,
+      narrationDuration,
+      musicDuration,
+      totalDuration: narrationDuration + musicDuration,
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message });

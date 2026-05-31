@@ -262,7 +262,14 @@ export function playSequenceOnXiaomi(
   musicUrl: string,
   did?: string
 ) {
-  return request<{ success: boolean; narrationUrl: string; musicUrl: string }>(
+  return request<{
+    success: boolean;
+    narrationUrl: string;
+    musicUrl: string;
+    narrationDuration: number;
+    musicDuration: number;
+    totalDuration: number;
+  }>(
     "/api/speaker/xiaomi/play-sequence",
     {
       method: "POST",
