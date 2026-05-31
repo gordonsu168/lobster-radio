@@ -132,6 +132,15 @@ const COSYVOICE_VOICES: VoiceInfo[] = [
   { id: "chinese-male-1", name: "國語男聲 1", lang: "zh-CN", previewText: PREVIEW["zh-CN"] },
 ];
 
+// ========== GPT-SoVITS（声音克隆）==========
+const GPTSOVITS_VOICES: VoiceInfo[] = [
+  { id: "default", name: "默認預設聲音", lang: "zh-CN", previewText: PREVIEW["zh-CN"] },
+  { id: "@brother", name: "你的聲音（大哥）— 克隆自 @brother.wav", lang: "zh-HK", previewText: PREVIEW["zh-HK"] },
+  { id: "@friend", name: "朋友的聲音 — 克隆自 @friend.wav", lang: "zh-HK", previewText: PREVIEW["zh-HK"] },
+];
+// ⚠️ 自定義聲音規則：在 backend/data/voices/ 目錄放 <name>.wav，voice 參數傳 @<name>
+// 例如: data/voices/brother.wav → voice="@brother"
+
 // ========== OpenAI TTS ==========
 const OPENAI_VOICES: VoiceInfo[] = [
   { id: "alloy", name: "Alloy — 中性", lang: "en-US", previewText: PREVIEW["en-US"] },
@@ -149,6 +158,7 @@ const CATALOG: Record<string, VoiceInfo[]> = {
   moss: MOSS_VOICES,
   macsay: MACSAY_VOICES,
   cosyvoice: COSYVOICE_VOICES,
+  gptsovits: GPTSOVITS_VOICES,
   openai: OPENAI_VOICES,
 };
 

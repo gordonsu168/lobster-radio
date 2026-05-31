@@ -379,6 +379,79 @@ function delay(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+// ========== GPT-SoVITS 本地 TTS（声音克隆）==========
+// 开源声音克隆，1分钟参考音频即可克隆任意人声
+// 中文/粤语效果顶级，支持零样本声音克隆
+// 部署: https://github.com/RVC-Boss/GPT-SoVITS
+async function synthesizeWithGPTSovits(text: string, voice: string) {
+  const apiUrl = process.env.GPTSOVITS_API_URL || "http://localhost:9880";
+
+  // 先查缓存
+  const cached = getCache(text, voice, "gptsovits");
+  if (cached) {
+    console.log(`📦 GPT-SoVITS 命中缓存: ${text.substring(0, 20)}...`);
+    return {
+      ...cached,
+      text,
+      fallback: false,
+    };
+  }
+
+  console.log(`🎙️ GPT-SoVITS: 语音=${voice}, 文本: ${text.substring(0, 40)}...`);
+
+  // 如果 voice 是自定义声音（以 @ 开头），从配置的参考音频路径读取
+  const customVoicePath = voice.startsWith("@")
+    ? path.join(path.dirname(new URL(import.meta.url).pathname), `../../data/voices/${voice.slice(1)}.wav`)
+    : null;
+
+  // 构建请求体
+  const body: Record<string, any> = {
+    text,
+    text_lang: "yue",           // 默认粤语
+    media_type: "wav",           // 返回 WAV 格式
+  };
+
+  // 声音克隆模式：如果存在参考音频，传入 zero_shot 参数
+  if (customVoicePath && fs.existsSync(customVoicePath)) {
+    body.ref_audio_path = customVoicePath;
+    body.prompt_lang = "yue";
+    console.log(`🔊 GPT-SoVITS 声音克隆模式: ${customVoicePath}`);
+  } else if (voice !== "default") {
+    // 尝试找 GPT-SoVITS 预设声音
+    body.ref_audio_path = voice;
+  }
+
+  const response = await fetch(`${apiUrl.replace(/\/$/, '')}/tts`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    const errText = await response.text().catch(() => "");
+    throw new Error(`GPT-SoVITS API error: ${response.status} - ${errText}`);
+  }
+
+  // GPT-SoVITS 返回 WAV 音频二进制
+  const audioBuffer = Buffer.from(await response.arrayBuffer());
+  const audioBase64 = audioBuffer.toString("base64");
+
+  console.log(`✅ GPT-SoVITS 成功: ${(audioBase64.length / 1024).toFixed(1)} KB`);
+
+  const result = {
+    provider: "gptsovits",
+    voice,
+    audioBase64,
+    mimeType: "audio/wav",
+    text,
+    fallback: false,
+  };
+
+  // 写入缓存
+  setCache(text, voice, "gptsovits", result);
+  return result;
+}
+
 // ========== CosyVoice 本地 TTS ==========
 // 支持 9 种语言 + 18 种方言，粤语质量天花板！
 async function synthesizeWithCosyVoice(text: string, voice: string) {
@@ -720,8 +793,8 @@ export async function synthesizeSpeech(text: string, voice?: string, options?: {
   const language = options?.language;
 
   // ========== 第一步：先检查所有 provider 的缓存 ==========
-  // 优先级: ElevenLabs → Edge → MOSS → CosyVoice → Gemini → Mac Say
-  const providersToCheck = ["elevenlabs", "edge", "moss", "cosyvoice", "gemini", "macsay"];
+  // 优先级: ElevenLabs → GPT-SoVITS → Edge → MOSS → CosyVoice → Gemini → Mac Say
+  const providersToCheck = ["elevenlabs", "gptsovits", "edge", "moss", "cosyvoice", "gemini", "macsay"];
   // 如果指定了 defaultProvider，把它放到最前面
   if (defaultProvider && !providersToCheck.includes(defaultProvider)) {
     providersToCheck.unshift(defaultProvider);
@@ -756,6 +829,8 @@ export async function synthesizeSpeech(text: string, voice?: string, options?: {
     try {
       if (p === "elevenlabs" && (options?.apiKey || process.env.ELEVENLABS_API_KEY)) {
         return await synthesizeWithElevenLabs(text, selectedVoice, emotion, options?.apiKey);
+      } else if (p === "gptsovits" && process.env.GPTSOVITS_API_URL) {
+        return await synthesizeWithGPTSovits(text, selectedVoice);
       } else if (p === "edge") {
         return await synthesizeWithEdgeTTS(text, selectedVoice, language);
       } else if (p === "moss" && process.env.MOSS_TTS_API_URL) {
