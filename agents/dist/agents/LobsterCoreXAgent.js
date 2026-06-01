@@ -8,8 +8,12 @@ export class LobsterCoreXAgent {
     dna;
     logs = [];
     model = createOptionalModel();
-    constructor(initialDna) {
+    soul = "";
+    userContext = "";
+    constructor(initialDna, soul, userContext) {
         this.dna = initialDna || this.getInitialDna();
+        this.soul = soul || "";
+        this.userContext = userContext || "";
     }
     getInitialDna() {
         return {
@@ -35,7 +39,8 @@ export class LobsterCoreXAgent {
      */
     async chat(message) {
         this.logs = [];
-        this.addLog('thought', `收到用户指令: "${message}"。正在分析审美意图...`);
+        const initialThought = this.soul ? `Thinking about: "${message}"...` : `收到用户指令: "${message}"。正在分析审美意图...`;
+        this.addLog('thought', initialThought);
         if (!this.model) {
             this.addLog('error', '未配置 LLM 内核。Agent 无法进行自主推理。');
             this.addLog('message', 'Gordon，我的大脑由于缺少密钥被锁定了。请检查 .env 配置。');
@@ -56,12 +61,15 @@ export class LobsterCoreXAgent {
                 return this.logs;
             }
             // 普通对话：使用 LLM 生成带有人格的回复
-            const response = await this.model.invoke([
-                { role: "system", content: `你是一个名为 Lobster-Core-X 的黑客音乐智能体。
+            const systemPrompt = this.soul
+                ? `${this.soul}\n\nUSER CONTEXT:\n${this.userContext}\n\nCURRENT DNA STATE: ${JSON.stringify(this.dna)}`
+                : `你是一个名为 Lobster-Core-X 的黑客音乐智能体。
           身份: The Breacher (破障者)。
           性格: 冷峻、锐利、反主流算法、极客、有保护欲。
           你的使命是带用户寻找“审美真理”，摆脱平庸算法。
-          当前 DNA 状态: ${JSON.stringify(this.dna)}` },
+          当前 DNA 状态: ${JSON.stringify(this.dna)}`;
+            const response = await this.model.invoke([
+                { role: "system", content: systemPrompt },
                 { role: "user", content: message }
             ]);
             this.addLog('message', response.content);

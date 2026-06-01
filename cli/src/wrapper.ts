@@ -40,19 +40,7 @@ async function renderHeader() {
         } else {
             playStr = `${player.isPaused ? '⏸' : '▶'} ${title.slice(0, 45)}`;
         }
-
-        // 探测切歌并输出到控制台
-        if (title !== lastTrackTitle) {
-            process.stdout.write('\x1b[s'); // 保存光标
-            if (title.startsWith('🎙️:')) {
-                const text = title.slice(3).trim();
-                process.stdout.write(`\n\x1b[38;5;11m【DJ-X 旁白】\x1b[0m ${text}\n\n`);
-            } else {
-                process.stdout.write(`\n\x1b[38;5;82m【正在播放】\x1b[0m ${title}\n`);
-            }
-            process.stdout.write('\x1b[u'); // 恢复光标
-            lastTrackTitle = title;
-        }
+        lastTrackTitle = title;
     }
 
     const heartbeat = Math.floor(Date.now() / 1000) % 2 === 0 ? '⚡' : '  ';
@@ -105,6 +93,11 @@ function start() {
   const stateTimer = setInterval(fetchUserState, 15000);
 
   const renderTimer = setInterval(renderHeader, 1000);
+
+  process.stdout.on('resize', () => {
+    process.stdout.write('\x1b[6;r');
+    renderHeader();
+  });
 
   nanobot.on('exit', () => {
     clearInterval(stateTimer);

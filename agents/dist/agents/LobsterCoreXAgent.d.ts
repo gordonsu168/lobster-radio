@@ -39,7 +39,9 @@ export declare class LobsterCoreXAgent {
     private dna;
     private logs;
     private model;
-    constructor(initialDna?: AestheticDNA);
+    private soul;
+    private userContext;
+    constructor(initialDna?: AestheticDNA, soul?: string, userContext?: string);
     private getInitialDna;
     private addLog;
     /**

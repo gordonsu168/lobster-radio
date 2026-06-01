@@ -1,4 +1,4 @@
-import { spawn, ChildProcess } from "node:child_process";
+import { spawn, ChildProcess, spawnSync } from "node:child_process";
 import path from "node:path";
 import os from "node:os";
 import fs from "node:fs";
@@ -27,11 +27,15 @@ class AgentPlayerService {
   private musicProcess: ChildProcess | null = null;
   private voiceProcess: ChildProcess | null = null;
   
+  private activeMusic: AudioItem | null = null;
+  private activeVoice: AudioItem | null = null;
+  
   private isBgmMode: boolean = false;
   private isPaused: boolean = false;
   private onQueueLow: QueueLowCallback | null = null;
   private isReplenishing: boolean = false;
   private lastActivity: string = "STANDBY";
+  private lastVoiceTitle: string = "";
 
   setReplenishCallback(cb: QueueLowCallback) {
     this.onQueueLow = cb;
@@ -43,6 +47,14 @@ class AgentPlayerService {
    * 注入一段旁白。如果是闲聊模式，立即播放；如果是电台模式，通常由音乐轨道调度。
    */
   addVoice(path: string, title: string) {
+    // 简单的去重逻辑，防止 5 秒内重复添加相同的语音
+    if (title === this.lastVoiceTitle) {
+      console.error(`[PLAYER] ⚠️ SKIP_DUPLICATE_VOICE: ${title}`);
+      return;
+    }
+    this.lastVoiceTitle = title;
+    setTimeout(() => { if(this.lastVoiceTitle === title) this.lastVoiceTitle = ""; }, 5000);
+
     this.voiceQueue.push({ path, title });
     console.error(`[PLAYER] 🎙️ VOICE_ADDED: ${title}`);
     
@@ -60,18 +72,23 @@ class AgentPlayerService {
 
   private executeVoice(item: AudioItem) {
     if (this.voiceProcess) {
+        this.voiceProcess.removeAllListeners("exit");
         this.voiceProcess.kill("SIGKILL");
     }
     
+    this.activeVoice = item;
     console.error(`[PLAYER] 🎙️ NARRATING: ${item.title}`);
-    this.voiceProcess = spawn("afplay", ["-v", "1.2", item.path]);
-    this.voiceProcess.on("exit", () => {
+    const proc = spawn("afplay", ["-v", "1.2", item.path]);
+    this.voiceProcess = proc;
+
+    proc.on("exit", () => {
+        if (this.voiceProcess !== proc) return;
         this.voiceProcess = null;
+        this.activeVoice = null;
         // 旁白结束后的连锁反应
         if (this.isBgmMode) {
-            this.playNextVoice(); // 闲聊模式继续播下一句
+            this.playNextVoice();
         } else {
-            // 电台模式：如果音乐正在等待旁白结束，这里可以触发
             this.resumeMusicAfterVoice();
         }
     });
@@ -86,9 +103,12 @@ class AgentPlayerService {
   }
 
   addMusic(path: string, title: string, trackId?: string) {
+      // 避免重复添加
+      if (this.activeMusic?.path === path && !this.isBgmMode) return;
+
       this.musicQueue.push({ path, title, trackId });
       console.error(`[PLAYER] 🎵 MUSIC_ADDED: ${title}`);
-      if (!this.musicProcess) {
+      if (!this.musicProcess && !this.activeVoice) {
           this.playNextMusic();
       }
   }
@@ -97,8 +117,9 @@ class AgentPlayerService {
       if (this.musicQueue.length === 0) {
           if (this.onQueueLow && !this.isReplenishing) {
               this.isReplenishing = true;
+              console.error("[PLAYER] 🪹 QUEUE_LOW: Triggering replenish...");
               this.onQueueLow().finally(() => { 
-                  setTimeout(() => { this.isReplenishing = false; }, 3000); 
+                  setTimeout(() => { this.isReplenishing = false; }, 5000); 
               });
           }
           return;
@@ -109,24 +130,32 @@ class AgentPlayerService {
   }
 
   private executeMusic(item: AudioItem) {
-    if (this.musicProcess) this.musicProcess.kill("SIGKILL");
+    if (this.musicProcess) {
+        this.musicProcess.removeAllListeners("exit");
+        this.musicProcess.kill("SIGKILL");
+    }
 
     // 逻辑：如果是电台模式且有待播旁白，先播旁白再播歌
     if (!this.isBgmMode && this.voiceQueue.length > 0) {
+        this.activeMusic = { ...item, title: `[READY] ${item.title}` };
         this.playNextVoice();
         // 暂时保存这首歌，等旁白播完再回来
         this.musicQueue.unshift(item);
         return;
     }
 
+    this.activeMusic = item;
     console.error(`[PLAYER] ▶️ PLAYING_MUSIC: ${item.title}`);
     const vol = this.isBgmMode ? "0.15" : "1.0";
-    this.musicProcess = spawn("afplay", ["-v", vol, item.path]);
+    const proc = spawn("afplay", ["-v", vol, item.path]);
+    this.musicProcess = proc;
     
-    this.musicProcess.on("exit", () => {
+    proc.on("exit", () => {
+        if (this.musicProcess !== proc) return;
         this.musicProcess = null;
+        this.activeMusic = null;
         if (!this.isPaused) {
-            // 如果是 BGM 模式且队列空了，循环
+            // 如果是 BGM模式且队列空了，循环
             if (this.isBgmMode && this.musicQueue.length === 0) {
                 this.addMusic(item.path, item.title);
             }
@@ -136,7 +165,6 @@ class AgentPlayerService {
   }
 
   private resumeMusicAfterVoice() {
-      // 只有当音乐轨道空闲时才启动下一首（通常是刚才 unshift 回去的歌曲）
       if (!this.musicProcess) {
           this.playNextMusic();
       }
@@ -146,6 +174,7 @@ class AgentPlayerService {
 
   next() {
       if (this.musicProcess) this.musicProcess.kill("SIGKILL");
+      if (this.voiceProcess) this.voiceProcess.kill("SIGKILL");
       this.playNextMusic();
   }
 
@@ -159,24 +188,38 @@ class AgentPlayerService {
         this.isPaused = true;
     }
   }
+clear() {
+    this.isBgmMode = false;
+    this.musicQueue = [];
+    this.voiceQueue = [];
+    this.lastVoiceTitle = "";
+    this.isReplenishing = false;
 
-  clear() {
-      this.isBgmMode = false;
-      this.musicQueue = [];
-      this.voiceQueue = [];
-      if (this.musicProcess) this.musicProcess.kill("SIGKILL");
-      if (this.voiceProcess) this.voiceProcess.kill("SIGKILL");
-      this.musicProcess = null;
-      this.voiceProcess = null;
-      this.lastActivity = "SIGNAL_CLEARED";
-  }
+    try {
+        spawnSync("pkill", ["-9", "afplay"]);
+    } catch (e) {}
+
+    if (this.musicProcess) {
+        this.musicProcess.removeAllListeners("exit");
+        this.musicProcess.kill("SIGKILL");
+    }
+    if (this.voiceProcess) {
+        this.voiceProcess.removeAllListeners("exit");
+        this.voiceProcess.kill("SIGKILL");
+    }
+    this.musicProcess = null;
+    this.voiceProcess = null;
+    this.activeMusic = null;
+    this.activeVoice = null;
+    this.lastActivity = "SIGNAL_CLEARED";
+}
 
   stopCurrent() { this.clear(); }
 
   getState(): PlayerState {
       return {
-          currentMusic: this.musicQueue[0] || null, // 简化的 state
-          currentVoice: this.voiceProcess ? { title: "DJ正在说话", path: "" } : null,
+          currentMusic: this.activeMusic,
+          currentVoice: this.activeVoice,
           musicQueueCount: this.musicQueue.length,
           isPaused: this.isPaused,
           lastActivity: this.lastActivity

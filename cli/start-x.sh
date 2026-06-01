@@ -5,8 +5,10 @@
 
 set -e
 
+CLI_DIR=$(cd "$(dirname "$0")"; pwd)
+
 # 1. 准备 Python 环境 (需要 >= 3.11)
-cd nanobot
+cd "$CLI_DIR/nanobot"
 
 if [ ! -d ".venv" ]; then
     echo "🔍 正在寻找合适的 Python 3.11+ 环境..."
@@ -40,9 +42,11 @@ fi
 
 source .venv/bin/activate
 pip install . --quiet
+# 确保安装了 httpx 用于获取 Dashboard 数据
+pip install httpx --quiet
 
 # 2. 探测环境并提取密钥
-ENV_FILE="../../.env"
+ENV_FILE="$CLI_DIR/../.env"
 if [ -f "$ENV_FILE" ]; then
     DEEPSEEK_API_KEY=$(grep "DEEPSEEK_API_KEY" "$ENV_FILE" | sed -E 's/#.*//' | sed -E 's/.*=[[:space:]]*//' | tr -d '"' | tr -d "'" | tr -d '[:space:]')
     OPENAI_API_KEY=$(grep "OPENAI_API_KEY" "$ENV_FILE" | sed -E 's/#.*//' | sed -E 's/.*=[[:space:]]*//' | tr -d '"' | tr -d "'" | tr -d '[:space:]')
@@ -57,12 +61,11 @@ elif [ ! -z "$OPENAI_API_KEY" ]; then
     MODEL="gpt-4o-mini"
     API_KEY="$OPENAI_API_KEY"
 else
-    echo "❌ 错误: 无法获取密钥"
+    echo "❌ 错误: 无法从 .env 获取密钥"
     exit 1
 fi
 
 # 3. 注入 DJ-X 配置
-CLI_DIR=$(pwd)/..
 BACKEND_MCP="$CLI_DIR/../backend/src/mcp/musicMcpServer.ts"
 
 export NANOBOT_AGENTS__DEFAULTS__BOT_NAME="DJ-X"
@@ -81,7 +84,6 @@ export NANOBOT_TOOLS__MCP_SERVERS='{"lobster_music": {"command": "npx", "args": 
 export NANOBOT_CHANNELS__SHOW_REASONING="true"
 export NANOBOT_CHANNELS__SEND_PROGRESS="true"
 
-# 4. 启动仪表盘外壳
-echo "💎 正在加载 DJ-X 仪表盘外壳..."
-cd "$CLI_DIR"
-npx tsx src/wrapper.ts
+# 4. 直接启动 nanobot agent
+echo "💎 正在启动 DJ-X (Nanobot Engine)..."
+nanobot agent

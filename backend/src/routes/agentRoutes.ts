@@ -98,6 +98,11 @@ lobsterCoreXRouter.post("/chat", async (req, res) => {
       return res.json({ logs: [{ id: 's1', timestamp: Date.now(), type: 'action', content: `[OK] 电台已开启。` }], dna: (await getAgent()).getDna() });
     }
 
+    if (msg === '/clear' || msg === '/stop') {
+        agentPlayer.clear();
+        return res.json({ logs: [{ id: 'c1', timestamp: Date.now(), type: 'action', content: `[OK] 信号已切断。` }], dna: (await getAgent()).getDna() });
+    }
+
     if (msg === '/now') {
         const state = agentPlayer.getState();
         return res.json({ logs: [{ id: 'n1', timestamp: Date.now(), type: 'message', content: state.currentMusic?.title || "空闲" }], dna: (await getAgent()).getDna() });
