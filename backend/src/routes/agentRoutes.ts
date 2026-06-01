@@ -94,6 +94,11 @@ lobsterCoreXRouter.post("/chat", async (req, res) => {
     if (msg === '/stream') {
       const { fetchNextRadioSegment } = await import("../services/radioEngineService.js");
       agentPlayer.clear();
+      // 设置补货回调，确保电台能持续推荐歌曲
+      agentPlayer.setReplenishCallback(async () => {
+          console.log("[backend] Radio queue low, fetching next segment...");
+          await fetchNextRadioSegment();
+      });
       await fetchNextRadioSegment();
       return res.json({ logs: [{ id: 's1', timestamp: Date.now(), type: 'action', content: `[OK] 电台已开启。` }], dna: (await getAgent()).getDna() });
     }

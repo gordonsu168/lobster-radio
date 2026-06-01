@@ -76,8 +76,10 @@ const defaultSettings: RuntimeSettings = {
   },
   xiaomiSpeaker: {
     enabled: false,
-    apiUrl: "http://localhost:8090",
+    apiUrl: "http://localhost:8080",
     deviceId: "",
+    accountId: "",
+    jwtToken: "",
   },
 };
 

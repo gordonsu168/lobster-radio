@@ -4,16 +4,13 @@
  */
 
 import { Router } from "express";
-import { handleVoiceCommand, voiceEvents, type VoiceEvent } from "../services/voiceCommandService.js";
+import { handleVoiceCommand, handleRawQuery, voiceEvents, type VoiceEvent } from "../services/voiceCommandService.js";
 import { getXiaomiConfig } from "../services/xiaomiSpeakerService.js";
 
 export const voiceRouter = Router();
 
 /**
- * 语音指令入口
- * GET /api/voice/command?action=search_play&query=晴天&did=xxx
- * GET /api/voice/command?action=skip
- * GET /api/voice/command?action=stop
+ * 语音指令入口 (遗留，用于旧版 xiaomusic)
  */
 voiceRouter.get("/command", async (req, res) => {
   try {
@@ -29,6 +26,33 @@ voiceRouter.get("/command", async (req, res) => {
       action: "error",
       message: err.message || "指令处理失败",
     });
+  }
+});
+
+/**
+ * Songloft Webhook 入口
+ * POST /api/voice/webhook
+ */
+voiceRouter.post("/webhook", async (req, res) => {
+  try {
+    const { device_id, messages } = req.body;
+    if (!messages || !Array.isArray(messages) || messages.length === 0) {
+      return res.json({ ok: true, message: "no messages" });
+    }
+
+    // 取最后一条消息
+    const lastMsg = messages[messages.length - 1];
+    const query = lastMsg.query || lastMsg.text || "";
+    
+    if (!query) {
+      return res.json({ ok: true, message: "empty query" });
+    }
+
+    const result = await handleRawQuery(query, device_id);
+    res.json({ ok: true, result });
+  } catch (err: any) {
+    console.error("[VOICE] ❌ Webhook 处理失败:", err);
+    res.status(500).json({ ok: false, error: err.message });
   }
 });
 

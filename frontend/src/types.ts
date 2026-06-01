@@ -64,6 +64,8 @@ export interface RuntimeSettings {
     enabled: boolean;
     apiUrl: string;
     deviceId: string;
+    accountId?: string;
+    jwtToken?: string;
     lanHost?: string;
   };
 }

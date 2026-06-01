@@ -38,8 +38,10 @@ speakerRouter.get("/xiaomi/config", async (_req, res) => {
     const stored = (settings as any).xiaomiSpeaker || {};
     res.json({
       enabled: process.env.XIAOMI_SPEAKER_ENABLED === "true" || stored.enabled || false,
-      apiUrl: process.env.XIAOMI_SPEAKER_API_URL || stored.apiUrl || "http://localhost:8090",
+      apiUrl: process.env.XIAOMI_SPEAKER_API_URL || stored.apiUrl || "http://localhost:8080",
       deviceId: process.env.XIAOMI_SPEAKER_DEVICE_ID || stored.deviceId || "",
+      accountId: process.env.XIAOMI_SPEAKER_ACCOUNT_ID || stored.accountId || "",
+      jwtToken: process.env.XIAOMI_SPEAKER_JWT_TOKEN || stored.jwtToken || "",
       lanHost: process.env.XIAOMI_SPEAKER_LAN_HOST || stored.lanHost || "",
     });
   } catch (err: any) {
@@ -50,20 +52,22 @@ speakerRouter.get("/xiaomi/config", async (_req, res) => {
 /** 保存小米音响配置 */
 speakerRouter.put("/xiaomi/config", async (req, res) => {
   try {
-    const { enabled, apiUrl, deviceId, lanHost } = req.body;
+    const { enabled, apiUrl, deviceId, accountId, jwtToken, lanHost } = req.body;
     const settings = await getRuntimeSettings();
     const updated: RuntimeSettings = {
       ...settings,
       xiaomiSpeaker: {
         enabled: !!enabled,
-        apiUrl: apiUrl || "http://localhost:8090",
+        apiUrl: apiUrl || "http://localhost:8080",
         deviceId: deviceId || "",
+        accountId: accountId || "",
+        jwtToken: jwtToken || "",
         lanHost: lanHost || "",
       },
     } as any;
     await saveRuntimeSettings(updated);
-    updateXiaomiConfig({ enabled: !!enabled, apiUrl, deviceId, lanHost });
-    res.json({ success: true, config: { enabled: !!enabled, apiUrl, deviceId, lanHost } });
+    updateXiaomiConfig({ enabled: !!enabled, apiUrl, deviceId, accountId, jwtToken, lanHost });
+    res.json({ success: true, config: { enabled: !!enabled, apiUrl, deviceId, accountId, jwtToken, lanHost } });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }

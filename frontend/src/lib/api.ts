@@ -193,7 +193,9 @@ export interface XiaomiSpeakerConfig {
   enabled: boolean;
   apiUrl: string;
   deviceId: string;
-  lanHost?: string;
+  accountId?: string;
+  jwtToken?: string;
+  lanHost: string;
 }
 
 export interface XiaomiDevice {

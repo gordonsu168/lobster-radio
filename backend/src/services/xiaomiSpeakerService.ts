@@ -22,11 +22,15 @@ import { execSync } from "node:child_process";
 
 export interface XiaomiSpeakerConfig {
   enabled: boolean;
-  /** xiaomusic HTTP API 地址，例如 http://192.168.1.5:8090 */
+  /** xiaomusic 或 songloft HTTP API 地址 */
   apiUrl: string;
-  /** 小米音响设备 DID（miotDID，纯数字格式） */
+  /** 小米音响设备 DID */
   deviceId: string;
-  /** 本机局域网地址（用于生成音响可访问的音频 URL） */
+  /** 小米账号 ID (Songloft 必需) */
+  accountId?: string;
+  /** JWT Token (Songloft 必需) */
+  jwtToken?: string;
+  /** 本机局域网地址 */
   lanHost: string;
 }
 
@@ -47,8 +51,10 @@ export interface PlaybackStatus {
 
 let config: XiaomiSpeakerConfig = {
   enabled: false,
-  apiUrl: "http://localhost:8090",
+  apiUrl: "http://localhost:8080",
   deviceId: "",
+  accountId: "",
+  jwtToken: "",
   lanHost: "",
 };
 
@@ -89,26 +95,33 @@ export function getAudioBaseUrl(port?: number): string {
 
 // ---- HTTP helpers ----
 
+const PLUGIN_PREFIX = "/api/v1/jsplugins/miot";
+
 async function xiaomiGet<T = any>(endpoint: string): Promise<T> {
-  const url = `${config.apiUrl}${endpoint}`;
-  const res = await fetch(url);
+  const url = `${config.apiUrl}${PLUGIN_PREFIX}${endpoint}`;
+  const res = await fetch(url, {
+    headers: config.jwtToken ? { "Authorization": `Bearer ${config.jwtToken}` } : {}
+  });
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(`xiaomusic GET ${endpoint} failed (${res.status}): ${text}`);
+    throw new Error(`Songloft GET ${endpoint} failed (${res.status}): ${text}`);
   }
   return res.json() as Promise<T>;
 }
 
 async function xiaomiPost<T = any>(endpoint: string, body?: any): Promise<T> {
-  const url = `${config.apiUrl}${endpoint}`;
+  const url = `${config.apiUrl}${PLUGIN_PREFIX}${endpoint}`;
   const res = await fetch(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { 
+      "Content-Type": "application/json",
+      ...(config.jwtToken ? { "Authorization": `Bearer ${config.jwtToken}` } : {})
+    },
     body: body ? JSON.stringify(body) : undefined,
   });
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(`xiaomusic POST ${endpoint} failed (${res.status}): ${text}`);
+    throw new Error(`Songloft POST ${endpoint} failed (${res.status}): ${text}`);
   }
   return res.json() as Promise<T>;
 }
@@ -118,12 +131,12 @@ async function xiaomiPost<T = any>(endpoint: string, body?: any): Promise<T> {
 /** 获取小米账户下的所有设备列表 */
 export async function listDevices(): Promise<XiaomiDevice[]> {
   if (!config.enabled) throw new Error("小米音响未启用");
-  const data = await xiaomiGet<any>("/device_list");
-  // xiaomusic returns { data: [...] }
+  const data = await xiaomiGet<any>("/mina/devices");
+  // Songloft returns device list
   const raw = Array.isArray(data) ? data : data?.devices ?? data?.data ?? [];
   return raw.map((d: any) => ({
     name: d.name || d.alias || d.deviceName || "未知设备",
-    did: d.miotDID || d.did || d.deviceID || "",
+    did: d.did || d.miotDID || d.deviceID || "",
     hardware: d.hardware || d.model || "",
     miotDID: d.miotDID || d.did || "",
   }));
@@ -132,9 +145,10 @@ export async function listDevices(): Promise<XiaomiDevice[]> {
 /** 获取设备播放状态 */
 export async function getPlaybackStatus(did?: string): Promise<PlaybackStatus> {
   const deviceId = did || config.deviceId;
-  if (!deviceId) throw new Error("未指定小米设备");
+  const accountId = config.accountId;
+  if (!deviceId || !accountId) throw new Error("未指定小米设备或账号");
   try {
-    const data = await xiaomiGet<any>(`/getplayerstatus?did=${encodeURIComponent(deviceId)}`);
+    const data = await xiaomiGet<any>(`/player/status?account_id=${accountId}&device_id=${encodeURIComponent(deviceId)}`);
     return {
       isPlaying: data?.playing ?? data?.is_playing ?? false,
       volume: data?.volume ?? 50,
@@ -147,69 +161,73 @@ export async function getPlaybackStatus(did?: string): Promise<PlaybackStatus> {
 
 /** 获取设备音量 */
 export async function getVolume(did?: string): Promise<number> {
-  const deviceId = did || config.deviceId;
-  if (!deviceId) throw new Error("未指定小米设备");
-  const data = await xiaomiGet<any>(`/getvolume?did=${encodeURIComponent(deviceId)}`);
-  return data?.volume ?? data?.data?.volume ?? 50;
+  const status = await getPlaybackStatus(did);
+  return status.volume;
 }
 
 // ---- URL Proxy ----
 
 /**
- * 将 URL 包装为 xiaomusic 代理 URL
- * 小米音响只能直接访问 xiaomusic 的端口，无法访问 lobster-radio 的端口
- * 通过 xiaomusic 的 /proxy/ 端点中转音频流
- *
- * 关键：代理 URL 必须使用局域网 IP，因为小米音响无法解析 localhost
+ * 将 URL 包装为 Songloft 代理 URL
  */
 function wrapProxyUrl(originalUrl: string): string {
-  const urlB64 = Buffer.from(originalUrl).toString("base64");
-
-  // 从 apiUrl 中提取端口，但 host 替换为局域网 IP
-  let proxyHost = config.apiUrl;
+  const encodedUrl = encodeURIComponent(originalUrl);
+  
+  // Songloft 代理在 /api/v1/proxy
+  let base = config.apiUrl;
   try {
     const apiUrlObj = new URL(config.apiUrl);
     const lanIp = config.lanHost || detectLanIp();
     if (apiUrlObj.hostname === "localhost" || apiUrlObj.hostname === "127.0.0.1") {
-      proxyHost = `${apiUrlObj.protocol}//${lanIp}:${apiUrlObj.port}`;
+      base = `${apiUrlObj.protocol}//${lanIp}:${apiUrlObj.port}`;
     }
-  } catch {
-    // 如果 URL 解析失败，回退到原始值
-  }
+  } catch {}
 
-  return `${proxyHost}/proxy/music?urlb64=${encodeURIComponent(urlB64)}`;
+  return `${base}/api/v1/proxy?url=${encodedUrl}`;
 }
 
 // ---- Playback Control ----
 
 /**
  * 在小米音响上播放一个音频 URL
- * 自动通过 xiaomusic 代理，确保音响可以访问
- * @param url 音频文件 URL
- * @param did 设备 ID，不传则用配置的默认设备
  */
 export async function playUrl(url: string, did?: string): Promise<void> {
   const deviceId = did || config.deviceId;
-  if (!deviceId) throw new Error("未指定小米设备");
+  const accountId = config.accountId;
+  if (!deviceId || !accountId) throw new Error("未指定小米设备或账号");
   if (!config.enabled) throw new Error("小米音响未启用");
 
-  // 通过 xiaomusic 代理，小米音响只能访问 xiaomusic 的端口
   const proxyUrl = wrapProxyUrl(url);
   console.log(`[XIAOMI] ▶️ 播放: ${url.slice(0, 80)}... → 代理 → 设备: ${deviceId}`);
-  await xiaomiGet(`/playurl?did=${encodeURIComponent(deviceId)}&url=${encodeURIComponent(proxyUrl)}`);
+  await xiaomiPost("/mina/play-url", { 
+    account_id: accountId, 
+    device_id: deviceId, 
+    url: proxyUrl 
+  });
 }
 
 /**
  * 在小米音响上播放 TTS 文本
- * 直接使用 xiaomusic 内置的 Edge TTS
  */
 export async function playTTS(text: string, did?: string): Promise<void> {
   const deviceId = did || config.deviceId;
-  if (!deviceId) throw new Error("未指定小米设备");
+  const accountId = config.accountId;
+  if (!deviceId || !accountId) throw new Error("未指定小米设备或账号");
   if (!config.enabled) throw new Error("小米音响未启用");
 
   console.log(`[XIAOMI] 🎙️ TTS: ${text.slice(0, 50)}... → 设备: ${deviceId}`);
-  await xiaomiGet(`/playtts?did=${encodeURIComponent(deviceId)}&text=${encodeURIComponent(text)}`);
+  // 如果插件没暴露 play-tts 路由，我们回退到手动播放 TTS URL 的逻辑
+  // 暂时尝试发送到插件的 /mina/play-tts (如果存在)
+  try {
+    await xiaomiPost("/mina/play-tts", { 
+        account_id: accountId, 
+        device_id: deviceId, 
+        text: text 
+    });
+  } catch (e) {
+    console.warn("[XIAOMI] ⚠️ 插件可能不支持直接 play-tts，请使用 lobster-radio 内置 TTS 流程");
+    throw e;
+  }
 }
 
 /**
@@ -217,19 +235,27 @@ export async function playTTS(text: string, did?: string): Promise<void> {
  */
 export async function stopPlayback(did?: string): Promise<void> {
   const deviceId = did || config.deviceId;
-  if (!deviceId) throw new Error("未指定小米设备");
-  await xiaomiPost("/device/stop", { did: deviceId });
+  const accountId = config.accountId;
+  if (!deviceId || !accountId) throw new Error("未指定小米设备或账号");
+  await xiaomiPost("/player/stop", { 
+    account_id: accountId, 
+    device_id: deviceId 
+  });
   console.log(`[XIAOMI] ⏹️ 停止: ${deviceId}`);
 }
 
 /**
  * 设置音量
- * @param volume 0-100
  */
 export async function setVolume(volume: number, did?: string): Promise<void> {
   const deviceId = did || config.deviceId;
-  if (!deviceId) throw new Error("未指定小米设备");
-  await xiaomiPost("/setvolume", { did: deviceId, volume });
+  const accountId = config.accountId;
+  if (!deviceId || !accountId) throw new Error("未指定小米设备或账号");
+  await xiaomiPost("/mina/volume", { 
+    account_id: accountId, 
+    device_id: deviceId, 
+    volume 
+  });
   console.log(`[XIAOMI] 🔊 音量: ${volume}%`);
 }
 
@@ -411,16 +437,19 @@ export async function playNarration(
 // ---- Connectivity Check ----
 
 /**
- * 测试与 xiaomusic 服务的连接
+ * 测试与 Songloft 服务的连接
  */
 export async function checkConnection(): Promise<{ ok: boolean; error?: string; version?: string }> {
   if (!config.enabled) {
     return { ok: false, error: "小米音响未启用" };
   }
   try {
-    const data = await xiaomiGet<any>("/getversion");
-    return { ok: true, version: data?.version ?? data?.data?.version ?? "unknown" };
+    // 尝试访问 Songloft 的版本接口
+    const res = await fetch(`${config.apiUrl}/api/v1/version`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    return { ok: true, version: data?.version || "unknown" };
   } catch (err: any) {
-    return { ok: false, error: err.message || "无法连接到 xiaomusic" };
+    return { ok: false, error: err.message || "无法连接到 Songloft" };
   }
 }

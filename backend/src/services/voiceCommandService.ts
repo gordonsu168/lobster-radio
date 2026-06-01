@@ -80,6 +80,35 @@ export async function handleVoiceCommand(
   }
 }
 
+/**
+ * 从原始文本解析并执行指令（用于 Songloft Webhook）
+ */
+export async function handleRawQuery(
+  text: string,
+  did?: string
+): Promise<VoiceResponse> {
+  const query = text.trim();
+  console.log(`[VOICE] 🎙️ 收到原始语音: "${query}"`);
+
+  // 1. 切歌
+  if (["切歌", "换歌", "跳过", "下一首", "下一曲"].some(k => query.includes(k))) {
+    return handleVoiceCommand("skip", undefined, did);
+  }
+
+  // 2. 停止
+  if (["停止播放", "关机", "闭嘴", "别唱了", "停止"].some(k => query.includes(k))) {
+    return handleVoiceCommand("stop", undefined, did);
+  }
+
+  // 3. 点歌
+  const searchMatch = query.match(/(?:来首|点歌|播放|我想听|我想听下|想听)\s*(.+)/);
+  if (searchMatch && searchMatch[1]) {
+    return handleVoiceCommand("search_play", searchMatch[1].trim(), did);
+  }
+
+  return { action: "none", message: "未匹配到指令内容" };
+}
+
 async function handleSearchPlay(
   query: string | undefined,
   did: string | undefined,

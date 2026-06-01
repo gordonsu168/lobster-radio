@@ -440,9 +440,9 @@ export function SettingsPage() {
 
       {/* ---- 小米音响（独立卡片）---- */}
       <div className="rounded-[32px] border border-white/10 bg-white/5 p-8">
-        <h2 className="font-display text-2xl font-bold text-white">🔊 小米音响</h2>
+        <h2 className="font-display text-2xl font-bold text-white">🔊 小米音响 (Songloft)</h2>
         <p className="mt-2 text-sm text-slate-400">
-          通过 <a href="https://github.com/hanxi/xiaomusic" target="_blank" rel="noopener noreferrer" className="text-pulse underline">xiaomusic</a> 将音频推送到小米 AI 音箱。
+          通过 <a href="https://github.com/songloft-org/songloft" target="_blank" rel="noopener noreferrer" className="text-pulse underline">Songloft</a> 将音频推送到小米 AI 音箱。
         </p>
 
         <div className="mt-6 space-y-4">
@@ -452,7 +452,7 @@ export function SettingsPage() {
               checked={settings.xiaomiSpeaker?.enabled ?? false}
               onChange={(e) => setSettings((c) => ({
                 ...c,
-                xiaomiSpeaker: { ...(c.xiaomiSpeaker || { enabled: false, apiUrl: "http://localhost:8090", deviceId: "" }), enabled: e.target.checked },
+                xiaomiSpeaker: { ...(c.xiaomiSpeaker || { enabled: false, apiUrl: "http://localhost:8080", deviceId: "", accountId: "", jwtToken: "" }), enabled: e.target.checked },
               }))}
               className="h-5 w-5 accent-pulse"
             />
@@ -462,11 +462,30 @@ export function SettingsPage() {
           {settings.xiaomiSpeaker?.enabled && (
             <div className="space-y-4 pl-8">
               <Field
-                label="xiaomusic API 地址"
-                value={settings.xiaomiSpeaker?.apiUrl || "http://localhost:8090"}
+                label="Songloft API 地址 (不包含 /api/v1)"
+                value={settings.xiaomiSpeaker?.apiUrl || "http://localhost:8080"}
                 onChange={(v) => setSettings((c) => ({
                   ...c,
                   xiaomiSpeaker: { ...(c.xiaomiSpeaker || { enabled: true, apiUrl: "", deviceId: "" }), apiUrl: v },
+                }))}
+              />
+              
+              <Field
+                label="小米账号 ID (accountId)"
+                value={settings.xiaomiSpeaker?.accountId || ""}
+                onChange={(v) => setSettings((c) => ({
+                  ...c,
+                  xiaomiSpeaker: { ...(c.xiaomiSpeaker || { enabled: true, apiUrl: "", deviceId: "" }), accountId: v },
+                }))}
+              />
+
+              <Field
+                label="Songloft JWT Token"
+                type="password"
+                value={settings.xiaomiSpeaker?.jwtToken || ""}
+                onChange={(v) => setSettings((c) => ({
+                  ...c,
+                  xiaomiSpeaker: { ...(c.xiaomiSpeaker || { enabled: true, apiUrl: "", deviceId: "" }), jwtToken: v },
                 }))}
               />
 
@@ -545,7 +564,7 @@ export function SettingsPage() {
               type="button"
               onClick={async () => {
                 try {
-                  await saveXiaomiConfig(settings.xiaomiSpeaker || { enabled: false, apiUrl: "http://localhost:8090", deviceId: "" });
+                  await saveXiaomiConfig(settings.xiaomiSpeaker || { enabled: false, apiUrl: "http://localhost:8080", deviceId: "", accountId: "", jwtToken: "" });
                   setXiaomiTestResult("✅ 小米音响配置已保存");
                 } catch (err: any) {
                   setXiaomiTestResult(`❌ 保存失败: ${err.message}`);
@@ -562,7 +581,7 @@ export function SettingsPage() {
             <div className="mt-6 border-t border-white/10 pt-6">
               <h3 className="font-display text-xl font-bold text-white">🎤 语音指令控制</h3>
               <p className="mt-1 text-sm text-slate-400">
-                对着小米音响说以下指令控制播放。首次使用请在保存设置后重启后端以自动初始化。
+                对着小米音响说以下指令控制播放。请确保在 Songloft 插件中配置了 Webhook 转发到龙虾电台。
               </p>
 
               <div className="mt-4 grid grid-cols-2 gap-3">
@@ -571,19 +590,17 @@ export function SettingsPage() {
                   <p className="mt-1 text-sm text-white">来首 歌名</p>
                   <p className="text-sm text-white">点歌 歌名</p>
                   <p className="text-sm text-white">我想听 歌名</p>
-                  <p className="text-sm text-white">播放歌曲 歌名</p>
                 </div>
                 <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
                   <p className="text-xs text-slate-400">🎮 控制</p>
-                  <p className="mt-1 text-sm text-white">下一首</p>
-                  <p className="text-sm text-white">停止播放</p>
-                  <p className="text-sm text-white">关机</p>
+                  <p className="mt-1 text-sm text-white">下一首 / 切歌</p>
+                  <p className="text-sm text-white">停止播放 / 关机</p>
                 </div>
               </div>
 
               <p className="mt-3 text-xs text-slate-500">
-                💡 提示：语音指令通过 xiaomusic 的 lobster_radio 插件转发到龙虾电台。
-                初始化在后台自动完成，无需手动操作。
+                💡 提示：语音指令通过 Songloft 的 Conversation Webhook 转发。
+                Webhook URL 请设置为: <code className="text-pulse">http://你的IP:4000/api/voice/webhook</code>
               </p>
             </div>
           )}
