@@ -173,8 +173,27 @@ class AgentPlayerService {
   // --- 接口 ---
 
   next() {
-      if (this.musicProcess) this.musicProcess.kill("SIGKILL");
-      if (this.voiceProcess) this.voiceProcess.kill("SIGKILL");
+      // 移除退出监听器，避免 SIGKILL 触发旧的 exit 回调产生两次调用或死循环
+      if (this.musicProcess) {
+          this.musicProcess.removeAllListeners("exit");
+          this.musicProcess.kill("SIGKILL");
+          this.musicProcess = null;
+      }
+      if (this.voiceProcess) {
+          this.voiceProcess.removeAllListeners("exit");
+          this.voiceProcess.kill("SIGKILL");
+          this.voiceProcess = null;
+      }
+
+      // 强制 pkill 确保系统音频进程彻底释放
+      try {
+          spawnSync("pkill", ["-9", "afplay"]);
+      } catch (e) {}
+
+      this.activeMusic = null;
+      this.activeVoice = null;
+
+      // 播放下一首
       this.playNextMusic();
   }
 
