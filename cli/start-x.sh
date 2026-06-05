@@ -6,6 +6,7 @@
 set -e
 
 CLI_DIR=$(cd "$(dirname "$0")"; pwd)
+ENV_FILE="$CLI_DIR/../.env"
 
 # 1. 准备 Python 环境 (需要 >= 3.11)
 cd "$CLI_DIR/nanobot"
@@ -45,8 +46,42 @@ pip install . --quiet
 # 确保安装了 httpx 用于获取 Dashboard 数据
 pip install httpx --quiet
 
-# 2. 探测环境并提取密钥
-ENV_FILE="$CLI_DIR/../.env"
+# 2. 启动 Songloft（小米音响控制服务）
+SONGLOFT_DIR="$CLI_DIR/../songloft"
+SONGLOFT_PORT=58091
+
+if [ -f "$SONGLOFT_DIR/songloft" ]; then
+    if ! lsof -i :$SONGLOFT_PORT >/dev/null 2>&1; then
+        echo "🔊 正在启动 Songloft..."
+        cd "$SONGLOFT_DIR"
+        nohup ./songloft -port $SONGLOFT_PORT -db ./data/songloft.db > /tmp/songloft.log 2>&1 &
+        sleep 3
+        echo "   Songloft 已启动 (端口 $SONGLOFT_PORT)"
+    else
+        echo "🔊 Songloft 已在运行 (端口 $SONGLOFT_PORT)"
+    fi
+
+    # 刷新 JWT Token 并写入 .env
+    SONGLOFT_TOKEN=$(curl -s -X POST "http://localhost:$SONGLOFT_PORT/api/v1/auth/login" \
+        -H "Content-Type: application/json" \
+        -d '{"username":"admin","password":"admin"}' 2>/dev/null | \
+        python3 -c "import sys,json; print(json.load(sys.stdin).get('access_token',''))" 2>/dev/null)
+
+    if [ -n "$SONGLOFT_TOKEN" ]; then
+        if [ -f "$ENV_FILE" ]; then
+            # macOS sed 兼容
+            sed -i '' "s/^XIAOMI_SPEAKER_JWT_TOKEN=.*/XIAOMI_SPEAKER_JWT_TOKEN=$SONGLOFT_TOKEN/" "$ENV_FILE"
+        fi
+        echo "   Songloft JWT Token 已刷新"
+    else
+        echo "   ⚠️ Songloft 登录失败，使用已有 Token"
+    fi
+    cd "$CLI_DIR"
+else
+    echo "⚠️ 未找到 Songloft (${SONGLOFT_DIR}/songloft)，跳过"
+fi
+
+# 3. 探测环境并提取密钥
 if [ -f "$ENV_FILE" ]; then
     DEEPSEEK_API_KEY=$(grep "DEEPSEEK_API_KEY" "$ENV_FILE" | sed -E 's/#.*//' | sed -E 's/.*=[[:space:]]*//' | tr -d '"' | tr -d "'" | tr -d '[:space:]')
     OPENAI_API_KEY=$(grep "OPENAI_API_KEY" "$ENV_FILE" | sed -E 's/#.*//' | sed -E 's/.*=[[:space:]]*//' | tr -d '"' | tr -d "'" | tr -d '[:space:]')
@@ -65,7 +100,7 @@ else
     exit 1
 fi
 
-# 3. 注入 DJ-X 配置
+# 4. 注入 DJ-X 配置
 BACKEND_MCP="$CLI_DIR/../backend/src/mcp/musicMcpServer.ts"
 
 export NANOBOT_AGENTS__DEFAULTS__BOT_NAME="DJ-X"
@@ -84,6 +119,6 @@ export NANOBOT_TOOLS__MCP_SERVERS='{"lobster_music": {"command": "npx", "args": 
 export NANOBOT_CHANNELS__SHOW_REASONING="true"
 export NANOBOT_CHANNELS__SEND_PROGRESS="true"
 
-# 4. 直接启动 nanobot agent
+# 5. 直接启动 nanobot agent
 echo "💎 正在启动 DJ-X (Nanobot Engine)..."
 nanobot agent

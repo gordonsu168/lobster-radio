@@ -258,7 +258,7 @@ speakerRouter.get("/temp-audio/:fileName", (req, res) => {
     return;
   }
 
-  const tempDir = path.join(os.tmpdir(), "lobster-radio-xiaomi");
+  const tempDir = "/tmp/lobster-radio-xiaomi";
   const filePath = path.join(tempDir, fileName);
 
   if (!fs.existsSync(filePath)) {
