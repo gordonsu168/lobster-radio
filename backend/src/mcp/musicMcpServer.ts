@@ -13,12 +13,12 @@ const server = new Server({ name: "lobster-music-proxy", version: "1.1.0" }, { c
 server.setRequestHandler(ListToolsRequestSchema, async () => {
   return {
     tools: [
-      { name: "enter_chat_mode", description: "【闲聊模式】启动背景音乐 BGM。用户每次输入 /chat 时都必须调用此工具，即使之前已调用过也要重新触发。", inputSchema: { type: "object", properties: {} } },
+      { name: "enter_chat_mode", description: "【闲聊模式】启动BGM并开启语音对话。此模式下你对用户说的每一句话都必须通过 narrate 工具播报出来。每次/chat都必须调用。", inputSchema: { type: "object", properties: {} } },
       { name: "trigger_radio_broadcast", description: "【电台模式】循环播放完整歌曲。用户每次输入 /stream 时都必须调用此工具，不论当前状态。", inputSchema: { type: "object", properties: {} } },
       { name: "stop_stream", description: "停止所有播放", inputSchema: { type: "object", properties: {} } },
       { name: "get_player_status", description: "获取当前播放状态", inputSchema: { type: "object", properties: {} } },
       { name: "control_player", description: "控制播放器 (next/toggle/clear)", inputSchema: { type: "object", properties: { action: { type: "string" } } } },
-      { name: "narrate", description: "【说话】将文字转为 DJ 语音并播放。", inputSchema: { type: "object", properties: { text: { type: "string" } }, required: ["text"] } },
+      { name: "narrate", description: "【说话】将你的回复转为 DJ 语音通过小米音响播放。闲聊模式下，你的每一条回复都必须先调用此工具播报，再显示文字。这是 DJ-X 的声音灵魂。", inputSchema: { type: "object", properties: { text: { type: "string" } }, required: ["text"] } },
       { name: "play_song", description: "点播歌曲。", inputSchema: { type: "object", properties: { query: { type: "string" } }, required: ["query"] } },
     ],
   };
@@ -29,7 +29,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   try {
     // 所有的工具调用都转发给真正的后端服务
     if (name === "narrate") {
-        await httpx.post(`${API_BASE}/chat`, { message: args?.text });
+        await httpx.post(`${API_BASE}/chat`, { message: `/narrate ${args?.text}` });
         return { content: [{ type: "text", text: `[OK] 已转发语音播报请求。` }] };
     }
 

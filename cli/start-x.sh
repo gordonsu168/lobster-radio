@@ -81,7 +81,34 @@ else
     echo "⚠️ 未找到 Songloft (${SONGLOFT_DIR}/songloft)，跳过"
 fi
 
-# 3. 探测环境并提取密钥
+# 3. 启动 MOSS-TTS-Nano（本地 AI 语音合成，CPU 友好）
+MOSS_DIR="$HOME/Documents/github/moss-tts-nano"
+MOSS_PORT=18083
+
+if [ -d "$MOSS_DIR/.venv" ]; then
+    if ! lsof -i :$MOSS_PORT >/dev/null 2>&1; then
+        echo "🧠 正在启动 MOSS-TTS-Nano..."
+        cd "$MOSS_DIR"
+        nohup bash -c "source .venv/bin/activate && moss-tts-nano serve --backend onnx --host 0.0.0.0 --port $MOSS_PORT" > /tmp/moss-tts.log 2>&1 &
+        echo "   MOSS-TTS 预热中（首次约 30s）..."
+        # 等待服务就绪
+        for i in $(seq 1 20); do
+            sleep 2
+            if curl -s "http://localhost:$MOSS_PORT/health" >/dev/null 2>&1; then
+                echo "   MOSS-TTS 已就绪 (端口 $MOSS_PORT)"
+                break
+            fi
+            [ $i -eq 20 ] && echo "   ⚠️ MOSS-TTS 启动超时，TTS 将降级到 Edge"
+        done
+    else
+        echo "🧠 MOSS-TTS 已在运行 (端口 $MOSS_PORT)"
+    fi
+    cd "$CLI_DIR"
+else
+    echo "⚠️ 未找到 MOSS-TTS ($MOSS_DIR/.venv)，TTS 将降级到 Edge"
+fi
+
+# 4. 探测环境并提取密钥
 if [ -f "$ENV_FILE" ]; then
     DEEPSEEK_API_KEY=$(grep "DEEPSEEK_API_KEY" "$ENV_FILE" | sed -E 's/#.*//' | sed -E 's/.*=[[:space:]]*//' | tr -d '"' | tr -d "'" | tr -d '[:space:]')
     OPENAI_API_KEY=$(grep "OPENAI_API_KEY" "$ENV_FILE" | sed -E 's/#.*//' | sed -E 's/.*=[[:space:]]*//' | tr -d '"' | tr -d "'" | tr -d '[:space:]')
@@ -100,7 +127,7 @@ else
     exit 1
 fi
 
-# 4. 注入 DJ-X 配置
+# 5. 注入 DJ-X 配置
 BACKEND_MCP="$CLI_DIR/../backend/src/mcp/musicMcpServer.ts"
 
 export NANOBOT_AGENTS__DEFAULTS__BOT_NAME="DJ-X"
@@ -119,6 +146,6 @@ export NANOBOT_TOOLS__MCP_SERVERS='{"lobster_music": {"command": "npx", "args": 
 export NANOBOT_CHANNELS__SHOW_REASONING="true"
 export NANOBOT_CHANNELS__SEND_PROGRESS="true"
 
-# 5. 直接启动 nanobot agent
+# 6. 直接启动 nanobot agent
 echo "💎 正在启动 DJ-X (Nanobot Engine)..."
 nanobot agent

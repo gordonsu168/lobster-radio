@@ -207,7 +207,11 @@ export async function savePreferences(preferences: Preferences) {
 }
 
 export async function getRuntimeSettings() {
-  return readJson(settingsPath, defaultSettings);
+  const stored = await readJson(settingsPath, defaultSettings);
+  // .env 覆盖存储设置（确保修改 .env 后立即生效，无需手动清设置）
+  if (process.env.DEFAULT_TTS_VOICE) stored.defaultVoice = process.env.DEFAULT_TTS_VOICE;
+  if (process.env.DEFAULT_TTS_PROVIDER) stored.defaultTtsProvider = process.env.DEFAULT_TTS_PROVIDER as any;
+  return stored;
 }
 
 export async function saveRuntimeSettings(settings: RuntimeSettings) {

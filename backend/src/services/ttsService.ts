@@ -314,12 +314,24 @@ function getVoiceForLanguage(voice: string, language?: string): string {
   }
 }
 
-async function synthesizeWithEdgeTTS(text: string, voice: string, language?: string) {
+// ========== Edge TTS 情感参数预设 ==========
+const EMOTION_PRESETS: Record<string, { rate: string; pitch: string; volume: string }> = {
+  "night":    { rate: "-15%", pitch: "-5Hz",  volume: "-10%" },
+  "calm":     { rate: "-10%", pitch: "-3Hz",  volume: "-5%" },
+  "classic":  { rate: "-5%",  pitch: "+0Hz",  volume: "+0%" },
+  "vibe":     { rate: "+5%",  pitch: "+3Hz",  volume: "+0%" },
+  "trivia":   { rate: "-5%",  pitch: "+0Hz",  volume: "+0%" },
+  "excited":  { rate: "+10%", pitch: "+5Hz",  volume: "+0%" },
+  "warm":     { rate: "-10%", pitch: "-2Hz",  volume: "-5%" },
+  "sad":      { rate: "-20%", pitch: "-8Hz",  volume: "-15%" },
+};
+
+async function synthesizeWithEdgeTTS(text: string, voice: string, language?: string, emotion?: string) {
   const edgeVoice = getVoiceForLanguage(voice, language);
-  
-  // 缓存 key 需要包含语言信息
-  const cacheKey = language ? `${voice}-${language}` : voice;
-  
+
+  // 缓存 key 包含语言和情感
+  const cacheKey = [voice, language, emotion || "none"].filter(Boolean).join("-");
+
   // 先查缓存
   const cached = getCache(text, cacheKey, "edge");
   if (cached) {
@@ -331,16 +343,17 @@ async function synthesizeWithEdgeTTS(text: string, voice: string, language?: str
     };
   }
 
-  console.log(`🎙️ Edge TTS: ${edgeVoice} (语言: ${language || 'auto'}), 文本: ${text.substring(0, 40)}...`);
+  const preset = EMOTION_PRESETS[emotion || "classic"] || EMOTION_PRESETS["classic"];
+  console.log(`🎙️ Edge TTS: ${edgeVoice} (语言: ${language || 'auto'}, 情感: ${emotion || 'none'}), 文本: ${text.substring(0, 40)}...`);
 
   // 创建临时文件
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "lobster-edge-tts-"));
   const mp3File = path.join(tempDir, "output.mp3");
 
   try {
-    // 使用 Python edge-tts 命令行生成
+    // 使用 edge-tts CLI 参数直接控制语速/音调/音量（= 号格式避免 - 号歧义）
     await execAsync(
-      `/usr/bin/python3 -m edge_tts --voice "${edgeVoice}" --text "${text.replace(/"/g, '\\"')}" --write-media "${mp3File}"`,
+      `/usr/bin/python3 -m edge_tts --voice "${edgeVoice}" --text "${text.replace(/"/g, '\\"').replace(/'/g, "\\'")}" --rate=${preset.rate} --pitch=${preset.pitch} --volume=${preset.volume} --write-media "${mp3File}"`,
       { timeout: 30000 }
     );
     
@@ -432,78 +445,13 @@ async function synthesizeWithCosyVoice(text: string, voice: string) {
   return result;
 }
 
-// MOSS-TTS-Nano 本地 TTS
-// 0.1B parameters, runs on CPU, multilingual support
+// MOSS-TTS-Nano 本地 TTS（委托到 mossTtsService.ts）
+import { synthesizeWithMOSS as _mossSynthesize } from "./mossTtsService.js";
+
 async function synthesizeWithMOSS(text: string, voice: string) {
-  const apiUrl = process.env.MOSS_TTS_API_URL;
-
-  // 先查缓存
-  const cached = getCache(text, voice, "moss");
-  if (cached) {
-    console.log(`📦 MOSS TTS 命中缓存: ${text.substring(0, 20)}...`);
-    return {
-      ...cached,
-      text,
-      fallback: false,
-    };
-  }
-
-  if (!apiUrl) {
-    throw new Error("MOSS_TTS_API_URL not configured");
-  }
-
-  console.log(`🎙️ MOSS TTS: 语音=${voice}, 文本: ${text.substring(0, 40)}...`);
-
-  // If voice is a direct demo ID (demo-N) use it, otherwise fall back to generic name mapping
-  const GENERIC_FALLBACK: Record<string, string> = {
-    "nova": "demo-2", "shimmer": "demo-2", "alloy": "demo-2",
-    "echo": "demo-2", "fable": "demo-3", "onyx": "demo-2"
-  };
-  const selectedDemoId = /^demo-\d+$/.test(voice) ? voice : (GENERIC_FALLBACK[voice] || "demo-2");
-
-  const formData = new FormData();
-  formData.append("text", text);
-  formData.append("demo_id", selectedDemoId); 
-  formData.append("speed", "1.5");
-  formData.append("volume", "1.5");     
-  formData.append("enable_text_normalization", "0");
-  formData.append("enable_normalize_tts_text", "1");
-  // you can append more parameters if needed
-
-  const response = await fetch(`${apiUrl.replace(/\/$/, '')}/api/generate`, {
-    method: "POST",
-    body: formData as any,
-  });
-
-  if (!response.ok) {
-    throw new Error(`MOSS API error: ${response.status}`);
-  }
-
-  const jsonResponse = await response.json() as any;
-
-  if (jsonResponse.error) {
-    throw new Error(`MOSS API error: ${jsonResponse.error}`);
-  }
-
-  const audioBase64 = jsonResponse.audio_base64;
-
-  console.log(`✅ MOSS TTS 成功: ${(audioBase64.length / 1024).toFixed(1)} KB`);
-
-  const result = {
-    provider: "moss",
-    voice: MOSS_VOICES[voice] || MOSS_VOICES["default"],
-    audioBase64,
-    mimeType: "audio/wav",
-    text,
-    fallback: false,
-  };
-
-  // 写入缓存
-  setCache(text, voice, "moss", result);
-  return result;
+  return _mossSynthesize(text, voice, getCache, setCache);
 }
 
-// Gemini TTS 生成
 async function synthesizeWithGemini(text: string, voice: string, retries: number = 2) {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
@@ -737,7 +685,7 @@ export async function synthesizeSpeech(text: string, voice?: string, options?: {
     if (p === "elevenlabs") {
       cacheKey = `${selectedVoice}-${emotion}`;
     } else if (p === "edge" && language) {
-      cacheKey = `${selectedVoice}-${language}`;
+      cacheKey = `${selectedVoice}-${language}-${emotion || "none"}`;
     }
     // moss doesn't need special cache key handling
     const cached = getCache(text, cacheKey, p);
@@ -757,7 +705,7 @@ export async function synthesizeSpeech(text: string, voice?: string, options?: {
       if (p === "elevenlabs" && (options?.apiKey || process.env.ELEVENLABS_API_KEY)) {
         return await synthesizeWithElevenLabs(text, selectedVoice, emotion, options?.apiKey);
       } else if (p === "edge") {
-        return await synthesizeWithEdgeTTS(text, selectedVoice, language);
+        return await synthesizeWithEdgeTTS(text, selectedVoice, language, emotion);
       } else if (p === "moss" && process.env.MOSS_TTS_API_URL) {
         return await synthesizeWithMOSS(text, selectedVoice);
       } else if (p === "cosyvoice" && process.env.COSYVOICE_API_URL) {

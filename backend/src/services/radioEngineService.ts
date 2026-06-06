@@ -86,10 +86,13 @@ export async function fetchNextRadioSegment() {
     const dj_talk = narrationResp.dj_talk;
     currentThemeContext = narrationResp.theme_update;
 
+    // 将 DJ 风格映射为 TTS 情感
+    const djStyle = (narrationResp.theme_update as any)?.style || "night";
     const ttsResult: any = await synthesizeSpeech(dj_talk, settings.defaultVoice, {
       provider: settings.defaultTtsProvider,
       apiKey: secrets.openAiApiKey,
-      language: "zh-CN"
+      language: "zh-CN",
+      emotion: djStyle,  // classic / night / vibe / trivia → SSML 情感
     });
 
     if (ttsResult.audioBase64) {

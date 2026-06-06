@@ -15,6 +15,9 @@ import os from "node:os";
 
 export const lobsterCoreXRouter = Router();
 
+// 闲聊模式旁白开关
+let chatNarrationEnabled = true;
+
 async function getAgent() {
   const secrets = await resolveRuntimeSecrets();
   process.env.DEEPSEEK_API_KEY = secrets.deepseekApiKey || process.env.DEEPSEEK_API_KEY;
@@ -69,9 +72,19 @@ lobsterCoreXRouter.post("/chat", async (req, res) => {
             root = path.dirname(root);
         }
         if (!bgmPath) bgmPath = path.resolve(process.cwd(), "data/bgm/chat_bgm.mp3");
-        
+
         agentPlayer.playBGM(bgmPath, "Beautiful Lady - Daydream");
-        return res.json({ logs: [{ id: 't1', timestamp: Date.now(), type: 'action', content: `[OK] 闲聊模式已启动。` }], dna: (await getAgent()).getDna() });
+        return res.json({ logs: [{ id: 't1', timestamp: Date.now(), type: 'action', content: `[OK] 闲聊模式已启动。旁白: ${chatNarrationEnabled ? '开 🎙️' : '关 🔇'}` }], dna: (await getAgent()).getDna() });
+    }
+
+    // 旁白开关
+    if (msg === '/chat talk') {
+        chatNarrationEnabled = true;
+        return res.json({ logs: [{ id: 'ct1', timestamp: Date.now(), type: 'action', content: `[OK] 闲聊旁白已开启 🎙️` }], dna: (await getAgent()).getDna() });
+    }
+    if (msg === '/chat mute') {
+        chatNarrationEnabled = false;
+        return res.json({ logs: [{ id: 'ct2', timestamp: Date.now(), type: 'action', content: `[OK] 闲聊旁白已关闭 🔇` }], dna: (await getAgent()).getDna() });
     }
 
     if (msg.startsWith('/play ')) {
@@ -124,11 +137,18 @@ lobsterCoreXRouter.post("/chat", async (req, res) => {
         return res.json({ logs: [{ id: 'n1', timestamp: Date.now(), type: 'message', content: state.currentMusic?.title || "空闲" }], dna: (await getAgent()).getDna() });
     }
 
+    // 旁白播报（直接 TTS + 播放，不触发 AI 对话）
+    if (msg.startsWith('/narrate ')) {
+        const text = message.slice(9).trim();
+        if (text) await broadcastNarration(text);
+        return res.json({ logs: [{ id: 'nr1', timestamp: Date.now(), type: 'action', content: `[OK] 已播报。` }], dna: (await getAgent()).getDna() });
+    }
+
     // 3. 普通对话
     const agent = await getAgent();
     const logs = await agent.chat(message);
     const aiMessage = logs.find(p => p.type === 'message')?.content;
-    if (aiMessage) await broadcastNarration(aiMessage);
+    if (aiMessage && chatNarrationEnabled) await broadcastNarration(aiMessage);
 
     await saveAestheticDna(agent.getDna());
     res.json({ logs, dna: agent.getDna() });
