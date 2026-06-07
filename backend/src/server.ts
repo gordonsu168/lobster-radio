@@ -46,11 +46,13 @@ async function start() {
   app.use("/api/speaker", speakerRouter);
   app.use("/api/voice", voiceRouter);
 
-  // 初始化小米音响配置
+  // 初始化小米音响配置（始终加载，运行时可通过 /speaker 切换）
   const xiaomiCfg = (secrets as any).xiaomiSpeaker;
+  updateXiaomiConfig(xiaomiCfg);
   if (xiaomiCfg?.enabled) {
-    updateXiaomiConfig(xiaomiCfg);
     console.log(`🔊 小米音响 (Songloft) 已启用: ${xiaomiCfg.apiUrl} → 设备: ${xiaomiCfg.deviceId || "(未选择)"}`);
+  } else {
+    console.log(`💻 小米音响未启用，使用电脑音响`);
   }
 
   // 启动时自动导入歌曲到 Wiki

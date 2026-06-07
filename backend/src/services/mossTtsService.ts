@@ -1,21 +1,29 @@
 // MOSS-TTS-Nano 本地 TTS 服务
 // 独立模块，避免 ttsService.ts 过于冗长
+// 支持预设 demo 语音 + 自定义声音克隆
 
 import fs from "fs";
 import path from "path";
-import os from "os";
 
 // MOSS-TTS-Nano demo 语音映射
-// 男声: demo-5 (中国时间观念, 沉稳男声), demo-4 (京味胡同, 北京腔)
 const MOSS_VOICES: Record<string, string> = {
   "default": "demo-5",
   "male": "demo-5",
   "male-2": "demo-4",
   "female": "demo-1",
   "female-2": "demo-6",
+  // 声音克隆模式：不传 demo_id，传 prompt_audio
+  "clone": "",
 };
 
 export const MOSS_DEMO_MAP = MOSS_VOICES;
+
+/** 声音克隆参考音频路径（.env 可配 MOSS_CLONE_VOICE_PATH） */
+function getCloneAudioPath(): string | null {
+  const envPath = process.env.MOSS_CLONE_VOICE_PATH;
+  if (envPath && fs.existsSync(envPath)) return envPath;
+  return null;
+}
 
 export async function synthesizeWithMOSS(
   text: string,
@@ -25,8 +33,9 @@ export async function synthesizeWithMOSS(
 ) {
   const apiUrl = process.env.MOSS_TTS_API_URL;
 
-  // 先查缓存
-  const cached = getCache(text, voice, "moss");
+  // 先查缓存（克隆模式用不同 key）
+  const cacheVoice = voice === "clone" ? `clone-${getCloneAudioPath() || "none"}` : voice;
+  const cached = getCache(text, cacheVoice, "moss");
   if (cached) {
     console.log(`📦 MOSS TTS 命中缓存: ${text.substring(0, 20)}...`);
     return { ...cached, text, fallback: false };
@@ -36,15 +45,26 @@ export async function synthesizeWithMOSS(
     throw new Error("MOSS_TTS_API_URL not configured");
   }
 
-  const demoId = MOSS_VOICES[voice] || MOSS_VOICES["default"];
-  console.log(`🎙️ MOSS TTS: demo=${demoId}, 文本: ${text.substring(0, 40)}...`);
-
-  // Step 1: Start streaming generation
+  // 构建请求
   const formData = new FormData();
   formData.append("text", text);
-  formData.append("demo_id", demoId);
   formData.append("enable_text_normalization", "0");
 
+  // 声音克隆模式
+  const clonePath = voice === "clone" ? getCloneAudioPath() : null;
+  if (clonePath) {
+    console.log(`🎙️ MOSS TTS (克隆): ${clonePath}, 文本: ${text.substring(0, 40)}...`);
+    const audioBuffer = fs.readFileSync(clonePath);
+    // Node.js FormData: 用 Buffer + filename 替代 Blob
+    const file = new File([audioBuffer], path.basename(clonePath), { type: "audio/wav" });
+    formData.append("prompt_audio", file);
+  } else {
+    const demoId = MOSS_VOICES[voice] || MOSS_VOICES["default"];
+    console.log(`🎙️ MOSS TTS: demo=${demoId}, 文本: ${text.substring(0, 40)}...`);
+    formData.append("demo_id", demoId);
+  }
+
+  // Step 1: Start streaming generation
   const startResp = await fetch(`${apiUrl.replace(/\/$/, '')}/api/generate-stream/start`, {
     method: "POST",
     body: formData as any,
@@ -75,17 +95,18 @@ export async function synthesizeWithMOSS(
   const audioBuffer = Buffer.from(await audioResp.arrayBuffer());
   const audioBase64 = audioBuffer.toString("base64");
 
+  const voiceLabel = clonePath ? `clone:${path.basename(clonePath)}` : MOSS_VOICES[voice];
   console.log(`✅ MOSS TTS 成功: ${(audioBase64.length / 1024).toFixed(1)} KB`);
 
   const result = {
     provider: "moss",
-    voice: demoId,
+    voice: voiceLabel,
     audioBase64,
     mimeType: "audio/wav",
     text,
     fallback: false,
   };
 
-  setCache(text, voice, "moss", result);
+  setCache(text, cacheVoice, "moss", result);
   return result;
 }

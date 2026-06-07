@@ -19,7 +19,9 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       { name: "get_player_status", description: "获取当前播放状态", inputSchema: { type: "object", properties: {} } },
       { name: "control_player", description: "控制播放器 (next/toggle/clear)", inputSchema: { type: "object", properties: { action: { type: "string" } } } },
       { name: "narrate", description: "【说话】将你的回复转为 DJ 语音通过小米音响播放。闲聊模式下，你的每一条回复都必须先调用此工具播报，再显示文字。这是 DJ-X 的声音灵魂。", inputSchema: { type: "object", properties: { text: { type: "string" } }, required: ["text"] } },
+      { name: "play_file", description: "播放本地音频文件。接受文件路径，可用于播放 ncm-cli 下载到 /tmp 的歌曲。", inputSchema: { type: "object", properties: { path: { type: "string" } }, required: ["path"] } },
       { name: "play_song", description: "点播歌曲。", inputSchema: { type: "object", properties: { query: { type: "string" } }, required: ["query"] } },
+      { name: "switch_speaker", description: "切换音响输出。action: 'xiaomi' 切到小米音响, 'local' 切回电脑, 不传则查看当前状态。", inputSchema: { type: "object", properties: { action: { type: "string" } } } },
     ],
   };
 });
@@ -36,6 +38,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     if (name === "trigger_radio_broadcast") {
         await httpx.post(`${API_BASE}/chat`, { message: "/stream" });
         return { content: [{ type: "text", text: `[OK] 电台指令已下达给主内核。` }] };
+    }
+
+    if (name === "play_file") {
+        await httpx.post(`${API_BASE}/chat`, { message: `/playfile ${args?.path}` });
+        return { content: [{ type: "text", text: `[OK] 文件播放指令已转发。` }] };
     }
 
     if (name === "play_song") {
@@ -57,6 +64,33 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     if (name === "stop_stream") {
         await httpx.post(`${API_BASE}/chat`, { message: "/clear" });
         return { content: [{ type: "text", text: "[OK] 信号已切断。" }] };
+    }
+
+    if (name === "switch_speaker") {
+        const action = args?.action || "";
+        if (action === "xiaomi") {
+            await httpx.post(`${API_BASE}/chat`, { message: "/speaker xiaomi" });
+            return { content: [{ type: "text", text: "[OK] 已切换到小米音响。" }] };
+        } else if (action === "local") {
+            await httpx.post(`${API_BASE}/chat`, { message: "/speaker local" });
+            return { content: [{ type: "text", text: "[OK] 已切换到电脑音响。" }] };
+        } else {
+            // 查询当前状态
+            const res = await httpx.get(`${API_BASE}/status`);
+            return { content: [{ type: "text", text: `[STATUS] ${res.data.currentMusic?.title || '空闲'}` }] };
+        }
+    }
+
+    if (name === "control_player") {
+        const action = args?.action || "next";
+        if (action === "next") {
+            await httpx.post(`${API_BASE}/chat`, { message: "/next" });
+        } else if (action === "toggle") {
+            await httpx.post(`${API_BASE}/chat`, { message: "/pause" });
+        } else if (action === "clear") {
+            await httpx.post(`${API_BASE}/chat`, { message: "/clear" });
+        }
+        return { content: [{ type: "text", text: `[OK] 控制指令已转发。` }] };
     }
 
     throw new Error(`Unknown tool: ${name}`);
